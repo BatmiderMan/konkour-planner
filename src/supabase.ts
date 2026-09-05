@@ -161,26 +161,31 @@ class SupabaseService {
     transfer: any;
     updated_at: number;
   }): Promise<{ error?: string }> {
-    if (!this.session?.user?.id) return {};
+    if (!this.session?.user?.id) {
+      console.warn('Cannot sync: No active Supabase session user');
+      return { error: 'کاربر وارد نشده است' };
+    }
     try {
       const payload = {
         ...plan,
         user_id: this.session.user.id
       };
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/user_plans`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/user_plans?on_conflict=id,user_id`, {
         method: 'POST',
         headers: {
           ...this.getHeaders(true),
-          Prefer: 'resolution=merge-duplicates'
+          Prefer: 'resolution=merge-duplicates,return=minimal'
         },
         body: JSON.stringify(payload)
       });
       if (!res.ok) {
-        const err = await res.json();
-        return { error: err.message };
+        const text = await res.text();
+        console.error('Supabase upsert failed:', res.status, text);
+        return { error: text };
       }
       return {};
     } catch (err: any) {
+      console.error('Supabase network error during upsert:', err);
       return { error: err.message };
     }
   }

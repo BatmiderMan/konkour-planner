@@ -127,6 +127,31 @@ export const App: React.FC = () => {
     try {
       showStatus('همگام‌سازی ابری...');
       const res = await supabase.fetchAllUserPlans();
+
+      // If user has local data but cloud is empty, upload local data to cloud
+      if (res.data && res.data.length === 0 && daysIndex.length > 0) {
+        showStatus('آپلود اطلاعات به ابر...');
+        for (const entry of daysIndex) {
+          const raw = localStorage.getItem(dayKey(entry.id));
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            await supabase.upsertUserPlan({
+              id: entry.id,
+              day: parsed.day || '',
+              date: parsed.date || '',
+              favorite: !!parsed.favorite,
+              blocks: parsed.blocks || [],
+              checklist: parsed.checklist || [],
+              routine: parsed.routine || [],
+              transfer: parsed.transfer || [],
+              updated_at: entry.updatedAt || Date.now()
+            });
+          }
+        }
+        showStatus('اطلاعات به ابر ارسال شد ✓');
+        return;
+      }
+
       if (res.data && res.data.length > 0) {
         const cloudIndex: DayIndexEntry[] = [];
         res.data.forEach((p: any) => {
@@ -166,6 +191,7 @@ export const App: React.FC = () => {
       }
     } catch (e) {
       console.error('Sync failed:', e);
+      showStatus('خطا در همگام‌سازی');
     }
   };
 
