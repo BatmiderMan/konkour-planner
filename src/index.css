@@ -7,16 +7,20 @@
   --line: #d9c79c;
   --line-soft: #e6d9b3;
   --danger: #b14a42;
-  --shadow: 0 6px 18px rgba(60, 45, 20, 0.12);
+  --primary: #3e6690;
+  --primary-hover: #345a80;
+  --shadow: 0 4px 14px rgba(60, 45, 20, 0.1);
 }
 
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html, body {
   margin: 0;
   padding: 0;
+  width: 100%;
 }
 
 body {
@@ -26,62 +30,88 @@ body {
     var(--paper);
   color: var(--ink);
   min-height: 100vh;
-  padding-bottom: 60px;
+  padding-bottom: 50px;
 }
 
-/* ---------- Toolbar ---------- */
+/* ---------- Toolbar Responsive Design ---------- */
 .toolbar {
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 50;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  background: #fffdf7;
+  border-bottom: 2px solid var(--line);
+  padding: 8px 16px;
+  box-shadow: 0 2px 8px rgba(60, 45, 20, 0.07);
+  transition: all 0.2s ease;
+}
+
+.toolbar-top-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap;
-  background: #fffdf7;
-  border-bottom: 2px solid var(--line);
-  padding: 10px 20px;
-  box-shadow: 0 2px 10px rgba(60, 45, 20, 0.08);
+  width: auto;
+}
+
+.app-branding {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.app-logo {
+  font-size: 1.15rem;
 }
 
 .app-title {
-  font-weight: 700;
-  font-size: 1rem;
+  font-weight: 800;
+  font-size: 0.95rem;
   color: var(--ink);
-  opacity: 0.85;
+  white-space: nowrap;
 }
 
-.toolbar-right {
+.toolbar-center {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
 }
 
 #daySelect {
   font-family: inherit;
-  font-size: 0.85rem;
-  padding: 7px 10px;
+  font-size: 0.82rem;
+  padding: 6px 10px;
   border-radius: 8px;
   border: 1.5px solid var(--line);
   background: #fff;
   color: var(--ink);
-  max-width: 220px;
   outline: none;
+  max-width: 180px;
+  cursor: pointer;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .toolbar button {
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
   border: 1.5px solid var(--ink);
   background: #fff;
   color: var(--ink);
   border-radius: 8px;
-  padding: 7px 14px;
+  padding: 6px 12px;
   transition: transform 0.08s ease, background 0.15s ease;
+  white-space: nowrap;
 }
 
 .toolbar button:hover {
@@ -93,13 +123,13 @@ body {
 }
 
 .toolbar button.primary {
-  background: #3e6690;
+  background: var(--primary);
   color: #fff;
-  border-color: #3e6690;
+  border-color: var(--primary);
 }
 
 .toolbar button.primary:hover {
-  background: #345a80;
+  background: var(--primary-hover);
 }
 
 .toolbar button.danger {
@@ -112,31 +142,49 @@ body {
   background: #fbeceb;
 }
 
+.toolbar button.pwa-install-btn {
+  background: #4c8a5a;
+  color: #fff;
+  border-color: #4c8a5a;
+}
+
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  font-size: 1.1rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  color: var(--ink);
+}
+
 .save-status {
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   color: #4c8a5a;
+  font-weight: 600;
   opacity: 0;
   transition: opacity 0.3s ease;
-  min-width: 70px;
+  white-space: nowrap;
 }
 
 .save-status.show {
   opacity: 1;
 }
 
-/* ---------- Sheet ---------- */
+/* ---------- Sheet Container ---------- */
 .sheet-wrap {
-  max-width: 1180px;
-  margin: 22px auto;
-  padding: 0 16px;
+  max-width: 1140px;
+  margin: 16px auto;
+  padding: 0 14px;
 }
 
 .sheet {
   background: var(--sheet-bg);
   border: 2px solid var(--ink);
-  border-radius: 18px;
+  border-radius: 16px;
   box-shadow: var(--shadow);
-  padding: 22px;
+  padding: 18px;
 }
 
 .loading {
@@ -146,42 +194,43 @@ body {
   font-size: 0.95rem;
 }
 
+/* ---------- Report Header ---------- */
 .report-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
   background: #bcdcdd;
   border: 2px solid var(--ink);
-  border-radius: 14px;
-  padding: 14px 22px;
-  margin-bottom: 20px;
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
 }
 
 .report-header h1 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 800;
 }
 
 .header-fields {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .header-fields .field {
   background: #fff;
   border: 1.5px solid var(--ink);
-  border-radius: 10px;
-  padding: 5px 12px;
-  min-width: 150px;
+  border-radius: 8px;
+  padding: 4px 10px;
+  min-width: 130px;
 }
 
 .header-fields label {
   display: block;
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   color: var(--sub-ink);
 }
 
@@ -189,107 +238,81 @@ body {
   border: none;
   background: transparent;
   font-family: inherit;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   width: 100%;
   outline: none;
   color: var(--ink);
 }
 
+/* ---------- Layout Grid ---------- */
 .main-grid {
   display: grid;
   grid-template-columns: 1.7fr 1fr;
-  gap: 20px;
+  gap: 16px;
   align-items: start;
-}
-
-@media (max-width: 900px) {
-  .main-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .blocks-col {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 /* ---------- Study Block ---------- */
 .block {
   display: flex;
   border: 2px solid var(--ink);
-  border-radius: 14px;
+  border-radius: 12px;
   overflow: hidden;
   background: var(--sheet-bg);
 }
 
-@media (max-width: 560px) {
-  .block {
-    flex-direction: column;
-  }
-}
-
 .block .label {
-  flex: 0 0 96px;
+  flex: 0 0 90px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
   color: #fff;
-  padding: 10px 6px;
+  padding: 8px 4px;
   gap: 2px;
 }
 
-@media (max-width: 560px) {
-  .block .label {
-    flex-direction: row;
-    justify-content: center;
-    padding: 8px;
-    gap: 8px;
-  }
-}
-
 .block .label span {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   opacity: 0.92;
 }
 
 .block .label strong {
-  font-size: 1.05rem;
+  font-size: 0.95rem;
 }
 
 .block .content {
   flex: 1;
-  padding: 14px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
 .row {
   display: flex;
-  gap: 10px;
-}
-
-@media (max-width: 480px) {
-  .row {
-    flex-direction: column;
-  }
+  gap: 8px;
 }
 
 .field {
   background: var(--field-bg);
   border: 1.5px solid var(--line);
-  border-radius: 9px;
-  padding: 6px 10px;
+  border-radius: 8px;
+  padding: 5px 8px;
   flex: 1;
   min-width: 0;
 }
 
 .field.wide {
-  flex: 1.6;
+  flex: 1.5;
 }
 
 .field.full {
@@ -298,7 +321,7 @@ body {
 
 .field label {
   display: block;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: var(--sub-ink);
   margin-bottom: 2px;
 }
@@ -309,37 +332,37 @@ body {
   border: none;
   background: transparent;
   font-family: inherit;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   color: var(--ink);
   outline: none;
   resize: vertical;
 }
 
 .field textarea {
-  min-height: 38px;
-  line-height: 1.5;
+  min-height: 36px;
+  line-height: 1.4;
 }
 
 .checks {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
   border-top: 1px dashed var(--line);
-  padding-top: 8px;
+  padding-top: 6px;
 }
 
 .check-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.82rem;
+  gap: 5px;
+  font-size: 0.8rem;
   cursor: pointer;
   user-select: none;
 }
 
 .check-item input {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   accent-color: #4c4436;
   cursor: pointer;
 }
@@ -347,30 +370,31 @@ body {
 .test-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
   background: var(--field-bg);
   border: 1.5px solid var(--line);
-  border-radius: 9px;
-  padding: 8px 10px;
+  border-radius: 8px;
+  padding: 6px 8px;
 }
 
 .test-title {
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   color: var(--sub-ink);
+  font-weight: 600;
 }
 
 .test-mini {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 0.85rem;
+  gap: 4px;
+  font-size: 0.82rem;
   font-weight: 700;
   cursor: default;
 }
 
 .test-mini span {
-  width: 18px;
+  width: 16px;
   text-align: center;
 }
 
@@ -387,19 +411,19 @@ body {
 }
 
 .test-mini input {
-  width: 46px;
+  width: 44px;
   text-align: center;
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 3px 2px;
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   background: #fff;
 }
 
 .test-total {
   margin-right: auto;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--sub-ink);
 }
 
@@ -407,28 +431,28 @@ body {
   color: var(--ink);
 }
 
-/* ---------- Sidebar ---------- */
+/* ---------- Sidebar Cards ---------- */
 .side-col {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .side-card {
   position: relative;
   background: var(--sheet-bg);
   border: 2px solid var(--ink);
-  border-radius: 14px;
-  padding: 16px 16px 14px;
+  border-radius: 12px;
+  padding: 14px 14px 12px;
 }
 
 .side-card .tab {
   position: absolute;
-  top: -9px;
-  right: 22px;
-  width: 34px;
-  height: 14px;
-  border-radius: 4px;
+  top: -8px;
+  right: 18px;
+  width: 30px;
+  height: 12px;
+  border-radius: 3px;
 }
 
 .tab-teal {
@@ -440,22 +464,22 @@ body {
 }
 
 .side-card h2 {
-  margin: 2px 0 12px;
-  font-size: 1.05rem;
+  margin: 0 0 10px;
+  font-size: 0.95rem;
   font-weight: 800;
 }
 
 .line-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 0;
+  gap: 6px;
+  padding: 4px 0;
   border-bottom: 1px solid var(--line-soft);
 }
 
 .line-row input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   flex: 0 0 auto;
   accent-color: #4c4436;
   cursor: pointer;
@@ -466,20 +490,20 @@ body {
   border: none;
   background: transparent;
   font-family: inherit;
-  font-size: 0.88rem;
+  font-size: 0.84rem;
   outline: none;
   color: var(--ink);
-  padding: 3px 2px;
+  padding: 2px 2px;
 }
 
 .add-line-btn {
-  margin-top: 8px;
+  margin-top: 6px;
   background: none;
   border: 1.5px dashed var(--line);
-  border-radius: 8px;
-  padding: 6px 10px;
+  border-radius: 6px;
+  padding: 5px 8px;
   font-family: inherit;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   color: var(--sub-ink);
   cursor: pointer;
   width: 100%;
@@ -493,19 +517,13 @@ body {
 .routine-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px 14px;
-}
-
-@media (max-width: 420px) {
-  .routine-grid {
-    grid-template-columns: 1fr;
-  }
+  gap: 8px 10px;
 }
 
 .routine-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .dot-input {
@@ -514,33 +532,19 @@ body {
   border-bottom: 1px dotted var(--line);
   background: transparent;
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   outline: none;
   color: var(--ink);
-  padding: 3px 2px;
+  padding: 2px 2px;
   min-width: 0;
 }
 
 .routine-item input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   flex: 0 0 auto;
   accent-color: #4c4436;
   cursor: pointer;
-}
-
-.transfer-textarea {
-  width: 100%;
-  min-height: 110px;
-  border: none;
-  background: transparent;
-  font-family: inherit;
-  font-size: 0.88rem;
-  line-height: 2;
-  color: var(--ink);
-  outline: none;
-  resize: vertical;
-  background-image: repeating-linear-gradient(var(--sheet-bg) 0 27px, var(--line-soft) 27px 28px);
 }
 
 .total-card {
@@ -550,9 +554,9 @@ body {
   gap: 10px;
   background: var(--sheet-bg);
   border: 2px solid var(--ink);
-  border-radius: 14px;
-  padding: 12px 18px;
-  font-size: 0.92rem;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 0.88rem;
   font-weight: 600;
 }
 
@@ -561,7 +565,7 @@ body {
 }
 
 .heart-label {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   color: #d8cba0;
   cursor: pointer;
   line-height: 1;
@@ -576,4 +580,165 @@ body {
 ::placeholder {
   color: #b7a978;
   opacity: 1;
+}
+
+/* ==========================================================================
+   📱 Mobile & Tablet Responsive UI Enhancements (Max 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  body {
+    padding-bottom: 40px;
+  }
+
+  /* Compact sticky header on phone */
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 8px 12px;
+    gap: 0;
+  }
+
+  .toolbar-top-row {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  #daySelect {
+    max-width: 140px;
+    font-size: 0.78rem;
+    padding: 5px 6px;
+  }
+
+  .mobile-menu-btn {
+    display: block;
+  }
+
+  /* Expandable mobile actions drawer */
+  .toolbar-actions {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+    padding-top: 10px;
+    margin-top: 8px;
+    border-top: 1px dashed var(--line);
+  }
+
+  .toolbar-actions.open {
+    display: flex;
+  }
+
+  .toolbar-actions button {
+    width: 100%;
+    padding: 9px 12px;
+    font-size: 0.88rem;
+    justify-content: center;
+  }
+
+  .sheet-wrap {
+    margin: 10px auto;
+    padding: 0 8px;
+  }
+
+  .sheet {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .report-header {
+    padding: 8px 12px;
+    margin-bottom: 12px;
+  }
+
+  .report-header h1 {
+    font-size: 1.1rem;
+    width: 100%;
+    text-align: center;
+  }
+
+  .header-fields {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .header-fields .field {
+    min-width: 0;
+    padding: 4px 8px;
+  }
+
+  .main-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  /* Compact mobile study block */
+  .block {
+    flex-direction: column;
+  }
+
+  .block .label {
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 6px 12px;
+    width: 100%;
+  }
+
+  .block .label span {
+    font-size: 0.72rem;
+  }
+
+  .block .label strong {
+    font-size: 0.88rem;
+  }
+
+  .block .content {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 1.1fr 1.9fr;
+    gap: 6px;
+  }
+
+  .field input[type="time"] {
+    font-size: 0.8rem;
+  }
+
+  .checks {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 10px;
+    padding-top: 6px;
+  }
+
+  .test-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .test-mini input {
+    width: 38px;
+    font-size: 0.78rem;
+  }
+
+  .test-total {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px dashed var(--line-soft);
+  }
+
+  .routine-grid {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
 }
