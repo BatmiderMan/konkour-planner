@@ -27,158 +27,162 @@ export const StudyBlockItem: React.FC<StudyBlockItemProps> = ({
   const color = COLORS[index % COLORS.length];
 
   return (
-    <div className="block">
-      <div className="label" style={{ backgroundColor: color }}>
-        <span>بازه مطالعاتی</span>
-        <strong>{ordinalLabel}</strong>
+    <div className="block-card">
+      <div className="block-card-header" style={{ backgroundColor: color }}>
+        <div className="block-header-info">
+          <span className="block-badge">بازه {ordinalLabel}</span>
+        </div>
         {canDelete && (
           <button
             type="button"
+            className="block-delete-btn"
             onClick={onDelete}
             title="حذف این بازه"
-            style={{
-              marginTop: '6px',
-              background: 'rgba(0,0,0,0.25)',
-              border: 'none',
-              borderRadius: '4px',
-              color: '#fff',
-              cursor: 'pointer',
-              fontSize: '0.72rem',
-              padding: '2px 6px'
-            }}
           >
             ✕ حذف
           </button>
         )}
       </div>
-      <div className="content">
-        <div className="row">
-          <div className="field">
-            <label>ساعت شروع</label>
+
+      <div className="block-card-body">
+        {/* Row 1: Time & Lesson */}
+        <div className="input-grid-2">
+          <div className="input-box time-box">
+            <label>شروع</label>
             <input
               type="time"
               value={block.start}
               onChange={(e) => onChange({ start: e.target.value })}
             />
           </div>
-          <div className="field wide">
-            <label>نام درس</label>
-            <input
-              type="text"
-              value={block.lesson}
-              onChange={(e) => onChange({ lesson: e.target.value })}
-              placeholder="مثلاً ریاضی"
-            />
-          </div>
-        </div>
-
-        <div className="row">
-          <div className="field">
-            <label>ساعت پایان</label>
+          <div className="input-box time-box">
+            <label>پایان</label>
             <input
               type="time"
               value={block.end}
               onChange={(e) => onChange({ end: e.target.value })}
             />
           </div>
-          <div className="field wide">
+        </div>
+
+        {/* Row 2: Lesson & Subject */}
+        <div className="input-grid-2">
+          <div className="input-box">
+            <label>نام درس</label>
+            <input
+              type="text"
+              value={block.lesson}
+              onChange={(e) => onChange({ lesson: e.target.value })}
+              placeholder="مثلاً زیست‌شناسی"
+            />
+          </div>
+          <div className="input-box">
             <label>مبحث</label>
             <input
               type="text"
               value={block.subject}
               onChange={(e) => onChange({ subject: e.target.value })}
-              placeholder="مبحث درس"
+              placeholder="مثلاً گوارش"
             />
           </div>
         </div>
 
-        <div className="field full">
+        {/* Description textarea */}
+        <div className="input-box full">
           <label>شرح مطالعه</label>
           <textarea
             value={block.desc}
             onChange={(e) => onChange({ desc: e.target.value })}
-            placeholder="چه کاری انجام دادی؟"
+            placeholder="خلاصه کارهای انجام شده..."
           />
         </div>
 
-        <div className="checks">
-          <label className="check-item">
+        {/* Activity Chips / Checkboxes */}
+        <div className="activity-chips">
+          <label className={`activity-chip ${block.study ? 'checked' : ''}`}>
             <input
               type="checkbox"
               checked={block.study}
               onChange={(e) => onChange({ study: e.target.checked })}
             />
-            <span>مطالعه</span>
+            <span>📖 مطالعه</span>
           </label>
-          <label className="check-item">
+          <label className={`activity-chip ${block.cls ? 'checked' : ''}`}>
             <input
               type="checkbox"
               checked={block.cls}
               onChange={(e) => onChange({ cls: e.target.checked })}
             />
-            <span>کلاس</span>
+            <span>👨‍🏫 کلاس</span>
           </label>
-          <label className="check-item">
+          <label className={`activity-chip ${block.review ? 'checked' : ''}`}>
             <input
               type="checkbox"
               checked={block.review}
               onChange={(e) => onChange({ review: e.target.checked })}
             />
-            <span>مرور</span>
+            <span>🔄 مرور</span>
           </label>
-          <label className="check-item">
+          <label className={`activity-chip ${block.test ? 'checked' : ''}`}>
             <input
               type="checkbox"
               checked={block.test}
               onChange={(e) => onChange({ test: e.target.checked })}
             />
-            <span>تست‌زنی</span>
+            <span>✏️ تست‌زنی</span>
           </label>
         </div>
 
-        <div className="test-row">
-          <span className="test-title">نتیجه تست‌زنی:</span>
-          
-          <label className="test-mini" title="تعداد کل تست‌ها">
-            <span style={{ fontSize: '0.78rem', color: 'var(--sub-ink)' }}>کل:</span>
-            <input
-              type="number"
-              min="0"
-              inputMode="numeric"
-              placeholder="تعداد"
-              value={block.totalTests || ''}
-              onChange={(e) => onChange({ totalTests: e.target.value })}
-            />
-          </label>
+        {/* Test Section */}
+        <div className="test-panel">
+          <div className="test-inputs-wrap">
+            <div className="test-input-item">
+              <span className="test-lbl">کل</span>
+              <input
+                type="number"
+                min="0"
+                inputMode="numeric"
+                placeholder="۰"
+                value={block.totalTests || ''}
+                onChange={(e) => onChange({ totalTests: e.target.value })}
+              />
+            </div>
 
-          <label className="test-mini wrong" title="تعداد پاسخ‌های نادرست">
-            <span>✗</span>
-            <input
-              type="number"
-              min="0"
-              inputMode="numeric"
-              placeholder="غلط"
-              value={block.wrong || ''}
-              onChange={(e) => onChange({ wrong: e.target.value })}
-            />
-          </label>
+            <div className="test-input-item wrong">
+              <span className="test-lbl">✗ غلط</span>
+              <input
+                type="number"
+                min="0"
+                inputMode="numeric"
+                placeholder="۰"
+                value={block.wrong || ''}
+                onChange={(e) => onChange({ wrong: e.target.value })}
+              />
+            </div>
 
-          <label className="test-mini blank" title="تعداد بدون پاسخ (نزده)">
-            <span>○</span>
-            <input
-              type="number"
-              min="0"
-              inputMode="numeric"
-              placeholder="نزده"
-              value={block.blank || ''}
-              onChange={(e) => onChange({ blank: e.target.value })}
-            />
-          </label>
+            <div className="test-input-item blank">
+              <span className="test-lbl">○ نزده</span>
+              <input
+                type="number"
+                min="0"
+                inputMode="numeric"
+                placeholder="۰"
+                value={block.blank || ''}
+                onChange={(e) => onChange({ blank: e.target.value })}
+              />
+            </div>
+          </div>
 
-          <span className="test-total">
-            درست: <b style={{ color: '#3e8c56', marginLeft: '6px' }}>{toPersianDigits(correctCount)}</b>
-            درصد: <b style={{ color: 'var(--ink)' }}>{percentage}</b>
-          </span>
+          <div className="test-calc-results">
+            <div className="res-pill correct">
+              <span>درست:</span>
+              <b>{toPersianDigits(correctCount)}</b>
+            </div>
+            <div className="res-pill percentage">
+              <span>درصد:</span>
+              <b>{percentage}</b>
+            </div>
+          </div>
         </div>
       </div>
     </div>

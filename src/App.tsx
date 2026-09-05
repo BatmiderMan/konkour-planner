@@ -102,6 +102,7 @@ export const App: React.FC = () => {
   const [saveStatus, setSaveStatus] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'blocks' | 'sidebar'>('blocks');
 
   const saveTimer = useRef<any>(null);
   const statusTimer = useRef<any>(null);
@@ -470,6 +471,8 @@ export const App: React.FC = () => {
         currentId={currentId}
         saveStatus={saveStatus}
         installPrompt={installPrompt}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
         onSelectDay={handleSelectDay}
         onNewDay={handleNewDay}
         onDeleteDay={handleDeleteDay}
@@ -487,7 +490,7 @@ export const App: React.FC = () => {
             onDateChange={(date) => setState({ ...state, date })}
           />
 
-          <div className="main-grid">
+          <div className={`main-grid show-${activeTab}`}>
             <div className="blocks-col">
               {state.blocks.map((block, i) => (
                 <StudyBlockItem
@@ -502,21 +505,8 @@ export const App: React.FC = () => {
 
               <button
                 type="button"
+                className="btn-add-block"
                 onClick={handleAddBlock}
-                style={{
-                  background: 'var(--sheet-bg)',
-                  border: '2px dashed var(--ink)',
-                  borderRadius: '14px',
-                  padding: '12px',
-                  fontFamily: 'inherit',
-                  fontSize: '0.95rem',
-                  fontWeight: 700,
-                  color: 'var(--ink)',
-                  cursor: 'pointer',
-                  transition: 'background 0.15s ease'
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = '#f3ebd6')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--sheet-bg)')}
               >
                 + افزودن بازه مطالعاتی جدید
               </button>
