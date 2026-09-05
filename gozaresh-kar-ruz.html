@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>گزارش کار روز</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#efe6cf;
+    --sheet-bg:#fbf3e1;
+    --field-bg:#fffaef;
+    --ink:#2c2417;
+    --sub-ink:#7a6b4d;
+    --line:#d9c79c;
+    --line-soft:#e6d9b3;
+    --danger:#b14a42;
+    --shadow: 0 6px 18px rgba(60,45,20,0.12);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Vazirmatn', Tahoma, Arial, sans-serif;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(120,100,60,0.08) 1px, transparent 0) 0 0/16px 16px,
+      var(--paper);
+    color:var(--ink);
+    min-height:100vh;
+    padding-bottom:60px;
+  }
+
+  /* ---------- Toolbar ---------- */
+  .toolbar{
+    position:sticky; top:0; z-index:20;
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    flex-wrap:wrap;
+    background:#fffdf7;
+    border-bottom:2px solid var(--line);
+    padding:10px 20px;
+    box-shadow:0 2px 10px rgba(60,45,20,0.08);
+  }
+  .app-title{font-weight:700; font-size:1rem; color:var(--ink); opacity:.8;}
+  .toolbar-right{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  #daySelect{
+    font-family:inherit; font-size:.85rem; padding:7px 10px; border-radius:8px;
+    border:1.5px solid var(--line); background:#fff; color:var(--ink); max-width:220px;
+  }
+  .toolbar button{
+    font-family:inherit; font-size:.85rem; font-weight:600; cursor:pointer;
+    border:1.5px solid var(--ink); background:#fff; color:var(--ink);
+    border-radius:8px; padding:7px 14px; transition:transform .08s ease, background .15s ease;
+  }
+  .toolbar button:hover{ background:#f3ebd6; }
+  .toolbar button:active{ transform:scale(0.97); }
+  .toolbar button.primary{ background:#3e6690; color:#fff; border-color:#3e6690; }
+  .toolbar button.primary:hover{ background:#345a80; }
+  .toolbar button.danger{ color:var(--danger); border-color:var(--danger); background:#fff; }
+  .toolbar button.danger:hover{ background:#fbeceb; }
+  .save-status{
+    font-size:.78rem; color:#4c8a5a; opacity:0; transition:opacity .3s ease; min-width:70px;
+  }
+  .save-status.show{ opacity:1; }
+
+  /* ---------- Sheet ---------- */
+  .sheet-wrap{ max-width:1180px; margin:22px auto; padding:0 16px; }
+  .sheet{
+    background:var(--sheet-bg);
+    border:2px solid var(--ink);
+    border-radius:18px;
+    box-shadow:var(--shadow);
+    padding:22px;
+  }
+  .loading{ text-align:center; padding:60px 0; color:var(--sub-ink); font-size:.95rem; }
+
+  .report-header{
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+    flex-wrap:wrap;
+    background:#bcdcdd;
+    border:2px solid var(--ink);
+    border-radius:14px;
+    padding:14px 22px;
+    margin-bottom:20px;
+  }
+  .report-header h1{ margin:0; font-size:1.5rem; font-weight:800; }
+  .header-fields{ display:flex; gap:10px; flex-wrap:wrap; }
+  .header-fields .field{
+    background:#fff; border:1.5px solid var(--ink); border-radius:10px;
+    padding:5px 12px; min-width:150px;
+  }
+  .header-fields label{ display:block; font-size:.68rem; color:var(--sub-ink); }
+  .header-fields input{
+    border:none; background:transparent; font-family:inherit; font-size:.92rem;
+    width:100%; outline:none; color:var(--ink);
+  }
+
+  .main-grid{ display:grid; grid-template-columns:1.7fr 1fr; gap:20px; align-items:start; }
+  @media (max-width:900px){ .main-grid{ grid-template-columns:1fr; } }
+
+  .blocks-col{ display:flex; flex-direction:column; gap:16px; }
+
+  /* ---------- Study Block ---------- */
+  .block{
+    display:flex; border:2px solid var(--ink); border-radius:14px; overflow:hidden; background:var(--sheet-bg);
+  }
+  @media (max-width:560px){ .block{ flex-direction:column; } }
+  .block .label{
+    flex:0 0 96px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; color:#fff; padding:10px 6px; gap:2px;
+  }
+  @media (max-width:560px){ .block .label{ flex-direction:row; justify-content:center; padding:8px; } }
+  .block .label span{ font-size:.72rem; opacity:.92; }
+  .block .label strong{ font-size:1.05rem; }
+
+  .block .content{ flex:1; padding:14px; display:flex; flex-direction:column; gap:10px; min-width:0; }
+  .row{ display:flex; gap:10px; }
+  @media (max-width:480px){ .row{ flex-direction:column; } }
+
+  .field{
+    background:var(--field-bg); border:1.5px solid var(--line); border-radius:9px;
+    padding:6px 10px; flex:1; min-width:0;
+  }
+  .field.wide{ flex:1.6; }
+  .field.full{ width:100%; }
+  .field label{ display:block; font-size:.7rem; color:var(--sub-ink); margin-bottom:2px; }
+  .field input, .field textarea{
+    width:100%; border:none; background:transparent; font-family:inherit;
+    font-size:.92rem; color:var(--ink); outline:none; resize:vertical;
+  }
+  .field textarea{ min-height:38px; line-height:1.5; }
+
+  .checks{ display:flex; gap:14px; flex-wrap:wrap; border-top:1px dashed var(--line); padding-top:8px; }
+  .check-item{ display:flex; align-items:center; gap:6px; font-size:.82rem; cursor:pointer; }
+  .check-item input{ width:16px; height:16px; accent-color:#4c4436; cursor:pointer; }
+
+  .test-row{
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    background:var(--field-bg); border:1.5px solid var(--line); border-radius:9px; padding:8px 10px;
+  }
+  .test-title{ font-size:.78rem; color:var(--sub-ink); }
+  .test-mini{ display:flex; align-items:center; gap:5px; font-size:.85rem; font-weight:700; cursor:default; }
+  .test-mini span{ width:18px; text-align:center; }
+  .test-mini.correct span{ color:#3e8c56; }
+  .test-mini.wrong span{ color:var(--danger); }
+  .test-mini.blank span{ color:#c78a3a; }
+  .test-mini input{
+    width:46px; text-align:center; border:1px solid var(--line); border-radius:6px;
+    padding:3px 2px; font-family:inherit; font-size:.85rem; background:#fff;
+  }
+  .test-total{ margin-right:auto; font-size:.8rem; color:var(--sub-ink); }
+  .test-total b{ color:var(--ink); }
+
+  /* ---------- Sidebar ---------- */
+  .side-col{ display:flex; flex-direction:column; gap:16px; }
+  .side-card{
+    position:relative; background:var(--sheet-bg); border:2px solid var(--ink); border-radius:14px;
+    padding:16px 16px 14px;
+  }
+  .side-card .tab{
+    position:absolute; top:-9px; right:22px; width:34px; height:14px; border-radius:4px;
+  }
+  .tab-teal{ background:#7fb0ac; }
+  .tab-yellow{ background:#e3b64f; }
+  .side-card h2{ margin:2px 0 12px; font-size:1.05rem; font-weight:800; }
+
+  .line-row{ display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid var(--line-soft); }
+  .line-row input[type=checkbox]{ width:16px; height:16px; flex:0 0 auto; accent-color:#4c4436; }
+  .line-input{
+    flex:1; border:none; background:transparent; font-family:inherit; font-size:.88rem;
+    outline:none; color:var(--ink); padding:3px 2px;
+  }
+  .add-line-btn{
+    margin-top:8px; background:none; border:1.5px dashed var(--line); border-radius:8px;
+    padding:6px 10px; font-family:inherit; font-size:.78rem; color:var(--sub-ink); cursor:pointer; width:100%;
+  }
+  .add-line-btn:hover{ background:#f3ebd6; }
+
+  .routine-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; }
+  @media (max-width:420px){ .routine-grid{ grid-template-columns:1fr; } }
+  .routine-item{ display:flex; align-items:center; gap:8px; }
+  .dot-input{
+    flex:1; border:none; border-bottom:1px dotted var(--line); background:transparent;
+    font-family:inherit; font-size:.85rem; outline:none; color:var(--ink); padding:3px 2px; min-width:0;
+  }
+  .routine-item input[type=checkbox]{ width:16px; height:16px; flex:0 0 auto; accent-color:#4c4436; }
+
+  .transfer-textarea{
+    width:100%; min-height:110px; border:none; background:transparent;
+    font-family:inherit; font-size:.88rem; line-height:2; color:var(--ink); outline:none; resize:vertical;
+    background-image:repeating-linear-gradient(var(--sheet-bg) 0 27px, var(--line-soft) 27px 28px);
+  }
+
+  .total-card{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--sheet-bg); border:2px solid var(--ink); border-radius:14px; padding:12px 18px;
+    font-size:.92rem; font-weight:600;
+  }
+  #totalHoursVal{ font-size:1.05rem; }
+  .heart-checkbox{ display:none; }
+  .heart-label{ font-size:1.5rem; color:#d8cba0; cursor:pointer; line-height:1; user-select:none; }
+  .heart-checkbox:checked + .heart-label{ color:var(--danger); }
+
+  ::placeholder{ color:#b7a978; opacity:1; }
+</style>
+</head>
+<body>
+
+  <div class="toolbar">
+    <div class="app-title">برنامه‌ریز مطالعه روزانه</div>
+    <div class="toolbar-right">
+      <select id="daySelect" title="رفتن به یک روز ذخیره‌شده"></select>
+      <button type="button" id="newDayBtn" class="primary">+ روز جدید (مثلاً فردا)</button>
+      <button type="button" id="deleteDayBtn" class="danger">حذف این روز</button>
+      <span id="saveStatus" class="save-status">ذخیره شد</span>
+    </div>
+  </div>
+
+  <div class="sheet-wrap">
+    <div class="sheet">
+      <div id="sheetContent"><div class="loading">در حال بارگذاری...</div></div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  var ORDINALS = ['اول','دوم','سوم','چهارم','پنجم','ششم','هفتم','هشتم','نهم','دهم'];
+  var COLORS   = ['#3e6690','#3e8c86','#4c9b78','#7fb35c','#d9a54b','#d68c46','#d97a52','#cb6650','#c15546','#b14a42'];
+  var KEY_INDEX = 'days-index';
+  var KEY_CURRENT = 'current-day-id';
+
+  var state = null;
+  var currentId = null;
+  var saveTimer = null;
+  var flashTimer = null;
+
+  function esc(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+      .replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function toPersianDigits(n){
+    var map = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+    return String(n).replace(/[0-9]/g, function(d){ return map[d]; });
+  }
+  function setPath(obj, path, value){
+    var parts = path.split('.');
+    var cur = obj;
+    for(var i=0;i<parts.length-1;i++){
+      var k = parts[i];
+      cur = cur[ /^\d+$/.test(k) ? Number(k) : k ];
+    }
+    cur[parts[parts.length-1]] = value;
+  }
+
+  /* ---------- storage helpers ---------- */
+  async function safeGet(key){
+    try{ return await window.storage.get(key, false); }
+    catch(e){ return null; }
+  }
+  async function safeSet(key, value){
+    try{ return await window.storage.set(key, value, false); }
+    catch(e){ console.error('storage set failed', key, e); return null; }
+  }
+  async function safeDelete(key){
+    try{ return await window.storage.delete(key, false); }
+    catch(e){ console.error('storage delete failed', key, e); return null; }
+  }
+  async function loadIndex(){
+    var r = await safeGet(KEY_INDEX);
+    if(r && r.value){ try{ return JSON.parse(r.value); }catch(e){ return []; } }
+    return [];
+  }
+  async function saveIndexList(list){ await safeSet(KEY_INDEX, JSON.stringify(list)); }
+  function dayKey(id){ return 'day-data:' + id; }
+
+  function defaultData(){
+    return {
+      day:'', date:'', favorite:false,
+      blocks: Array.from({length:10}, function(){
+        return { lesson:'', subject:'', start:'', end:'', desc:'',
+                 study:false, cls:false, review:false, test:false,
+                 correct:'', wrong:'', blank:'' };
+      }),
+      checklist: Array.from({length:12}, function(){ return { text:'', done:false }; }),
+      routine:   Array.from({length:6},  function(){ return { text:'', done:false }; }),
+      transfer:''
+    };
+  }
+
+  /* ---------- templates ---------- */
+  function checkItem(label, bind, checked){
+    return '<label class="check-item"><input type="checkbox" data-bind="'+bind+'" '+(checked?'checked':'')+'><span>'+label+'</span></label>';
+  }
+
+  function blockHTML(b, i){
+    return (
+      '<div class="block">' +
+        '<div class="label" style="background:'+COLORS[i]+'"><span>بازه مطالعاتی</span><strong>'+ORDINALS[i]+'</strong></div>' +
+        '<div class="content">' +
+          '<div class="row">' +
+            '<div class="field"><label>ساعت شروع</label><input type="time" data-bind="blocks.'+i+'.start" value="'+esc(b.start)+'"></div>' +
+            '<div class="field wide"><label>نام درس</label><input type="text" data-bind="blocks.'+i+'.lesson" value="'+esc(b.lesson)+'" placeholder="مثلاً ریاضی"></div>' +
+          '</div>' +
+          '<div class="row">' +
+            '<div class="field"><label>ساعت پایان</label><input type="time" data-bind="blocks.'+i+'.end" value="'+esc(b.end)+'"></div>' +
+            '<div class="field wide"><label>مبحث</label><input type="text" data-bind="blocks.'+i+'.subject" value="'+esc(b.subject)+'" placeholder="مبحث درس"></div>' +
+          '</div>' +
+          '<div class="field full"><label>شرح مطالعه</label><textarea data-bind="blocks.'+i+'.desc" placeholder="چه کاری انجام دادی؟">'+esc(b.desc)+'</textarea></div>' +
+          '<div class="checks">' +
+            checkItem('مطالعه','blocks.'+i+'.study', b.study) +
+            checkItem('کلاس','blocks.'+i+'.cls', b.cls) +
+            checkItem('مرور','blocks.'+i+'.review', b.review) +
+            checkItem('تست‌زنی','blocks.'+i+'.test', b.test) +
+          '</div>' +
+          '<div class="test-row">' +
+            '<span class="test-title">نتیجه تست‌زنی</span>' +
+            '<label class="test-mini correct"><span>✓</span><input type="number" min="0" inputmode="numeric" data-bind="blocks.'+i+'.correct" value="'+esc(b.correct)+'"></label>' +
+            '<label class="test-mini wrong"><span>✗</span><input type="number" min="0" inputmode="numeric" data-bind="blocks.'+i+'.wrong" value="'+esc(b.wrong)+'"></label>' +
+            '<label class="test-mini blank"><span>○</span><input type="number" min="0" inputmode="numeric" data-bind="blocks.'+i+'.blank" value="'+esc(b.blank)+'"></label>' +
+            '<span class="test-total">جمع کل: <b id="blockTotal-'+i+'">۰</b></span>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function checklistCardHTML(st){
+    var rows = st.checklist.map(function(item, i){
+      return '<div class="line-row"><input type="checkbox" data-bind="checklist.'+i+'.done" '+(item.done?'checked':'')+'>' +
+             '<input type="text" class="line-input" data-bind="checklist.'+i+'.text" value="'+esc(item.text)+'" placeholder="کار روزانه..."></div>';
+    }).join('');
+    return '<div class="side-card"><div class="tab tab-teal"></div><h2>چک لیست روزانه</h2>' + rows +
+           '<button type="button" class="add-line-btn" data-action="add-checklist">+ افزودن خط</button></div>';
+  }
+
+  function routineCardHTML(st){
+    var items = st.routine.map(function(item, i){
+      return '<div class="routine-item"><input type="checkbox" data-bind="routine.'+i+'.done" '+(item.done?'checked':'')+'>' +
+             '<input type="text" class="dot-input" data-bind="routine.'+i+'.text" value="'+esc(item.text)+'" placeholder="کار روتین..."></div>';
+    }).join('');
+    return '<div class="side-card"><div class="tab tab-teal"></div><h2>کار روتین و شبانه</h2><div class="routine-grid">'+items+'</div></div>';
+  }
+
+  function transferCardHTML(st){
+    return '<div class="side-card"><div class="tab tab-yellow"></div><h2>انتقال به فردا</h2>' +
+           '<textarea class="transfer-textarea" data-bind="transfer" placeholder="کارهای ناتمام برای فردا...">'+esc(st.transfer)+'</textarea></div>';
+  }
+
+  function totalCardHTML(st){
+    return '<div class="total-card"><span>جمع ساعت مطالعه: <b id="totalHoursVal">۰:۰۰</b></span>' +
+           '<span><input type="checkbox" id="favHeart" class="heart-checkbox" data-bind="favorite" '+(st.favorite?'checked':'')+'>' +
+           '<label for="favHeart" class="heart-label">♥</label></span></div>';
+  }
+
+  function buildSheetHTML(st){
+    return (
+      '<div class="report-header">' +
+        '<h1>گزارش کار روز</h1>' +
+        '<div class="header-fields">' +
+          '<div class="field"><label>روز</label><input type="text" data-bind="day" value="'+esc(st.day)+'" placeholder="مثلاً شنبه"></div>' +
+          '<div class="field"><label>تاریخ</label><input type="text" data-bind="date" value="'+esc(st.date)+'" placeholder="۱۴۰۳/۰۶/۱۵"></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="main-grid">' +
+        '<div class="blocks-col">' + st.blocks.map(blockHTML).join('') + '</div>' +
+        '<div class="side-col">' +
+          checklistCardHTML(st) + routineCardHTML(st) + transferCardHTML(st) + totalCardHTML(st) +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  /* ---------- computed values ---------- */
+  function updateBlockTotals(){
+    state.blocks.forEach(function(b, i){
+      var el = document.getElementById('blockTotal-'+i);
+      if(el){
+        var c = parseInt(b.correct)||0, w = parseInt(b.wrong)||0, k = parseInt(b.blank)||0;
+        el.textContent = toPersianDigits(c+w+k);
+      }
+    });
+  }
+  function updateTotalHours(){
+    var totalMinutes = 0;
+    state.blocks.forEach(function(b){
+      if(b.start && b.end){
+        var s = b.start.split(':').map(Number), e = b.end.split(':').map(Number);
+        var mins = (e[0]*60+e[1]) - (s[0]*60+s[1]);
+        if(mins > 0) totalMinutes += mins;
+      }
+    });
+    var h = Math.floor(totalMinutes/60), m = totalMinutes % 60;
+    var el = document.getElementById('totalHoursVal');
+    if(el) el.textContent = toPersianDigits(h) + ':' + toPersianDigits(String(m).padStart(2,'0'));
+  }
+  function updateComputed(){ updateBlockTotals(); updateTotalHours(); }
+
+  /* ---------- render ---------- */
+  function renderSheet(){
+    document.getElementById('sheetContent').innerHTML = buildSheetHTML(state);
+    updateComputed();
+  }
+  async function renderDaySelect(){
+    var idx = await loadIndex();
+    idx.sort(function(a,b){ return (b.updatedAt||0)-(a.updatedAt||0); });
+    var sel = document.getElementById('daySelect');
+    sel.innerHTML = idx.map(function(x){
+      var label = ((x.day||'').trim() + ' ' + (x.date||'').trim()).trim() || 'بدون عنوان';
+      return '<option value="'+x.id+'" '+(x.id===currentId?'selected':'')+'>'+esc(label)+'</option>';
+    }).join('');
+  }
+  function flashStatus(msg){
+    var el = document.getElementById('saveStatus');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(function(){ el.classList.remove('show'); }, 1500);
+  }
+
+  /* ---------- persistence flow ---------- */
+  async function persist(){
+    if(!currentId || !state) return;
+    try{
+      await safeSet(dayKey(currentId), JSON.stringify(state));
+      var idx = await loadIndex();
+      var entry = null;
+      for(var i=0;i<idx.length;i++){ if(idx[i].id===currentId){ entry = idx[i]; break; } }
+      if(!entry){ entry = { id: currentId }; idx.push(entry); }
+      entry.day = state.day; entry.date = state.date; entry.updatedAt = Date.now();
+      await saveIndexList(idx);
+      await safeSet(KEY_CURRENT, currentId);
+      flashStatus('ذخیره شد ✓');
+    }catch(e){
+      console.error(e);
+      flashStatus('خطا در ذخیره');
+    }
+  }
+  function debouncedPersist(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(persist, 700);
+  }
+
+  async function createNewDay(){
+    if(state && currentId){ await persist(); }
+    var id = 'd' + Date.now() + Math.floor(Math.random()*1000);
+    state = defaultData();
+    currentId = id;
+    var idx = await loadIndex();
+    idx.push({ id: id, day:'', date:'', updatedAt: Date.now() });
+    await saveIndexList(idx);
+    await safeSet(KEY_CURRENT, id);
+    await safeSet(dayKey(id), JSON.stringify(state));
+    renderSheet();
+    await renderDaySelect();
+    flashStatus('برگه جدید آماده شد');
+  }
+
+  async function switchDay(id){
+    if(!id || id === currentId) return;
+    await persist();
+    var d = await safeGet(dayKey(id));
+    state = (d && d.value) ? JSON.parse(d.value) : defaultData();
+    currentId = id;
+    await safeSet(KEY_CURRENT, id);
+    renderSheet();
+    await renderDaySelect();
+  }
+
+  async function deleteCurrentDay(){
+    if(!currentId) return;
+    var idx = await loadIndex();
+    var remaining = idx.filter(function(x){ return x.id !== currentId; });
+    await safeDelete(dayKey(currentId));
+    await saveIndexList(remaining);
+    if(remaining.length){
+      remaining.sort(function(a,b){ return (b.updatedAt||0)-(a.updatedAt||0); });
+      currentId = remaining[0].id;
+      var d = await safeGet(dayKey(currentId));
+      state = (d && d.value) ? JSON.parse(d.value) : defaultData();
+      await safeSet(KEY_CURRENT, currentId);
+      renderSheet();
+      await renderDaySelect();
+      flashStatus('حذف شد');
+    } else {
+      currentId = null; state = null;
+      await createNewDay();
+    }
+  }
+
+  /* ---------- events ---------- */
+  function onFieldEvent(e){
+    var el = e.target;
+    var bind = el.dataset ? el.dataset.bind : null;
+    if(!bind) return;
+    var value = (el.type === 'checkbox') ? el.checked : el.value;
+    setPath(state, bind, value);
+    updateComputed();
+    debouncedPersist();
+  }
+  function onContainerClick(e){
+    var btn = e.target.closest ? e.target.closest('[data-action]') : null;
+    if(!btn) return;
+    var action = btn.dataset.action;
+    if(action === 'add-checklist'){
+      state.checklist.push({ text:'', done:false });
+      renderSheet();
+      debouncedPersist();
+    }
+  }
+
+  function bindStaticListeners(){
+    document.getElementById('newDayBtn').addEventListener('click', function(){
+      if(confirm('برای شروع یک برگه جدید (مثلاً برای فردا)، برگه فعلی ذخیره و برگه‌ای تازه باز می‌شود. ادامه می‌دهید؟')){
+        createNewDay();
+      }
+    });
+    document.getElementById('deleteDayBtn').addEventListener('click', function(){
+      if(confirm('این برگه برای همیشه حذف شود؟ این کار قابل بازگشت نیست.')){
+        deleteCurrentDay();
+      }
+    });
+    document.getElementById('daySelect').addEventListener('change', function(e){
+      switchDay(e.target.value);
+    });
+    var container = document.getElementById('sheetContent');
+    container.addEventListener('input', onFieldEvent);
+    container.addEventListener('change', onFieldEvent);
+    container.addEventListener('click', onContainerClick);
+  }
+
+  /* ---------- init ---------- */
+  async function init(){
+    bindStaticListeners();
+    try{
+      var curRes = await safeGet(KEY_CURRENT);
+      var cid = (curRes && curRes.value) ? curRes.value : null;
+      if(cid){
+        var d = await safeGet(dayKey(cid));
+        if(d && d.value){ currentId = cid; state = JSON.parse(d.value); }
+      }
+      if(!state){
+        var idx = await loadIndex();
+        if(idx.length){
+          idx.sort(function(a,b){ return (b.updatedAt||0)-(a.updatedAt||0); });
+          currentId = idx[0].id;
+          var d2 = await safeGet(dayKey(currentId));
+          state = (d2 && d2.value) ? JSON.parse(d2.value) : defaultData();
+        }
+      }
+    }catch(err){ console.error('init error', err); }
+
+    if(!state){
+      await createNewDay();
+      return;
+    }
+    renderSheet();
+    await renderDaySelect();
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
+</html>
