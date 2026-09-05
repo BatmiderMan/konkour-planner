@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { DayData, DayIndexEntry, StudyBlock, ChecklistItem } from './types';
 import { createDefaultDayData, createEmptyBlock, calculateTotalStudyTime } from './utils';
+import { supabase } from './supabase';
 import { Toolbar } from './components/Toolbar';
 import { ReportHeader } from './components/ReportHeader';
 import { StudyBlockItem } from './components/StudyBlockItem';
@@ -8,6 +9,7 @@ import { ChecklistCard } from './components/ChecklistCard';
 import { RoutineCard } from './components/RoutineCard';
 import { TransferCard } from './components/TransferCard';
 import { TotalCard } from './components/TotalCard';
+import { AuthModal } from './components/AuthModal';
 
 const KEY_INDEX = 'konkour_days_index_v2';
 const KEY_CURRENT = 'konkour_current_day_id_v2';
@@ -103,10 +105,75 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'blocks' | 'sidebar'>('blocks');
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
 
   const saveTimer = useRef<any>(null);
   const statusTimer = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Auth Listener
+  useEffect(() => {
+    const unsub = supabase.onAuthStateChange((session) => {
+      setUserEmail(session?.user?.email || null);
+      if (session?.user?.id) {
+        syncFromCloud();
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  const syncFromCloud = async () => {
+    try {
+      showStatus('همگام‌سازی ابری...');
+      const res = await supabase.fetchAllUserPlans();
+      if (res.data && res.data.length > 0) {
+        const cloudIndex: DayIndexEntry[] = [];
+        res.data.forEach((p: any) => {
+          const id = p.id;
+          const planData: DayData = {
+            day: p.day || '',
+            date: p.date || '',
+            favorite: !!p.favorite,
+            blocks: p.blocks || [],
+            checklist: p.checklist || [],
+            routine: p.routine || [],
+            transfer: p.transfer || []
+          };
+          localStorage.setItem(dayKey(id), JSON.stringify(planData));
+          cloudIndex.push({
+            id,
+            day: p.day || '',
+            date: p.date || '',
+            updatedAt: p.updated_at || Date.now()
+          });
+        });
+
+        cloudIndex.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        localStorage.setItem(KEY_INDEX, JSON.stringify(cloudIndex));
+        setDaysIndex(cloudIndex);
+
+        if (cloudIndex.length > 0) {
+          const firstId = cloudIndex[0].id;
+          const raw = localStorage.getItem(dayKey(firstId));
+          if (raw) {
+            setCurrentId(firstId);
+            setState(normalizeDayData(JSON.parse(raw)));
+            localStorage.setItem(KEY_CURRENT, firstId);
+          }
+        }
+        showStatus('همگام با ابر ✓');
+      }
+    } catch (e) {
+      console.error('Sync failed:', e);
+    }
+  };
+
+  const handleSignOut = async () => {
+    await supabase.signOut();
+    setUserEmail(null);
+    showStatus('از حساب خارج شدید');
+  };
 
   // Capture PWA install prompt
   useEffect(() => {
@@ -135,7 +202,7 @@ export const App: React.FC = () => {
     }, 1800);
   };
 
-  // Persist current day to localStorage
+  // Persist current day to localStorage and cloud
   const saveCurrentData = useCallback((data: DayData, id: string) => {
     try {
       localStorage.setItem(dayKey(id), JSON.stringify(data));
@@ -165,6 +232,21 @@ export const App: React.FC = () => {
       });
       localStorage.setItem(KEY_CURRENT, id);
       showStatus('ذخیره شد ✓');
+
+      // Sync to cloud if user is logged in
+      if (supabase.getUser()) {
+        supabase.upsertUserPlan({
+          id,
+          day: data.day,
+          date: data.date,
+          favorite: data.favorite,
+          blocks: data.blocks,
+          checklist: data.checklist,
+          routine: data.routine,
+          transfer: data.transfer,
+          updated_at: Date.now()
+        });
+      }
     } catch (e) {
       console.error('Failed to save data to localStorage:', e);
       showStatus('خطا در ذخیره!');
@@ -321,6 +403,9 @@ export const App: React.FC = () => {
     if (!currentId) return;
     if (window.confirm('این برگه برای همیشه حذف شود؟ این کار قابل بازگشت نیست.')) {
       localStorage.removeItem(dayKey(currentId));
+      if (supabase.getUser()) {
+        supabase.deleteUserPlan(currentId);
+      }
       const remaining = daysIndex.filter((x) => x.id !== currentId);
       setDaysIndex(remaining);
       localStorage.setItem(KEY_INDEX, JSON.stringify(remaining));
@@ -466,11 +551,20 @@ export const App: React.FC = () => {
         accept=".json"
         style={{ display: 'none' }}
       />
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onSuccess={(email) => {
+          setUserEmail(email);
+          syncFromCloud();
+        }}
+      />
       <Toolbar
         days={daysIndex}
         currentId={currentId}
         saveStatus={saveStatus}
         installPrompt={installPrompt}
+        userEmail={userEmail}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onSelectDay={handleSelectDay}
@@ -479,6 +573,9 @@ export const App: React.FC = () => {
         onExport={handleExportBackup}
         onImport={handleImportClick}
         onInstall={handleInstallApp}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        onSignOut={handleSignOut}
+        onSyncCloud={syncFromCloud}
       />
 
       <div className="sheet-wrap">

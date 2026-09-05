@@ -6,6 +6,7 @@ interface ToolbarProps {
   currentId: string | null;
   saveStatus: string;
   installPrompt: any;
+  userEmail: string | null;
   activeTab: 'blocks' | 'sidebar';
   onTabChange: (tab: 'blocks' | 'sidebar') => void;
   onSelectDay: (id: string) => void;
@@ -14,6 +15,9 @@ interface ToolbarProps {
   onExport: () => void;
   onImport: () => void;
   onInstall: () => void;
+  onOpenAuth: () => void;
+  onSignOut: () => void;
+  onSyncCloud: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -21,6 +25,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   currentId,
   saveStatus,
   installPrompt,
+  userEmail,
   activeTab,
   onTabChange,
   onSelectDay,
@@ -28,7 +33,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onDeleteDay,
   onExport,
   onImport,
-  onInstall
+  onInstall,
+  onOpenAuth,
+  onSignOut,
+  onSyncCloud
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -62,6 +70,26 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </div>
 
           <div className="bar-actions">
+            {userEmail ? (
+              <button
+                type="button"
+                className="cloud-sync-badge active"
+                onClick={onSyncCloud}
+                title={`همگام با حساب: ${userEmail}`}
+              >
+                ☁️ همگام
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn-login"
+                onClick={onOpenAuth}
+                title="ورود به حساب برای همگام‌سازی ابری"
+              >
+                🔐 ورود
+              </button>
+            )}
+
             <button
               type="button"
               className="btn-new-day"
@@ -114,6 +142,51 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 ✕
               </button>
             </div>
+
+            {userEmail ? (
+              <div className="user-profile-box">
+                <div className="user-profile-info">
+                  <span className="profile-icon">👤</span>
+                  <span className="profile-email">{userEmail}</span>
+                </div>
+                <div className="user-profile-actions">
+                  <button
+                    type="button"
+                    className="profile-btn sync"
+                    onClick={() => {
+                      onSyncCloud();
+                      setMenuOpen(false);
+                    }}
+                  >
+                    🔄 همگام‌سازی دستی
+                  </button>
+                  <button
+                    type="button"
+                    className="profile-btn logout"
+                    onClick={() => {
+                      onSignOut();
+                      setMenuOpen(false);
+                    }}
+                  >
+                    خروج از حساب
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="user-login-prompt">
+                <p>برای همگام‌سازی خودکار بین گوشی و لپ‌تاپ وارد شوید:</p>
+                <button
+                  type="button"
+                  className="menu-btn login-btn"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onOpenAuth();
+                  }}
+                >
+                  🔐 ورود یا ثبت‌نام رایگان
+                </button>
+              </div>
+            )}
 
             <div className="menu-buttons">
               {installPrompt && (
