@@ -52,8 +52,11 @@ class P2PSyncService {
       this.status = 'connecting';
       this.notifyStatus();
 
+      // Generate a short 6-digit number / easy-to-type room code
+      const shortId = 'kp-' + Math.floor(100000 + Math.random() * 900000).toString();
+
       const PeerClass = (window as any).Peer;
-      this.peer = new PeerClass({
+      this.peer = new PeerClass(shortId, {
         debug: 1,
         config: {
           iceServers: [
