@@ -10,6 +10,8 @@ import { RoutineCard } from './components/RoutineCard';
 import { TransferCard } from './components/TransferCard';
 import { TotalCard } from './components/TotalCard';
 import { AuthModal } from './components/AuthModal';
+import { P2PSyncModal } from './components/P2PSyncModal';
+import { p2pSync } from './p2pSync';
 
 const KEY_INDEX = 'konkour_days_index_v2';
 const KEY_CURRENT = 'konkour_current_day_id_v2';
@@ -107,10 +109,89 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'blocks' | 'sidebar'>('blocks');
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
+  const [isP2POpen, setIsP2POpen] = useState<boolean>(false);
+  const [isP2PConnected, setIsP2PConnected] = useState<boolean>(false);
 
   const saveTimer = useRef<any>(null);
   const statusTimer = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // WebRTC P2P Sync listener
+  useEffect(() => {
+    const unsubStatus = p2pSync.onStatusChange((status) => {
+      setIsP2PConnected(status === 'connected');
+    });
+
+    const unsubData = p2pSync.onDataReceived((msg) => {
+      if (msg.type === 'FULL_SYNC' && msg.payload) {
+        handleReceiveFullSync(msg.payload);
+      } else if (msg.type === 'FULL_SYNC' && !msg.payload) {
+        // Peer requested full data from us
+        broadcastFullSync();
+      } else if (msg.type === 'DAY_UPDATE' && msg.payload) {
+        handleReceiveDayUpdate(msg.payload);
+      } else if (msg.type === 'DELETE_DAY' && msg.payload) {
+        handleReceiveDayDelete(msg.payload);
+      }
+    });
+
+    return () => {
+      unsubStatus();
+      unsubData();
+    };
+  }, [daysIndex, state, currentId]);
+
+  const broadcastFullSync = () => {
+    const allDaysData: Record<string, any> = {};
+    daysIndex.forEach((entry) => {
+      const raw = localStorage.getItem(dayKey(entry.id));
+      if (raw) allDaysData[entry.id] = JSON.parse(raw);
+    });
+
+    p2pSync.broadcast({
+      type: 'FULL_SYNC',
+      payload: {
+        daysIndex,
+        currentId,
+        days: allDaysData
+      },
+      timestamp: Date.now()
+    });
+  };
+
+  const handleReceiveFullSync = (payload: any) => {
+    if (!payload?.daysIndex || !payload?.days) return;
+    try {
+      localStorage.setItem(KEY_INDEX, JSON.stringify(payload.daysIndex));
+      for (const [id, dayData] of Object.entries(payload.days)) {
+        localStorage.setItem(dayKey(id), JSON.stringify(dayData));
+      }
+      setDaysIndex(payload.daysIndex);
+      if (payload.currentId && payload.days[payload.currentId]) {
+        setCurrentId(payload.currentId);
+        setState(normalizeDayData(payload.days[payload.currentId]));
+        localStorage.setItem(KEY_CURRENT, payload.currentId);
+      }
+      showStatus('⚡ همگام‌سازی زنده دریافت شد ✓');
+    } catch (e) {
+      console.error('Failed to apply P2P sync payload:', e);
+    }
+  };
+
+  const handleReceiveDayUpdate = (payload: { id: string; data: DayData }) => {
+    if (!payload?.id || !payload?.data) return;
+    localStorage.setItem(dayKey(payload.id), JSON.stringify(payload.data));
+    if (payload.id === currentId) {
+      setState(normalizeDayData(payload.data));
+    }
+    showStatus('⚡ به‌روزرسانی زنده ✓');
+  };
+
+  const handleReceiveDayDelete = (payload: { id: string }) => {
+    if (!payload?.id) return;
+    localStorage.removeItem(dayKey(payload.id));
+    setDaysIndex((prev) => prev.filter((x) => x.id !== payload.id));
+  };
 
   // Auth Listener
   useEffect(() => {
@@ -258,6 +339,13 @@ export const App: React.FC = () => {
       });
       localStorage.setItem(KEY_CURRENT, id);
       showStatus('ذخیره شد ✓');
+
+      // Broadcast real-time change to connected peers
+      p2pSync.broadcast({
+        type: 'DAY_UPDATE',
+        payload: { id, data },
+        timestamp: Date.now()
+      });
 
       // Sync to cloud if user is logged in
       if (supabase.getUser()) {
@@ -577,6 +665,11 @@ export const App: React.FC = () => {
         accept=".json"
         style={{ display: 'none' }}
       />
+      <P2PSyncModal
+        isOpen={isP2POpen}
+        onClose={() => setIsP2POpen(false)}
+        onPerformFullSync={broadcastFullSync}
+      />
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
@@ -591,6 +684,7 @@ export const App: React.FC = () => {
         saveStatus={saveStatus}
         installPrompt={installPrompt}
         userEmail={userEmail}
+        isP2PConnected={isP2PConnected}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onSelectDay={handleSelectDay}
@@ -602,6 +696,7 @@ export const App: React.FC = () => {
         onOpenAuth={() => setIsAuthOpen(true)}
         onSignOut={handleSignOut}
         onSyncCloud={syncFromCloud}
+        onOpenP2PModal={() => setIsP2POpen(true)}
       />
 
       <div className="sheet-wrap">

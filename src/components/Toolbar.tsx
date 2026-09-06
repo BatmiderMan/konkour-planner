@@ -7,6 +7,7 @@ interface ToolbarProps {
   saveStatus: string;
   installPrompt: any;
   userEmail: string | null;
+  isP2PConnected: boolean;
   activeTab: 'blocks' | 'sidebar';
   onTabChange: (tab: 'blocks' | 'sidebar') => void;
   onSelectDay: (id: string) => void;
@@ -18,6 +19,7 @@ interface ToolbarProps {
   onOpenAuth: () => void;
   onSignOut: () => void;
   onSyncCloud: () => void;
+  onOpenP2PModal: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -26,6 +28,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   saveStatus,
   installPrompt,
   userEmail,
+  isP2PConnected,
   activeTab,
   onTabChange,
   onSelectDay,
@@ -36,7 +39,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onInstall,
   onOpenAuth,
   onSignOut,
-  onSyncCloud
+  onSyncCloud,
+  onOpenP2PModal
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -70,6 +74,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </div>
 
           <div className="bar-actions">
+            <button
+              type="button"
+              className={`p2p-live-badge ${isP2PConnected ? 'connected' : ''}`}
+              onClick={onOpenP2PModal}
+              title="همگام‌سازی زنده و مستقیم بین گوشی و لپ‌تاپ (P2P)"
+            >
+              {isP2PConnected ? '⚡ متصل' : '⚡ اتصال'}
+            </button>
+
             {userEmail ? (
               <button
                 type="button"
@@ -189,6 +202,17 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             )}
 
             <div className="menu-buttons">
+              <button
+                type="button"
+                className="menu-btn p2p-menu-btn"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onOpenP2PModal();
+                }}
+              >
+                ⚡ همگام‌سازی زنده و اتصال به گوشی (P2P)
+              </button>
+
               {installPrompt && (
                 <button
                   type="button"

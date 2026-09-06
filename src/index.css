@@ -852,6 +852,32 @@ html, body {
   white-space: nowrap;
 }
 
+.p2p-live-badge {
+  background: #fff9e6;
+  color: #a06b00;
+  border: 1.5px solid #d4a017;
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.p2p-live-badge.connected {
+  background: #e8f5e9;
+  color: #2e854b;
+  border-color: #2e854b;
+}
+
+.p2p-menu-btn {
+  background: #fff9e6 !important;
+  border-color: #d4a017 !important;
+  color: #7d5000 !important;
+}
+
 .cloud-sync-badge {
   background: #eaf4fd;
   color: var(--primary);
