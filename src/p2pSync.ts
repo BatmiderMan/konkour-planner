@@ -20,15 +20,27 @@ class P2PSyncService {
 
   private statusListeners: Array<(status: SyncStatus, peerId: string, count: number) => void> = [];
   private dataListeners: Array<(msg: SyncMessage) => void> = [];
+  private initAttempts: number = 0;
 
   constructor() {
-    this.initPeer();
+    // Delay initialization until DOM / window is ready
+    if (typeof window !== 'undefined') {
+      setTimeout(() => this.initPeer(), 100);
+    }
   }
 
   public initPeer() {
-    if (typeof (window as any).Peer === 'undefined') {
-      // Retry in 500ms if script is still loading asynchronously
-      setTimeout(() => this.initPeer(), 500);
+    if (typeof window === 'undefined') return;
+
+    const PeerClass = (window as any).Peer;
+    if (!PeerClass) {
+      this.initAttempts++;
+      // Stop retrying indefinitely if CDN is unreachable or offline
+      if (this.initAttempts < 15) {
+        setTimeout(() => this.initPeer(), 1000);
+      } else {
+        console.warn('PeerJS library is not available.');
+      }
       return;
     }
 
@@ -151,10 +163,14 @@ class P2PSyncService {
   }
 
   public broadcast(msg: SyncMessage) {
-    if (this.connections.length === 0) return;
+    if (!this.connections || this.connections.length === 0) return;
     this.connections.forEach((conn) => {
-      if (conn.open) {
-        conn.send(msg);
+      try {
+        if (conn && conn.open) {
+          conn.send(msg);
+        }
+      } catch (err) {
+        console.warn('Failed to send P2P message to peer:', err);
       }
     });
   }

@@ -106,6 +106,7 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'blocks' | 'sidebar'>('blocks');
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isP2POpen, setIsP2POpen] = useState<boolean>(false);
   const [isP2PConnected, setIsP2PConnected] = useState<boolean>(false);
 
