@@ -9,7 +9,6 @@ import { ChecklistCard } from './components/ChecklistCard';
 import { RoutineCard } from './components/RoutineCard';
 import { TransferCard } from './components/TransferCard';
 import { TotalCard } from './components/TotalCard';
-import { AuthModal } from './components/AuthModal';
 import { P2PSyncModal } from './components/P2PSyncModal';
 import { p2pSync } from './p2pSync';
 
@@ -107,8 +106,6 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'blocks' | 'sidebar'>('blocks');
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
   const [isP2POpen, setIsP2POpen] = useState<boolean>(false);
   const [isP2PConnected, setIsP2PConnected] = useState<boolean>(false);
 
@@ -141,6 +138,9 @@ export const App: React.FC = () => {
     };
   }, [daysIndex, state, currentId]);
 
+  const isApplyingRemoteUpdate = useRef<boolean>(false);
+  const lastSavedJson = useRef<string>('');
+
   const broadcastFullSync = () => {
     const allDaysData: Record<string, any> = {};
     daysIndex.forEach((entry) => {
@@ -162,6 +162,7 @@ export const App: React.FC = () => {
   const handleReceiveFullSync = (payload: any) => {
     if (!payload?.daysIndex || !payload?.days) return;
     try {
+      isApplyingRemoteUpdate.current = true;
       localStorage.setItem(KEY_INDEX, JSON.stringify(payload.daysIndex));
       for (const [id, dayData] of Object.entries(payload.days)) {
         localStorage.setItem(dayKey(id), JSON.stringify(dayData));
@@ -169,22 +170,45 @@ export const App: React.FC = () => {
       setDaysIndex(payload.daysIndex);
       if (payload.currentId && payload.days[payload.currentId]) {
         setCurrentId(payload.currentId);
-        setState(normalizeDayData(payload.days[payload.currentId]));
+        const norm = normalizeDayData(payload.days[payload.currentId]);
+        lastSavedJson.current = JSON.stringify(norm);
+        setState(norm);
         localStorage.setItem(KEY_CURRENT, payload.currentId);
       }
-      showStatus('⚡ همگام‌سازی زنده دریافت شد ✓');
+      showStatus('همگام‌سازی انجام شد ✓');
+      setTimeout(() => {
+        isApplyingRemoteUpdate.current = false;
+      }, 500);
     } catch (e) {
       console.error('Failed to apply P2P sync payload:', e);
+      isApplyingRemoteUpdate.current = false;
     }
   };
 
   const handleReceiveDayUpdate = (payload: { id: string; data: DayData }) => {
     if (!payload?.id || !payload?.data) return;
-    localStorage.setItem(dayKey(payload.id), JSON.stringify(payload.data));
-    if (payload.id === currentId) {
-      setState(normalizeDayData(payload.data));
+    try {
+      const norm = normalizeDayData(payload.data);
+      const incomingJson = JSON.stringify(norm);
+      const currentLocal = localStorage.getItem(dayKey(payload.id));
+
+      // If identical, do nothing (prevents infinite sync ping-pong loop)
+      if (currentLocal === incomingJson) return;
+
+      isApplyingRemoteUpdate.current = true;
+      localStorage.setItem(dayKey(payload.id), incomingJson);
+
+      if (payload.id === currentId) {
+        lastSavedJson.current = incomingJson;
+        setState(norm);
+      }
+      showStatus('همگام شد ✓');
+      setTimeout(() => {
+        isApplyingRemoteUpdate.current = false;
+      }, 500);
+    } catch (e) {
+      isApplyingRemoteUpdate.current = false;
     }
-    showStatus('⚡ به‌روزرسانی زنده ✓');
   };
 
   const handleReceiveDayDelete = (payload: { id: string }) => {
@@ -312,7 +336,13 @@ export const App: React.FC = () => {
   // Persist current day to localStorage and cloud
   const saveCurrentData = useCallback((data: DayData, id: string) => {
     try {
-      localStorage.setItem(dayKey(id), JSON.stringify(data));
+      const serialized = JSON.stringify(data);
+      if (lastSavedJson.current === serialized) {
+        return; // Nothing changed, skip saving and flashing status
+      }
+      lastSavedJson.current = serialized;
+
+      localStorage.setItem(dayKey(id), serialized);
 
       // Also persist the routine template so any future day gets the latest routine text
       if (Array.isArray(data.routine)) {
@@ -340,25 +370,12 @@ export const App: React.FC = () => {
       localStorage.setItem(KEY_CURRENT, id);
       showStatus('ذخیره شد ✓');
 
-      // Broadcast real-time change to connected peers
-      p2pSync.broadcast({
-        type: 'DAY_UPDATE',
-        payload: { id, data },
-        timestamp: Date.now()
-      });
-
-      // Sync to cloud if user is logged in
-      if (supabase.getUser()) {
-        supabase.upsertUserPlan({
-          id,
-          day: data.day,
-          date: data.date,
-          favorite: data.favorite,
-          blocks: data.blocks,
-          checklist: data.checklist,
-          routine: data.routine,
-          transfer: data.transfer,
-          updated_at: Date.now()
+      // Broadcast real-time change to connected peers only if not receiving
+      if (!isApplyingRemoteUpdate.current) {
+        p2pSync.broadcast({
+          type: 'DAY_UPDATE',
+          payload: { id, data },
+          timestamp: Date.now()
         });
       }
     } catch (e) {
@@ -369,7 +386,7 @@ export const App: React.FC = () => {
 
   // Debounced auto-save whenever state changes
   useEffect(() => {
-    if (!state || !currentId || loading) return;
+    if (!state || !currentId || loading || isApplyingRemoteUpdate.current) return;
 
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
@@ -517,9 +534,6 @@ export const App: React.FC = () => {
     if (!currentId) return;
     if (window.confirm('این برگه برای همیشه حذف شود؟ این کار قابل بازگشت نیست.')) {
       localStorage.removeItem(dayKey(currentId));
-      if (supabase.getUser()) {
-        supabase.deleteUserPlan(currentId);
-      }
       const remaining = daysIndex.filter((x) => x.id !== currentId);
       setDaysIndex(remaining);
       localStorage.setItem(KEY_INDEX, JSON.stringify(remaining));
@@ -670,20 +684,11 @@ export const App: React.FC = () => {
         onClose={() => setIsP2POpen(false)}
         onPerformFullSync={broadcastFullSync}
       />
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-        onSuccess={(email) => {
-          setUserEmail(email);
-          syncFromCloud();
-        }}
-      />
       <Toolbar
         days={daysIndex}
         currentId={currentId}
         saveStatus={saveStatus}
         installPrompt={installPrompt}
-        userEmail={userEmail}
         isP2PConnected={isP2PConnected}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -693,9 +698,6 @@ export const App: React.FC = () => {
         onExport={handleExportBackup}
         onImport={handleImportClick}
         onInstall={handleInstallApp}
-        onOpenAuth={() => setIsAuthOpen(true)}
-        onSignOut={handleSignOut}
-        onSyncCloud={syncFromCloud}
         onOpenP2PModal={() => setIsP2POpen(true)}
       />
 
