@@ -107,6 +107,7 @@ export const App: React.FC = () => {
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'blocks' | 'sidebar'>('blocks');
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
   const [isP2POpen, setIsP2POpen] = useState<boolean>(false);
   const [isP2PConnected, setIsP2PConnected] = useState<boolean>(false);
 
@@ -370,6 +371,21 @@ export const App: React.FC = () => {
       });
       localStorage.setItem(KEY_CURRENT, id);
       showStatus('ذخیره شد ✓');
+
+      // Sync to Supabase cloud if user is logged in
+      if (supabase.getUser()) {
+        supabase.upsertUserPlan({
+          id,
+          day: data.day,
+          date: data.date,
+          favorite: data.favorite,
+          blocks: data.blocks,
+          checklist: data.checklist,
+          routine: data.routine,
+          transfer: data.transfer,
+          updated_at: Date.now()
+        });
+      }
 
       // Broadcast real-time change to connected peers only if not receiving
       if (!isApplyingRemoteUpdate.current) {
@@ -685,11 +701,20 @@ export const App: React.FC = () => {
         onClose={() => setIsP2POpen(false)}
         onPerformFullSync={broadcastFullSync}
       />
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onSuccess={(email) => {
+          setUserEmail(email);
+          syncFromCloud();
+        }}
+      />
       <Toolbar
         days={daysIndex}
         currentId={currentId}
         saveStatus={saveStatus}
         installPrompt={installPrompt}
+        userEmail={userEmail}
         isP2PConnected={isP2PConnected}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -699,6 +724,9 @@ export const App: React.FC = () => {
         onExport={handleExportBackup}
         onImport={handleImportClick}
         onInstall={handleInstallApp}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        onSignOut={handleSignOut}
+        onSyncCloud={syncFromCloud}
         onOpenP2PModal={() => setIsP2POpen(true)}
       />
 

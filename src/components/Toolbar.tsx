@@ -6,6 +6,7 @@ interface ToolbarProps {
   currentId: string | null;
   saveStatus: string;
   installPrompt: any;
+  userEmail: string | null;
   isP2PConnected: boolean;
   activeTab: 'blocks' | 'sidebar';
   onTabChange: (tab: 'blocks' | 'sidebar') => void;
@@ -15,6 +16,9 @@ interface ToolbarProps {
   onExport: () => void;
   onImport: () => void;
   onInstall: () => void;
+  onOpenAuth: () => void;
+  onSignOut: () => void;
+  onSyncCloud: () => void;
   onOpenP2PModal: () => void;
 }
 
@@ -23,6 +27,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   currentId,
   saveStatus,
   installPrompt,
+  userEmail,
   isP2PConnected,
   activeTab,
   onTabChange,
@@ -32,6 +37,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onExport,
   onImport,
   onInstall,
+  onOpenAuth,
+  onSignOut,
+  onSyncCloud,
   onOpenP2PModal
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -74,6 +82,26 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             >
               {isP2PConnected ? '⚡ متصل' : '⚡ اتصال'}
             </button>
+
+            {userEmail ? (
+              <button
+                type="button"
+                className="cloud-sync-badge active"
+                onClick={onSyncCloud}
+                title={`همگام با حساب: ${userEmail}`}
+              >
+                ☁️ همگام
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn-login"
+                onClick={onOpenAuth}
+                title="ورود به حساب برای همگام‌سازی ابری"
+              >
+                🔐 ورود
+              </button>
+            )}
 
             <button
               type="button"
@@ -129,6 +157,50 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             </div>
 
             <div className="menu-buttons">
+              {userEmail ? (
+                <div className="user-profile-box" style={{ padding: '10px', background: '#eaf4fd', borderRadius: '8px', marginBottom: '8px', fontSize: '0.85rem' }}>
+                  <div style={{ marginBottom: '6px', fontWeight: 700, color: 'var(--primary)' }}>
+                    👤 {userEmail}
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      className="profile-btn sync"
+                      onClick={() => {
+                        onSyncCloud();
+                        setMenuOpen(false);
+                      }}
+                      style={{ flex: 1, padding: '4px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                    >
+                      🔄 همگام‌سازی
+                    </button>
+                    <button
+                      type="button"
+                      className="profile-btn logout"
+                      onClick={() => {
+                        onSignOut();
+                        setMenuOpen(false);
+                      }}
+                      style={{ flex: 1, padding: '4px', background: '#d32f2f', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                    >
+                      خروج
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="menu-btn"
+                  style={{ background: '#e8f4fd', color: '#1a5276', fontWeight: 700 }}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onOpenAuth();
+                  }}
+                >
+                  🔐 ورود یا ساخت حساب کاربری (همگام‌سازی ابری)
+                </button>
+              )}
+
               <button
                 type="button"
                 className="menu-btn p2p-menu-btn"

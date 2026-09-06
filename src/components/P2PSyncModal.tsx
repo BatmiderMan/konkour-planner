@@ -36,26 +36,22 @@ export const P2PSyncModal: React.FC<P2PSyncModalProps> = ({
 
   const handleCopyCode = () => {
     if (!peerId) return;
-    const cleanCode = peerId.replace(/^kp-/, '');
-    navigator.clipboard.writeText(cleanCode);
+    navigator.clipboard.writeText(peerId);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
-    let raw = targetCode.trim();
+    const raw = targetCode.trim();
     if (!raw) return;
-    if (!raw.startsWith('kp-') && /^\d+$/.test(raw)) {
-      raw = 'kp-' + raw;
-    }
     setConnecting(true);
     const success = await p2pSync.connectToPeer(raw);
     setConnecting(false);
     if (success) {
       onPerformFullSync();
     } else {
-      alert('خطا در اتصال به دستگاه مقصد. مطمئن شوید برنامه روی هر دو دستگاه باز است.');
+      alert('خطا در اتصال به دستگاه مقصد. مطمئن شوید برنامه روی هر دو دستگاه باز است و کد دقیق وارد شده است.');
     }
   };
 
@@ -132,19 +128,19 @@ export const P2PSyncModal: React.FC<P2PSyncModalProps> = ({
 
             {/* My Device Code */}
             <div className="auth-field" style={{ marginBottom: '14px' }}>
-              <label>کد ۶ رقمی این دستگاه (برای اتصال):</label>
+              <label>کد اختصاصی این دستگاه (برای اتصال):</label>
               <div style={{ display: 'flex', gap: '6px' }}>
                 <input
                   type="text"
                   dir="ltr"
                   readOnly
-                  value={peerId ? peerId.replace(/^kp-/, '') : 'در حال دریافت کد...'}
+                  value={peerId || 'در حال دریافت کد...'}
                   style={{
                     fontWeight: 800,
                     background: '#f9f5eb',
-                    letterSpacing: '3px',
+                    letterSpacing: '1px',
                     textAlign: 'center',
-                    fontSize: '1.2rem',
+                    fontSize: '0.95rem',
                     color: 'var(--primary)'
                   }}
                 />
@@ -171,19 +167,17 @@ export const P2PSyncModal: React.FC<P2PSyncModalProps> = ({
             {/* Connect to Remote Device Form */}
             <form onSubmit={handleConnect} className="auth-form">
               <div className="auth-field">
-                <label>کد ۶ رقمی دستگاه دیگر را وارد کنید:</label>
+                <label>کد دستگاه دیگر را وارد کنید:</label>
                 <input
                   type="text"
                   dir="ltr"
-                  inputMode="numeric"
-                  maxLength={6}
-                  placeholder="مثال: 582491"
+                  placeholder="کد دستگاه مقصد را اینجا پیست کنید..."
                   value={targetCode}
                   onChange={(e) => setTargetCode(e.target.value)}
                   style={{
                     textAlign: 'center',
-                    letterSpacing: '3px',
-                    fontSize: '1.1rem',
+                    letterSpacing: '1px',
+                    fontSize: '0.95rem',
                     fontWeight: 700
                   }}
                   required

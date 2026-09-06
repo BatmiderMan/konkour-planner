@@ -52,16 +52,15 @@ class P2PSyncService {
       this.status = 'connecting';
       this.notifyStatus();
 
-      // Generate a short 6-digit number / easy-to-type room code
-      const shortId = 'kp-' + Math.floor(100000 + Math.random() * 900000).toString();
-
+      // Initialize PeerJS
       const PeerClass = (window as any).Peer;
-      this.peer = new PeerClass(shortId, {
+      this.peer = new PeerClass({
         debug: 1,
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
             { urls: 'stun:global.stun.twilio.com:3478' }
           ]
         }
