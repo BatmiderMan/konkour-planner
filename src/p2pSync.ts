@@ -26,9 +26,9 @@ class P2PSyncService {
   }
 
   public initPeer() {
-    if (typeof Peer === 'undefined') {
-      console.warn('PeerJS CDN is still loading...');
-      setTimeout(() => this.initPeer(), 1000);
+    if (typeof (window as any).Peer === 'undefined') {
+      // Retry in 500ms if script is still loading asynchronously
+      setTimeout(() => this.initPeer(), 500);
       return;
     }
 
@@ -40,12 +40,13 @@ class P2PSyncService {
       this.status = 'connecting';
       this.notifyStatus();
 
-      // Generate a short 6-character room ID or use PeerJS server
-      this.peer = new Peer({
+      const PeerClass = (window as any).Peer;
+      this.peer = new PeerClass({
         debug: 1,
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
             { urls: 'stun:global.stun.twilio.com:3478' }
           ]
         }
