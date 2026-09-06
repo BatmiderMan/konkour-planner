@@ -59,6 +59,7 @@ class SupabaseService {
   private getHeaders(useAuth = true): HeadersInit {
     const headers: Record<string, string> = {
       apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       'Content-Type': 'application/json',
       Prefer: 'return=representation'
     };
@@ -75,7 +76,7 @@ class SupabaseService {
       const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
         method: 'POST',
         headers: this.getHeaders(false),
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, data: {} })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -87,6 +88,9 @@ class SupabaseService {
           refresh_token: data.refresh_token,
           user: { id: data.user.id, email: data.user.email }
         });
+      } else if (data.id && !data.access_token) {
+        // Supabase sent confirmation email required
+        return { error: 'ایمیل تایید ارسال شد. لطفاً در پنل Supabase گزینه Confirm email را خاموش کنید یا ایمیل خود را تایید کنید.' };
       }
       return { user: data.user };
     } catch (err: any) {
@@ -167,8 +171,16 @@ class SupabaseService {
     }
     try {
       const payload = {
-        ...plan,
-        user_id: this.session.user.id
+        id: plan.id,
+        user_id: this.session.user.id,
+        day: plan.day || '',
+        date: plan.date || '',
+        favorite: !!plan.favorite,
+        blocks: plan.blocks || [],
+        checklist: plan.checklist || [],
+        routine: plan.routine || [],
+        transfer: plan.transfer || [],
+        updated_at: plan.updated_at || Date.now()
       };
       const res = await fetch(`${SUPABASE_URL}/rest/v1/user_plans?on_conflict=id,user_id`, {
         method: 'POST',
@@ -180,9 +192,10 @@ class SupabaseService {
       });
       if (!res.ok) {
         const text = await res.text();
-        console.error('Supabase upsert failed:', res.status, text);
+        console.error('Supabase upsert response status:', res.status, text);
         return { error: text };
       }
+      console.log('✅ Plan successfully synced to Supabase cloud:', plan.id);
       return {};
     } catch (err: any) {
       console.error('Supabase network error during upsert:', err);
