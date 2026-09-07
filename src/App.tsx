@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { DayData, DayIndexEntry, StudyBlock, ChecklistItem } from './types';
 import { createDefaultDayData, createEmptyBlock, calculateTotalStudyTime } from './utils';
+import {
+  parseJalaliDate,
+  addDaysToJalali,
+  formatJalaliDate,
+  getNextDayOfWeekName,
+  getTodayJalali
+} from './jalali';
 import { supabase } from './supabase';
 import { Toolbar } from './components/Toolbar';
 import { ReportHeader } from './components/ReportHeader';
@@ -10,6 +17,7 @@ import { RoutineCard } from './components/RoutineCard';
 import { TransferCard } from './components/TransferCard';
 import { TotalCard } from './components/TotalCard';
 import { AuthModal } from './components/AuthModal';
+import { PeriodReportModal } from './components/PeriodReportModal';
 
 const KEY_INDEX = 'konkour_days_index_v2';
 const KEY_CURRENT = 'konkour_current_day_id_v2';
@@ -107,6 +115,7 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'blocks' | 'sidebar'>('blocks');
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
+  const [isReportOpen, setIsReportOpen] = useState<boolean>(false);
 
   const saveTimer = useRef<any>(null);
   const statusTimer = useRef<any>(null);
@@ -379,6 +388,28 @@ export const App: React.FC = () => {
       const newId = 'day_' + Date.now();
       const fresh = createDefaultDayData();
 
+      // Automatically compute next day's date & day name from current state or today
+      let nextDate = '';
+      let nextDayName = '';
+
+      if (state && state.date) {
+        const parsed = parseJalaliDate(state.date);
+        if (parsed) {
+          const tom = addDaysToJalali(parsed, 1);
+          nextDate = formatJalaliDate(tom);
+        }
+      }
+      if (!nextDate) {
+        nextDate = formatJalaliDate(getTodayJalali());
+      }
+
+      if (state && state.day) {
+        nextDayName = getNextDayOfWeekName(state.day);
+      }
+
+      fresh.date = nextDate;
+      fresh.day = nextDayName;
+
       // Copy latest routine titles into the new day (unchecked)
       if (state && Array.isArray(state.routine)) {
         fresh.routine = state.routine.map((r) => ({ text: r.text || '', done: false }));
@@ -410,8 +441,8 @@ export const App: React.FC = () => {
 
       const newEntry: DayIndexEntry = {
         id: newId,
-        day: '',
-        date: '',
+        day: nextDayName,
+        date: nextDate,
         updatedAt: Date.now()
       };
       const updatedIndex = [newEntry, ...daysIndex];
@@ -421,7 +452,7 @@ export const App: React.FC = () => {
       localStorage.setItem(KEY_INDEX, JSON.stringify(updatedIndex));
       localStorage.setItem(KEY_CURRENT, newId);
       localStorage.setItem(dayKey(newId), JSON.stringify(fresh));
-      showStatus('برگه جدید با روتین‌ها و تسک‌های منتقل‌شده آماده شد ✓');
+      showStatus('برگه روز بعد با تاریخ و روتین‌ها آماده شد ✓');
     }
   };
 
@@ -585,6 +616,12 @@ export const App: React.FC = () => {
           syncFromCloud();
         }}
       />
+      <PeriodReportModal
+        isOpen={isReportOpen}
+        onClose={() => setIsReportOpen(false)}
+        daysIndex={daysIndex}
+        currentDayDate={state.date}
+      />
       <Toolbar
         days={daysIndex}
         currentId={currentId}
@@ -596,6 +633,7 @@ export const App: React.FC = () => {
         onSelectDay={handleSelectDay}
         onNewDay={handleNewDay}
         onDeleteDay={handleDeleteDay}
+        onOpenReport={() => setIsReportOpen(true)}
         onExport={handleExportBackup}
         onImport={handleImportClick}
         onInstall={handleInstallApp}

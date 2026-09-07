@@ -1,4 +1,6 @@
 import React from 'react';
+import { ShamsiDatePicker } from './ShamsiDatePicker';
+import { parseJalaliDate, getJalaliDayOfWeek } from '../jalali';
 
 interface ReportHeaderProps {
   day: string;
@@ -13,6 +15,15 @@ export const ReportHeader: React.FC<ReportHeaderProps> = ({
   onDayChange,
   onDateChange
 }) => {
+  const handleDateSelected = (newDate: string) => {
+    onDateChange(newDate);
+    const parsed = parseJalaliDate(newDate);
+    if (parsed && (!day || day.trim() === '')) {
+      const dayName = getJalaliDayOfWeek(parsed);
+      onDayChange(dayName);
+    }
+  };
+
   return (
     <div className="report-header">
       <h1>گزارش کار روز</h1>
@@ -26,16 +37,16 @@ export const ReportHeader: React.FC<ReportHeaderProps> = ({
             placeholder="مثلاً شنبه"
           />
         </div>
-        <div className="field">
-          <label>تاریخ</label>
-          <input
-            type="text"
+        <div className="field date-field">
+          <ShamsiDatePicker
             value={date}
-            onChange={(e) => onDateChange(e.target.value)}
-            placeholder="۱۴۰۳/۰۶/۱۵"
+            onChange={handleDateSelected}
+            label="تاریخ"
+            placeholder="انتخاب تاریخ"
           />
         </div>
       </div>
     </div>
   );
 };
+
