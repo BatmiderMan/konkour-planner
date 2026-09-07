@@ -12,6 +12,7 @@ interface ToolbarProps {
   onSelectDay: (id: string) => void;
   onNewDay: () => void;
   onDeleteDay: () => void;
+  onOpenReport: () => void;
   onExport: () => void;
   onImport: () => void;
   onInstall: () => void;
@@ -31,6 +32,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onSelectDay,
   onNewDay,
   onDeleteDay,
+  onOpenReport,
   onExport,
   onImport,
   onInstall,
@@ -70,6 +72,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </div>
 
           <div className="bar-actions">
+            <button
+              type="button"
+              className="btn-report"
+              onClick={onOpenReport}
+              title="گزارش جامع دوره‌ای و نمودارها"
+            >
+              📊 گزارش
+            </button>
+
             {userEmail ? (
               <button
                 type="button"
@@ -189,6 +200,17 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             )}
 
             <div className="menu-buttons">
+              <button
+                type="button"
+                className="menu-btn report"
+                onClick={() => {
+                  onOpenReport();
+                  setMenuOpen(false);
+                }}
+              >
+                📊 گزارش جامع دوره‌ای و چاپ PDF
+              </button>
+
               {installPrompt && (
                 <button
                   type="button"
