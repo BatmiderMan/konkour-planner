@@ -13,6 +13,7 @@ interface ToolbarProps {
   onNewDay: () => void;
   onDeleteDay: () => void;
   onOpenReport: () => void;
+  onOpenTimer: () => void;
   onExport: () => void;
   onImport: () => void;
   onInstall: () => void;
@@ -33,6 +34,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onNewDay,
   onDeleteDay,
   onOpenReport,
+  onOpenTimer,
   onExport,
   onImport,
   onInstall,
@@ -70,6 +72,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </div>
 
           <div className="bar-actions">
+            <button
+              type="button"
+              className="btn-timer"
+              onClick={onOpenTimer}
+              title="تایمر و کرنومتر مطالعه"
+            >
+              <span className="btn-icon">⏱</span>
+              <span className="btn-text">تایمر</span>
+            </button>
+
             <button
               type="button"
               className="btn-report"
@@ -202,6 +214,17 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             )}
 
             <div className="menu-buttons">
+              <button
+                type="button"
+                className="menu-btn timer"
+                onClick={() => {
+                  onOpenTimer();
+                  setMenuOpen(false);
+                }}
+              >
+                ⏱ تایمر و کرنومتر هوشمند مطالعه
+              </button>
+
               <button
                 type="button"
                 className="menu-btn report"

@@ -18,6 +18,7 @@ import { TransferCard } from './components/TransferCard';
 import { TotalCard } from './components/TotalCard';
 import { AuthModal } from './components/AuthModal';
 import { PeriodReportModal } from './components/PeriodReportModal';
+import { StudyTimerModal } from './components/StudyTimerModal';
 
 const KEY_INDEX = 'konkour_days_index_v2';
 const KEY_CURRENT = 'konkour_current_day_id_v2';
@@ -116,6 +117,7 @@ export const App: React.FC = () => {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
   const [isReportOpen, setIsReportOpen] = useState<boolean>(false);
+  const [isTimerOpen, setIsTimerOpen] = useState<boolean>(false);
 
   const saveTimer = useRef<any>(null);
   const statusTimer = useRef<any>(null);
@@ -593,6 +595,30 @@ export const App: React.FC = () => {
     setState({ ...state, blocks });
   };
 
+  const handleSaveTimerBlock = (newBlock: StudyBlock) => {
+    if (!state || !currentId) return;
+
+    let updatedBlocks: StudyBlock[];
+    // If the day only has 1 empty block, replace it; otherwise append
+    if (
+      state.blocks.length === 1 &&
+      !state.blocks[0].lesson &&
+      !state.blocks[0].subject &&
+      !state.blocks[0].desc &&
+      !state.blocks[0].start &&
+      !state.blocks[0].end
+    ) {
+      updatedBlocks = [newBlock];
+    } else {
+      updatedBlocks = [...state.blocks, newBlock];
+    }
+
+    const nextState = { ...state, blocks: updatedBlocks };
+    setState(nextState);
+    saveCurrentData(nextState, currentId);
+    showStatus('پارت مطالعه با تایمر ثبت شد ✓');
+  };
+
   if (loading || !state) {
     return <div className="loading">در حال بارگذاری...</div>;
   }
@@ -622,6 +648,12 @@ export const App: React.FC = () => {
         daysIndex={daysIndex}
         currentDayDate={state.date}
       />
+      <StudyTimerModal
+        isOpen={isTimerOpen}
+        onClose={() => setIsTimerOpen(false)}
+        onSaveBlock={handleSaveTimerBlock}
+        currentDayLabel={`${state.day || ''} ${state.date || ''}`.trim()}
+      />
       <Toolbar
         days={daysIndex}
         currentId={currentId}
@@ -634,6 +666,7 @@ export const App: React.FC = () => {
         onNewDay={handleNewDay}
         onDeleteDay={handleDeleteDay}
         onOpenReport={() => setIsReportOpen(true)}
+        onOpenTimer={() => setIsTimerOpen(true)}
         onExport={handleExportBackup}
         onImport={handleImportClick}
         onInstall={handleInstallApp}
