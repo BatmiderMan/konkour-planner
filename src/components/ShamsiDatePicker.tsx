@@ -16,13 +16,15 @@ interface ShamsiDatePickerProps {
   onChange: (val: string) => void;
   placeholder?: string;
   label?: string;
+  align?: 'left' | 'right' | 'auto';
 }
 
 export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
   value,
   onChange,
   placeholder = 'انتخاب تاریخ شمسی',
-  label = 'تاریخ'
+  label = 'تاریخ',
+  align = 'auto'
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -138,7 +140,7 @@ export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
       </div>
 
       {isOpen && (
-        <div className="shamsi-dropdown">
+        <div className={`shamsi-dropdown align-${align}`}>
           <div className="shamsi-calendar-header">
             <button
               type="button"

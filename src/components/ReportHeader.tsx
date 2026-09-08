@@ -43,6 +43,7 @@ export const ReportHeader: React.FC<ReportHeaderProps> = ({
             onChange={handleDateSelected}
             label="تاریخ"
             placeholder="انتخاب تاریخ"
+            align="left"
           />
         </div>
       </div>

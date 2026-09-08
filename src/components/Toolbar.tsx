@@ -46,7 +46,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     <>
       <header className="mobile-app-bar">
         <div className="mobile-bar-main">
-          <div className="app-brand">
+          <div className="app-brand" title="دفتر کنکور">
             <span className="app-icon">📚</span>
             <span className="app-name">دفتر کنکور</span>
           </div>
@@ -56,6 +56,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               className="day-dropdown"
               value={currentId || ''}
               onChange={(e) => onSelectDay(e.target.value)}
+              aria-label="انتخاب روز"
             >
               {days.map((item) => {
                 const label = `${item.day || ''} ${item.date || ''}`.trim() || 'بدون عنوان';
@@ -66,9 +67,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 );
               })}
             </select>
-            <span className={`save-badge ${saveStatus ? 'show' : ''}`}>
-              {saveStatus}
-            </span>
           </div>
 
           <div className="bar-actions">
@@ -78,7 +76,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               onClick={onOpenReport}
               title="گزارش جامع دوره‌ای و نمودارها"
             >
-              📊 گزارش
+              <span className="btn-icon">📊</span>
+              <span className="btn-text">گزارش</span>
             </button>
 
             {userEmail ? (
@@ -88,7 +87,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 onClick={onSyncCloud}
                 title={`همگام با حساب: ${userEmail}`}
               >
-                ☁️ همگام
+                <span className="btn-icon">☁️</span>
+                <span className="btn-text">همگام</span>
               </button>
             ) : (
               <button
@@ -97,7 +97,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 onClick={onOpenAuth}
                 title="ورود به حساب برای همگام‌سازی ابری"
               >
-                🔐 ورود
+                <span className="btn-icon">🔐</span>
+                <span className="btn-text">ورود</span>
               </button>
             )}
 
@@ -107,7 +108,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               onClick={onNewDay}
               title="ایجاد روز جدید"
             >
-              + جدید
+              <span className="btn-icon">➕</span>
+              <span className="btn-text">جدید</span>
             </button>
             <button
               type="button"

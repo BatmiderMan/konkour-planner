@@ -196,6 +196,7 @@ export const PeriodReportModal: React.FC<PeriodReportModalProps> = ({
               onChange={setStartDate}
               label="از تاریخ:"
               placeholder="شروع بازه"
+              align="right"
             />
           </div>
           <div className="filter-item">
@@ -204,6 +205,7 @@ export const PeriodReportModal: React.FC<PeriodReportModalProps> = ({
               onChange={setEndDate}
               label="تا تاریخ:"
               placeholder="پایان بازه"
+              align="left"
             />
           </div>
           <div className="filter-item days-per-page">
@@ -258,58 +260,60 @@ export const PeriodReportModal: React.FC<PeriodReportModalProps> = ({
                         {dayItem.blocks.length === 0 ? (
                           <div className="report-no-blocks">ثبت مطالعه‌ای در این روز موجود نیست.</div>
                         ) : (
-                          <div className="report-blocks-table">
-                            <div className="report-table-head">
-                              <span className="col-num">پارت</span>
-                              <span className="col-time">ساعت</span>
-                              <span className="col-lesson">درس و مبحث</span>
-                              <span className="col-type">نوع فعالیت</span>
-                              <span className="col-desc">توضیحات و گزارش کار</span>
-                              <span className="col-tests">آمار تست</span>
+                          <div className="report-blocks-table-wrap">
+                            <div className="report-blocks-table">
+                              <div className="report-table-head">
+                                <span className="col-num">پارت</span>
+                                <span className="col-time">ساعت</span>
+                                <span className="col-lesson">درس و مبحث</span>
+                                <span className="col-type">نوع فعالیت</span>
+                                <span className="col-desc">توضیحات و گزارش کار</span>
+                                <span className="col-tests">آمار تست</span>
+                              </div>
+                              {dayItem.blocks.map((b, bIdx) => {
+                                const types: string[] = [];
+                                if (b.study) types.push('مطالعه');
+                                if (b.cls) types.push('کلاس');
+                                if (b.review) types.push('مرور');
+                                if (b.test) types.push('تست');
+
+                                const testStats = calculateTestPercentage(b.totalTests, b.wrong, b.blank);
+                                const hasTests = parseInt(b.totalTests, 10) > 0;
+
+                                return (
+                                  <div key={bIdx} className="report-table-row">
+                                    <span className="col-num">{toPersianDigits(bIdx + 1)}</span>
+                                    <span className="col-time">
+                                      {b.start && b.end ? (
+                                        `${toPersianDigits(b.start)} - ${toPersianDigits(b.end)}`
+                                      ) : (
+                                        '-'
+                                      )}
+                                    </span>
+                                    <span className="col-lesson">
+                                      <strong>{b.lesson || '-'}</strong>
+                                      {b.subject && <span className="sub-subject">{b.subject}</span>}
+                                    </span>
+                                    <span className="col-type">
+                                      {types.length > 0 ? types.join('، ') : '-'}
+                                    </span>
+                                    <span className="col-desc">{b.desc || '-'}</span>
+                                    <span className="col-tests">
+                                      {hasTests ? (
+                                        <div className="test-stat-summary">
+                                          <span>کل: {toPersianDigits(b.totalTests)}</span>
+                                          {parseInt(b.wrong, 10) > 0 && <span className="txt-wrong">غ: {toPersianDigits(b.wrong)}</span>}
+                                          {parseInt(b.blank, 10) > 0 && <span className="txt-blank">ن: {toPersianDigits(b.blank)}</span>}
+                                          <span className="txt-pct">درصد: {testStats.percentage}</span>
+                                        </div>
+                                      ) : (
+                                        '-'
+                                      )}
+                                    </span>
+                                  </div>
+                                );
+                              })}
                             </div>
-                            {dayItem.blocks.map((b, bIdx) => {
-                              const types: string[] = [];
-                              if (b.study) types.push('مطالعه');
-                              if (b.cls) types.push('کلاس');
-                              if (b.review) types.push('مرور');
-                              if (b.test) types.push('تست');
-
-                              const testStats = calculateTestPercentage(b.totalTests, b.wrong, b.blank);
-                              const hasTests = parseInt(b.totalTests, 10) > 0;
-
-                              return (
-                                <div key={bIdx} className="report-table-row">
-                                  <span className="col-num">{toPersianDigits(bIdx + 1)}</span>
-                                  <span className="col-time">
-                                    {b.start && b.end ? (
-                                      `${toPersianDigits(b.start)} - ${toPersianDigits(b.end)}`
-                                    ) : (
-                                      '-'
-                                    )}
-                                  </span>
-                                  <span className="col-lesson">
-                                    <strong>{b.lesson || '-'}</strong>
-                                    {b.subject && <span className="sub-subject">{b.subject}</span>}
-                                  </span>
-                                  <span className="col-type">
-                                    {types.length > 0 ? types.join('، ') : '-'}
-                                  </span>
-                                  <span className="col-desc">{b.desc || '-'}</span>
-                                  <span className="col-tests">
-                                    {hasTests ? (
-                                      <div className="test-stat-summary">
-                                        <span>کل: {toPersianDigits(b.totalTests)}</span>
-                                        {parseInt(b.wrong, 10) > 0 && <span className="txt-wrong">غ: {toPersianDigits(b.wrong)}</span>}
-                                        {parseInt(b.blank, 10) > 0 && <span className="txt-blank">ن: {toPersianDigits(b.blank)}</span>}
-                                        <span className="txt-pct">درصد: {testStats.percentage}</span>
-                                      </div>
-                                    ) : (
-                                      '-'
-                                    )}
-                                  </span>
-                                </div>
-                              );
-                            })}
                           </div>
                         )}
                       </div>

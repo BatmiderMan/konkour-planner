@@ -642,6 +642,12 @@ export const App: React.FC = () => {
         onSyncCloud={syncFromCloud}
       />
 
+      {saveStatus && (
+        <div className="status-toast" role="status" aria-live="polite">
+          {saveStatus}
+        </div>
+      )}
+
       <div className="sheet-wrap">
         <div className="sheet">
           <ReportHeader
