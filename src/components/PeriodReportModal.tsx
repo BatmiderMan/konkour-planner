@@ -30,6 +30,9 @@ interface ProcessedDay {
   blocksCount: number;
   blocks: StudyBlock[];
   hasLearning: boolean;
+  actualWakeTime: string;
+  targetWakeTime: string;
+  wakeMinutes: number;
 }
 
 export const PeriodReportModal: React.FC<PeriodReportModalProps> = ({
@@ -100,6 +103,20 @@ export const PeriodReportModal: React.FC<PeriodReportModalProps> = ({
               }
             });
 
+            const actualWake =
+              parsed.sleep?.actualWakeTime ||
+              parsed.sleep?.wakeTime ||
+              parsed.wakeTime ||
+              '06:00';
+            const targetWake =
+              parsed.sleep?.targetWakeTime || '06:00';
+
+            const wParts = actualWake.split(':').map(Number);
+            const wakeMins =
+              wParts.length === 2 && !isNaN(wParts[0]) && !isNaN(wParts[1])
+                ? wParts[0] * 60 + wParts[1]
+                : 360;
+
             result.push({
               id: item.id,
               day: parsed.day || item.day || '',
@@ -108,7 +125,10 @@ export const PeriodReportModal: React.FC<PeriodReportModalProps> = ({
               totalMinutes: totalMins,
               blocksCount: validBlocks.length,
               blocks: validBlocks,
-              hasLearning: validBlocks.length > 0
+              hasLearning: validBlocks.length > 0,
+              actualWakeTime: actualWake,
+              targetWakeTime: targetWake,
+              wakeMinutes: wakeMins
             });
           } catch (e) {
             console.error('Error parsing day for report:', e);
@@ -374,6 +394,13 @@ export const PeriodReportModal: React.FC<PeriodReportModalProps> = ({
                     <BlocksCountBarChart days={filteredDays} />
                   </div>
                 </div>
+
+                <div className="report-chart-section">
+                  <h4 className="chart-title">⏰ نمودار ساعات بیداری و سحرخیزی در روزهای دوره</h4>
+                  <div className="chart-wrapper">
+                    <WakeUpTimeChart days={filteredDays} />
+                  </div>
+                </div>
               </div>
             </>
           )}
@@ -537,6 +564,134 @@ const BlocksCountBarChart: React.FC<{ days: ProcessedDay[] }> = ({ days }) => {
               fontFamily="Vazirmatn, Tahoma"
             >
               {toPersianDigits(d.date.slice(5))}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+};
+
+const WakeUpTimeChart: React.FC<{ days: ProcessedDay[] }> = ({ days }) => {
+  if (days.length === 0) return null;
+
+  // Wake time scale from 04:00 (240m) to 10:00 (600m)
+  const MIN_WAKE_MINS = 240; // 04:00
+  const MAX_WAKE_MINS = 600; // 10:00
+  const RANGE_MINS = MAX_WAKE_MINS - MIN_WAKE_MINS;
+
+  const chartHeight = 160;
+  const chartWidth = Math.max(500, days.length * 55);
+
+  const getPoints = () => {
+    return days.map((d, i) => {
+      const x = 55 + i * ((chartWidth - 70) / days.length) + ((chartWidth - 70) / days.length) / 2;
+      const clampedMins = Math.max(MIN_WAKE_MINS, Math.min(MAX_WAKE_MINS, d.wakeMinutes));
+      // Invert Y so earlier wake-up (e.g. 05:00) is higher up on the chart
+      const ratio = (clampedMins - MIN_WAKE_MINS) / RANGE_MINS;
+      const y = 20 + ratio * (chartHeight - 40);
+      return { x, y, day: d };
+    });
+  };
+
+  const points = getPoints();
+  const pathD = points.reduce((acc, pt, idx) => {
+    return idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
+  }, '');
+
+  const axisHours = [4, 5, 6, 7, 8, 9, 10];
+
+  return (
+    <svg viewBox={`0 0 ${chartWidth} ${chartHeight + 40}`} className="analytics-svg-chart">
+      {/* Grid Lines and Hour Labels */}
+      {axisHours.map((hr) => {
+        const mins = hr * 60;
+        const ratio = (mins - MIN_WAKE_MINS) / RANGE_MINS;
+        const y = 20 + ratio * (chartHeight - 40);
+        const labelStr = `${String(hr).padStart(2, '0')}:۰۰`;
+        return (
+          <g key={hr}>
+            <line x1="45" y1={y} x2={chartWidth - 10} y2={y} stroke="#e4d7be" strokeDasharray="3 3" />
+            <text
+              x="40"
+              y={y + 4}
+              textAnchor="end"
+              fontSize="9"
+              fill="#706249"
+              fontFamily="Vazirmatn, Tahoma"
+            >
+              {toPersianDigits(labelStr)}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* Target Wake-Up 06:00 reference line */}
+      <line
+        x1="45"
+        y1={20 + ((360 - MIN_WAKE_MINS) / RANGE_MINS) * (chartHeight - 40)}
+        x2={chartWidth - 10}
+        y2={20 + ((360 - MIN_WAKE_MINS) / RANGE_MINS) * (chartHeight - 40)}
+        stroke="#3b82f6"
+        strokeWidth="1.5"
+        strokeDasharray="4 4"
+      />
+
+      {/* Connected Line Path */}
+      {points.length > 1 && (
+        <path
+          d={pathD}
+          fill="none"
+          stroke="#f59e0b"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+
+      {/* Point Nodes */}
+      {points.map((pt) => {
+        return (
+          <g key={pt.day.id}>
+            <circle
+              cx={pt.x}
+              cy={pt.y}
+              r="5"
+              fill="#d97706"
+              stroke="#ffffff"
+              strokeWidth="2"
+            />
+            <text
+              x={pt.x}
+              y={pt.y - 8}
+              textAnchor="middle"
+              fontSize="9"
+              fontWeight="bold"
+              fill="#92400e"
+              fontFamily="Vazirmatn, Tahoma"
+            >
+              {toPersianDigits(pt.day.actualWakeTime || '06:00')}
+            </text>
+            <text
+              x={pt.x}
+              y={chartHeight + 15}
+              textAnchor="middle"
+              fontSize="9"
+              fontWeight="600"
+              fill="#2b2319"
+              fontFamily="Vazirmatn, Tahoma"
+            >
+              {pt.day.day ? pt.day.day.slice(0, 4) : ''}
+            </text>
+            <text
+              x={pt.x}
+              y={chartHeight + 28}
+              textAnchor="middle"
+              fontSize="8"
+              fill="#706249"
+              fontFamily="Vazirmatn, Tahoma"
+            >
+              {toPersianDigits(pt.day.date.slice(5))}
             </text>
           </g>
         );

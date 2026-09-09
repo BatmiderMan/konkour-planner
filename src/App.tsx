@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { DayData, DayIndexEntry, StudyBlock, ChecklistItem } from './types';
-import { createDefaultDayData, createEmptyBlock, calculateTotalStudyTime } from './utils';
+import {
+  createDefaultDayData,
+  createEmptyBlock,
+  createDefaultSleepData,
+  calculateTotalStudyTime
+} from './utils';
 import {
   parseJalaliDate,
   addDaysToJalali,
@@ -19,6 +24,7 @@ import { TotalCard } from './components/TotalCard';
 import { AuthModal } from './components/AuthModal';
 import { PeriodReportModal } from './components/PeriodReportModal';
 import { StudyTimerModal } from './components/StudyTimerModal';
+import { SleepTrackerCard } from './components/SleepTrackerCard';
 
 const KEY_INDEX = 'konkour_days_index_v2';
 const KEY_CURRENT = 'konkour_current_day_id_v2';
@@ -102,7 +108,8 @@ function normalizeDayData(parsed: any): DayData {
     blocks,
     checklist,
     routine,
-    transfer
+    transfer,
+    sleep: parsed.sleep || createDefaultSleepData()
   };
 }
 
@@ -113,7 +120,7 @@ export const App: React.FC = () => {
   const [saveStatus, setSaveStatus] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'blocks' | 'sidebar'>('blocks');
+  const [activeTab, setActiveTab] = useState<'blocks' | 'sidebar' | 'sleep'>('blocks');
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
   const [isReportOpen, setIsReportOpen] = useState<boolean>(false);
@@ -713,20 +720,29 @@ export const App: React.FC = () => {
             </div>
 
             <div className="side-col">
-              <ChecklistCard
-                checklist={state.checklist}
-                onChange={(checklist) => setState({ ...state, checklist })}
-              />
+              <div className="sleep-section-wrap">
+                <SleepTrackerCard
+                  sleep={state.sleep || createDefaultSleepData()}
+                  onChange={(sleep) => setState({ ...state, sleep })}
+                />
+              </div>
 
-              <RoutineCard
-                routine={state.routine}
-                onChange={(routine) => setState({ ...state, routine })}
-              />
+              <div className="tasks-section-wrap">
+                <ChecklistCard
+                  checklist={state.checklist}
+                  onChange={(checklist) => setState({ ...state, checklist })}
+                />
 
-              <TransferCard
-                transfer={state.transfer}
-                onChange={(transfer) => setState({ ...state, transfer })}
-              />
+                <RoutineCard
+                  routine={state.routine}
+                  onChange={(routine) => setState({ ...state, routine })}
+                />
+
+                <TransferCard
+                  transfer={state.transfer}
+                  onChange={(transfer) => setState({ ...state, transfer })}
+                />
+              </div>
 
               <TotalCard
                 totalHours={totalStudyTime}

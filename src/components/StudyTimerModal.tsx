@@ -57,6 +57,46 @@ export const StudyTimerModal: React.FC<StudyTimerModalProps> = ({
   const [blank, setBlank] = useState<string>('');
 
   const timerRef = useRef<any>(null);
+  const wakeLockRef = useRef<any>(null);
+
+  // Screen Wake Lock helper to keep phone awake during study sessions
+  const requestWakeLock = async () => {
+    if ('wakeLock' in navigator) {
+      try {
+        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+      } catch (err) {
+        console.warn('Wake Lock request error:', err);
+      }
+    }
+  };
+
+  const releaseWakeLock = () => {
+    if (wakeLockRef.current) {
+      wakeLockRef.current.release().catch(() => {});
+      wakeLockRef.current = null;
+    }
+  };
+
+  // Manage Wake Lock on isRunning and visibility change
+  useEffect(() => {
+    if (isRunning) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isRunning) {
+        requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      releaseWakeLock();
+    };
+  }, [isRunning]);
 
   // Format Date to HH:mm string
   const formatTimeHHMM = (date: Date): string => {
@@ -335,6 +375,11 @@ export const StudyTimerModal: React.FC<StudyTimerModalProps> = ({
                           ? '⏸ متوقف شده'
                           : 'آماده شروع مطالعه'}
                       </span>
+                      {isRunning && (
+                        <span className="wake-lock-badge" title="صفحه نمایش در طول مطالعه روشن می‌ماند">
+                          💡 صفحه بیدار
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -7,8 +7,8 @@ interface ToolbarProps {
   saveStatus: string;
   installPrompt: any;
   userEmail: string | null;
-  activeTab: 'blocks' | 'sidebar';
-  onTabChange: (tab: 'blocks' | 'sidebar') => void;
+  activeTab: 'blocks' | 'sidebar' | 'sleep';
+  onTabChange: (tab: 'blocks' | 'sidebar' | 'sleep') => void;
   onSelectDay: (id: string) => void;
   onNewDay: () => void;
   onDeleteDay: () => void;
@@ -141,17 +141,75 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             className={`tab-btn ${activeTab === 'blocks' ? 'active' : ''}`}
             onClick={() => onTabChange('blocks')}
           >
-            ⏱ بازه‌های مطالعه
+            ⏱ پارت‌های مطالعه
           </button>
           <button
             type="button"
             className={`tab-btn ${activeTab === 'sidebar' ? 'active' : ''}`}
             onClick={() => onTabChange('sidebar')}
           >
-            📋 چک‌لیست و روتین‌ها
+            📋 چک‌لیست و روتین
+          </button>
+          <button
+            type="button"
+            className={`tab-btn ${activeTab === 'sleep' ? 'active' : ''}`}
+            onClick={() => onTabChange('sleep')}
+          >
+            🌙 خواب و انرژی
           </button>
         </div>
       </header>
+
+      {/* Modern Ergonomic Bottom Navigation Dock for Mobile */}
+      <nav className="mobile-bottom-dock no-print">
+        <button
+          type="button"
+          className={`dock-btn ${activeTab === 'blocks' ? 'active' : ''}`}
+          onClick={() => onTabChange('blocks')}
+        >
+          <span className="dock-icon">⏱</span>
+          <span className="dock-label">مطالعه</span>
+        </button>
+
+        <button
+          type="button"
+          className={`dock-btn ${activeTab === 'sidebar' ? 'active' : ''}`}
+          onClick={() => onTabChange('sidebar')}
+        >
+          <span className="dock-icon">📋</span>
+          <span className="dock-label">روتین</span>
+        </button>
+
+        <button
+          type="button"
+          className="dock-btn timer-quick-btn"
+          onClick={onOpenTimer}
+          title="شروع سریع تایمر مطالعه"
+        >
+          <div className="quick-timer-circle">
+            <span className="dock-icon">⚡</span>
+          </div>
+          <span className="dock-label">تایمر</span>
+        </button>
+
+        <button
+          type="button"
+          className={`dock-btn ${activeTab === 'sleep' ? 'active' : ''}`}
+          onClick={() => onTabChange('sleep')}
+        >
+          <span className="dock-icon">🌙</span>
+          <span className="dock-label">خواب</span>
+        </button>
+
+        <button
+          type="button"
+          className="dock-btn"
+          onClick={onOpenReport}
+        >
+          <span className="dock-icon">📊</span>
+          <span className="dock-label">گزارش</span>
+        </button>
+      </nav>
 
       {/* Slide-out Menu / Modal for settings and actions */}
       {menuOpen && (

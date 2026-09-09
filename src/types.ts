@@ -25,6 +25,22 @@ export interface RoutineItem {
   done: boolean;
 }
 
+export interface SleepData {
+  targetBedtime: string;
+  targetWakeTime: string;
+  actualBedtime: string;
+  actualWakeTime: string;
+  bedtimeCheckedIn?: boolean;
+  wakeCheckedIn?: boolean;
+  wakeCheckinTimestamp?: number;
+  napMinutes: number;
+  notes: string;
+  checklist?: { text: string; done: boolean }[];
+  // Legacy fields for backward compatibility
+  bedtime?: string;
+  wakeTime?: string;
+}
+
 export interface DayData {
   day: string;
   date: string;
@@ -33,6 +49,7 @@ export interface DayData {
   checklist: ChecklistItem[];
   routine: RoutineItem[];
   transfer: ChecklistItem[];
+  sleep?: SleepData;
 }
 
 export interface DayIndexEntry {

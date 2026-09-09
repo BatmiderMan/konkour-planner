@@ -886,6 +886,728 @@ html, body {
   color: var(--ink);
 }
 
+.wake-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  margin-top: 5px;
+  animation: fadeIn 0.3s ease;
+}
+
+/* ==========================================================================
+   🌙 Sleep Tracker Card Styles
+   ========================================================================== */
+.sleep-card {
+  background: #ffffff;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(45, 35, 20, 0.08);
+  margin-bottom: 16px;
+  transition: transform 0.15s ease;
+}
+
+.sleep-header {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
+  color: #ffffff !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+}
+
+.sleep-header .card-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sleep-header h2 {
+  color: #ffffff !important;
+  font-size: 0.95rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.sleep-sub-label {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.sleep-icon {
+  font-size: 1.2rem;
+}
+
+.sleep-total-badge {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: 0.76rem;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #f1f5f9;
+}
+
+.sleep-total-badge b {
+  color: #fde047;
+  font-weight: 800;
+}
+
+.sleep-card-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #fcfbf8;
+}
+
+/* Morning Check-In Hero Banner */
+.morning-checkin-banner {
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  transition: all 0.2s ease;
+}
+
+.morning-checkin-banner.active {
+  background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
+  border: 1.5px solid #f59e0b;
+}
+
+.morning-checkin-banner.done {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 1.5px solid #10b981;
+}
+
+.morning-checkin-banner.disabled {
+  background: #f1ebd9;
+  border: 1.5px solid var(--line);
+  opacity: 0.85;
+}
+
+.checkin-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.checkin-icon {
+  font-size: 1.6rem;
+}
+
+.checkin-title {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.checkin-desc {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--sub-ink);
+  margin-top: 2px;
+}
+
+.btn-wake-checkin {
+  background: #f59e0b;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-wake-checkin:hover {
+  background: #d97706;
+  transform: translateY(-1px);
+}
+
+.btn-wake-checkin.checked {
+  background: #10b981;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-wake-checkin.checked:hover {
+  background: #059669;
+}
+
+.checkin-locked-tag {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--sub-ink);
+  background: #e2d7c0;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+/* Discipline Adherence Score Card */
+.discipline-score-card {
+  background: #ffffff;
+  border: 2px solid #16a34a;
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.discipline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.disc-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.disc-badge {
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 2px 10px;
+  border-radius: 12px;
+  letter-spacing: 0.5px;
+}
+
+.disc-status-text {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--sub-ink);
+}
+
+/* Target vs Actual Timing Grid */
+.sleep-timing-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.timing-col {
+  background: #ffffff;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.target-col {
+  border-color: #93c5fd;
+  background: #f8fafc;
+}
+
+.actual-col {
+  border-color: #fed7aa;
+  background: #fffdf5;
+}
+
+.col-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1.5px solid var(--line-soft);
+}
+
+.col-icon {
+  font-size: 1rem;
+}
+
+.col-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.timing-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stylish-time-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stylish-time-field label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--sub-ink);
+}
+
+.label-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.btn-stamp-now {
+  background: #f1ebd9;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 2px 7px;
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-stamp-now:hover {
+  background: #e2d2b7;
+  color: #1e3a8a;
+}
+
+.time-input-wrap {
+  background: #ffffff;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+}
+
+.time-input-wrap:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(55, 95, 138, 0.15);
+}
+
+.time-input-wrap input[type="time"] {
+  border: none;
+  background: transparent;
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--ink);
+  outline: none;
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   📊 Sleep Timeline Comparison Chart
+   ========================================================================== */
+.sleep-comparison-chart-card {
+  background: #ffffff;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chart-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-icon {
+  font-size: 1.1rem;
+}
+
+.chart-header h4 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.timeline-chart-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #faf8f2;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  padding: 12px 10px;
+  box-sizing: border-box;
+}
+
+.timeline-axis {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 45px 4px 5px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.timeline-time-mark {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--sub-ink);
+  direction: ltr;
+}
+
+.timeline-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.row-label {
+  width: 38px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.row-label.target-lbl {
+  color: #0284c7;
+}
+
+.row-label.actual-lbl {
+  color: #d97706;
+}
+
+.timeline-track {
+  flex: 1;
+  height: 24px;
+  background: #f1ebd9;
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.timeline-fill {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+}
+
+.timeline-fill.target-fill {
+  background: linear-gradient(90deg, #0284c7 0%, #38bdf8 100%);
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);
+}
+
+.timeline-fill.actual-fill {
+  background: linear-gradient(90deg, #ea580c 0%, #f59e0b 100%);
+  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.3);
+}
+
+.fill-time {
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.timeline-diff-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line-soft);
+}
+
+.diff-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.diff-tag.good {
+  background: #ecfdf5;
+  color: #15803d;
+}
+
+.diff-tag.warn {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.chart-legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.72rem;
+  color: var(--sub-ink);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-box {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.legend-box.target {
+  background: #0284c7;
+}
+
+.legend-box.actual {
+  background: #ea580c;
+}
+
+/* ==========================================================================
+   🛋️ Midday Nap & Rest Section
+   ========================================================================== */
+.nap-section {
+  background: #ffffff;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.section-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sec-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.nap-current-value {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #0284c7;
+  background: #e0f2fe;
+  padding: 2px 10px;
+  border-radius: 8px;
+}
+
+.nap-preset-chips {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+.nap-chip {
+  padding: 7px 2px;
+  background: #fbf9f4;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--sub-ink);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.nap-chip:hover {
+  border-color: #0284c7;
+  color: #0284c7;
+}
+
+.nap-chip.active {
+  background: #0284c7;
+  border-color: #0284c7;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+  font-weight: 800;
+}
+
+.nap-custom-input-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line-soft);
+}
+
+.nap-custom-input-row label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--sub-ink);
+}
+
+.nap-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #ffffff;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  padding: 4px 8px;
+  width: 120px;
+}
+
+.nap-input-wrap:focus-within {
+  border-color: #0284c7;
+}
+
+.nap-input-wrap input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-align: center;
+  color: var(--ink);
+  outline: none;
+}
+
+.nap-unit {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--sub-ink);
+}
+
+.sleep-notes-input {
+  width: 100%;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: #ffffff;
+  font-family: inherit;
+  font-size: 0.8rem;
+  color: var(--ink);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.sleep-notes-input:focus {
+  border-color: #0284c7;
+}
+
+/* ==========================================================================
+   📱 Mobile Bottom Navigation Dock Styles
+   ========================================================================== */
+.mobile-bottom-dock {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 150;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1.5px solid var(--line);
+  padding: 4px 8px calc(env(safe-area-inset-bottom, 0px) + 6px);
+  justify-content: space-around;
+  align-items: center;
+  box-shadow: 0 -4px 20px rgba(45, 35, 20, 0.08);
+}
+
+.dock-btn {
+  background: transparent;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  color: var(--sub-ink);
+  transition: all 0.2s ease;
+  min-width: 54px;
+}
+
+.dock-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.dock-label {
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.dock-btn.active {
+  color: var(--primary);
+  background: #eef5fc;
+}
+
+.dock-btn.active .dock-label {
+  font-weight: 800;
+}
+
+.dock-btn.timer-quick-btn {
+  position: relative;
+  top: -12px;
+}
+
+.quick-timer-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.4);
+  transition: transform 0.15s ease;
+}
+
+.dock-btn.timer-quick-btn:hover .quick-timer-circle,
+.dock-btn.timer-quick-btn:active .quick-timer-circle {
+  transform: scale(1.08);
+}
+
+.dock-btn.timer-quick-btn .dock-icon {
+  font-size: 1.3rem;
+  color: #ffffff;
+}
+
+.dock-btn.timer-quick-btn .dock-label {
+  color: #92400e;
+  font-weight: 800;
+}
+
 /* ==========================================================================
    📊 Period Report Modal & Printable Report Styles
    ========================================================================== */
@@ -2494,12 +3216,20 @@ html, body {
    ========================================================================== */
 @media (max-width: 768px) {
   body {
-    padding-bottom: 24px;
+    padding-bottom: 84px;
     background: #f9f5ec;
+  }
+
+  .mobile-bottom-dock {
+    display: flex;
   }
 
   .mobile-view-tabs {
     display: flex;
+  }
+
+  .status-toast {
+    bottom: 76px;
   }
 
   .sheet-wrap {
@@ -2546,7 +3276,7 @@ html, body {
     box-sizing: border-box;
   }
 
-  /* Single-column Tab Switcher display */
+  /* 3-Tab View Switcher Display */
   .main-grid {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -2556,8 +3286,24 @@ html, body {
     display: none;
   }
 
-  .main-grid.show-sidebar .blocks-col {
+  .main-grid.show-sidebar .blocks-col,
+  .main-grid.show-sidebar .sleep-section-wrap {
     display: none;
+  }
+
+  .main-grid.show-sidebar .tasks-section-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .main-grid.show-sleep .blocks-col,
+  .main-grid.show-sleep .tasks-section-wrap {
+    display: none;
+  }
+
+  .main-grid.show-sleep .sleep-section-wrap {
+    display: block;
   }
 
   .block-card {

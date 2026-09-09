@@ -1,4 +1,4 @@
-import { DayData, StudyBlock } from './types';
+import { DayData, StudyBlock, SleepData } from './types';
 
 export const ORDINALS = [
   'اول', 'دوم', 'سوم', 'چهارم', 'پنجم',
@@ -55,6 +55,86 @@ export function createEmptyBlock(): StudyBlock {
   };
 }
 
+export function createDefaultSleepData(): SleepData {
+  return {
+    targetBedtime: '23:00',
+    targetWakeTime: '06:00',
+    actualBedtime: '23:00',
+    actualWakeTime: '06:00',
+    bedtimeCheckedIn: false,
+    wakeCheckedIn: false,
+    napMinutes: 0,
+    notes: '',
+    checklist: [
+      { text: 'قطع کار با گوشی و نمایشگر ۳۰ دقیقه قبل خواب', done: false },
+      { text: 'تاریک، خنک و ساکت کردن اتاق خواب', done: false },
+      { text: 'آماده‌سازی کتاب‌ها و وسایل مطالعه فردا', done: false },
+      { text: 'تنفس عمیق و آرام‌سازی ذهن', done: false }
+    ]
+  };
+}
+
+export function calculateTimeDiffMinutes(targetTime: string, actualTime: string): number {
+  if (!targetTime || !actualTime) return 0;
+  const t = targetTime.split(':').map(Number);
+  const a = actualTime.split(':').map(Number);
+  if (t.length !== 2 || a.length !== 2) return 0;
+  return (a[0] * 60 + a[1]) - (t[0] * 60 + t[1]);
+}
+
+export function calculateGoalAdherence(
+  targetBedtime: string,
+  actualBedtime: string,
+  targetWakeTime: string,
+  actualWakeTime: string
+): {
+  wakeDiffMinutes: number;
+  bedDiffMinutes: number;
+  scorePercent: number;
+  statusText: string;
+  statusColor: string;
+} {
+  const wakeDiff = calculateTimeDiffMinutes(targetWakeTime, actualWakeTime);
+  const bedDiff = calculateTimeDiffMinutes(targetBedtime, actualBedtime);
+
+  const absWake = Math.abs(wakeDiff);
+  const absBed = Math.abs(bedDiff);
+
+  // Score starts from 100 and loses points based on deviation
+  let penalty = 0;
+  if (wakeDiff > 0) penalty += Math.min(50, wakeDiff * 1.5); // late wake up is penalty
+  else if (wakeDiff < 0) penalty += Math.min(10, Math.abs(wakeDiff) * 0.2); // earlier wake is fine
+
+  if (bedDiff > 0) penalty += Math.min(40, bedDiff * 1.0); // late sleep is penalty
+
+  const scorePercent = Math.max(20, Math.round(100 - penalty));
+
+  let statusText = 'هدف‌گذاری عالی و تعهد کامل 🎯';
+  let statusColor = '#16a34a';
+
+  if (absWake <= 10 && absBed <= 15) {
+    statusText = 'پایبندی فوق‌العاده به ساعت خواب و بیداری 🎯';
+    statusColor = '#16a34a';
+  } else if (absWake <= 30 && absBed <= 30) {
+    statusText = 'نظم بسیار خوب با انحراف جزئی ⚡';
+    statusColor = '#0284c7';
+  } else if (wakeDiff > 30) {
+    statusText = `${toPersianDigits(wakeDiff)} دقیقه تاخیر در بیداری نسبت به هدف ⚠️`;
+    statusColor = '#d97706';
+  } else {
+    statusText = 'نیاز به تنظیم دقیق‌تر ساعت خواب و بیداری 💡';
+    statusColor = '#dc2626';
+  }
+
+  return {
+    wakeDiffMinutes: wakeDiff,
+    bedDiffMinutes: bedDiff,
+    scorePercent,
+    statusText,
+    statusColor
+  };
+}
+
 export function createDefaultDayData(): DayData {
   return {
     day: '',
@@ -63,7 +143,55 @@ export function createDefaultDayData(): DayData {
     blocks: [createEmptyBlock()],
     checklist: Array.from({ length: 5 }, () => ({ text: '', done: false })),
     routine: Array.from({ length: 6 }, () => ({ text: '', done: false })),
-    transfer: Array.from({ length: 4 }, () => ({ text: '', done: false }))
+    transfer: Array.from({ length: 4 }, () => ({ text: '', done: false })),
+    sleep: createDefaultSleepData()
+  };
+}
+
+export function calculateSleepDuration(bedtime: string, wakeTime: string, napMinutes = 0): {
+  nightMinutes: number;
+  totalMinutes: number;
+  formattedNight: string;
+  formattedTotal: string;
+  hoursDecimal: number;
+} {
+  let nightMinutes = 0;
+
+  if (bedtime && wakeTime) {
+    const s = bedtime.split(':').map(Number);
+    const e = wakeTime.split(':').map(Number);
+    if (s.length === 2 && e.length === 2) {
+      const startTotal = s[0] * 60 + s[1];
+      const endTotal = e[0] * 60 + e[1];
+
+      if (endTotal >= startTotal) {
+        nightMinutes = endTotal - startTotal;
+      } else {
+        // Crossed midnight (e.g. 23:30 to 06:30)
+        nightMinutes = (1440 - startTotal) + endTotal;
+      }
+    }
+  }
+
+  const validNap = Number(napMinutes) || 0;
+  const totalMinutes = nightMinutes + validNap;
+
+  const hN = Math.floor(nightMinutes / 60);
+  const mN = nightMinutes % 60;
+  const formattedNight = `${toPersianDigits(hN)} ساعت و ${toPersianDigits(mN)} دقیقه`;
+
+  const hT = Math.floor(totalMinutes / 60);
+  const mT = totalMinutes % 60;
+  const formattedTotal = `${toPersianDigits(hT)} ساعت و ${toPersianDigits(mT)} دقیقه`;
+
+  const hoursDecimal = Math.round((totalMinutes / 60) * 10) / 10;
+
+  return {
+    nightMinutes,
+    totalMinutes,
+    formattedNight,
+    formattedTotal,
+    hoursDecimal
   };
 }
 
