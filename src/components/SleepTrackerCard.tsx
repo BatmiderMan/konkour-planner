@@ -61,10 +61,10 @@ export const SleepTrackerCard: React.FC<SleepTrackerCardProps> = ({
   onChange
 }) => {
   const data: SleepData = {
-    targetBedtime: sleep?.targetBedtime || sleep?.bedtime || '23:00',
-    targetWakeTime: sleep?.targetWakeTime || sleep?.wakeTime || '06:00',
-    actualBedtime: sleep?.actualBedtime || sleep?.bedtime || '23:00',
-    actualWakeTime: sleep?.actualWakeTime || sleep?.wakeTime || '06:00',
+    targetBedtime: sleep?.targetBedtime || '23:00',
+    targetWakeTime: sleep?.targetWakeTime || '06:00',
+    actualBedtime: sleep?.actualBedtime !== undefined ? sleep.actualBedtime : '',
+    actualWakeTime: sleep?.actualWakeTime !== undefined ? sleep.actualWakeTime : '',
     bedtimeCheckedIn: !!sleep?.bedtimeCheckedIn,
     wakeCheckedIn: !!sleep?.wakeCheckedIn,
     wakeCheckinTimestamp: sleep?.wakeCheckinTimestamp,
@@ -442,43 +442,55 @@ const SleepTimelineChart: React.FC<SleepTimelineChartProps> = ({
       <div className="timeline-bar-row">
         <span className="row-label actual-lbl">واقعی</span>
         <div className="timeline-track">
-          <div
-            className="timeline-fill actual-fill"
-            style={{
-              left: `${aStartPct}%`,
-              width: `${Math.max(2, aWidth)}%`
-            }}
-            title={`واقعی: ${actualBed} تا ${actualWake}`}
-          >
-            <span className="fill-time start">{toPersianDigits(actualBed)}</span>
-            <span className="fill-time end">{toPersianDigits(actualWake)}</span>
-          </div>
+          {actualBed && actualWake ? (
+            <div
+              className="timeline-fill actual-fill"
+              style={{
+                left: `${aStartPct}%`,
+                width: `${Math.max(2, aWidth)}%`
+              }}
+              title={`واقعی: ${actualBed} تا ${actualWake}`}
+            >
+              <span className="fill-time start">{toPersianDigits(actualBed)}</span>
+              <span className="fill-time end">{toPersianDigits(actualWake)}</span>
+            </div>
+          ) : (
+            <div className="timeline-pending-placeholder">
+              <span>در انتظار ثبت ساعت خواب و بیداری ⏳</span>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Deviation summary tags */}
-      <div className="timeline-diff-tags">
-        <div className={`diff-tag ${Math.abs(bedDiff) <= 15 ? 'good' : 'warn'}`}>
-          <span>انحراف ساعت خواب:</span>
-          <b>
-            {bedDiff === 0
-              ? 'دقیقاً سر وقت ✓'
-              : bedDiff > 0
-              ? `${toPersianDigits(bedDiff)}+ دقیقه دیرتر`
-              : `${toPersianDigits(Math.abs(bedDiff))} دقیقه زودتر`}
-          </b>
+      {(actualBed || actualWake) && (
+        <div className="timeline-diff-tags">
+          {actualBed && (
+            <div className={`diff-tag ${Math.abs(bedDiff) <= 15 ? 'good' : 'warn'}`}>
+              <span>انحراف ساعت خواب:</span>
+              <b>
+                {bedDiff === 0
+                  ? 'دقیقاً سر وقت ✓'
+                  : bedDiff > 0
+                  ? `${toPersianDigits(bedDiff)}+ دقیقه دیرتر`
+                  : `${toPersianDigits(Math.abs(bedDiff))} دقیقه زودتر`}
+              </b>
+            </div>
+          )}
+          {actualWake && (
+            <div className={`diff-tag ${Math.abs(wakeDiff) <= 15 ? 'good' : 'warn'}`}>
+              <span>انحراف ساعت بیداری:</span>
+              <b>
+                {wakeDiff === 0
+                  ? 'دقیقاً سر وقت ✓'
+                  : wakeDiff > 0
+                  ? `${toPersianDigits(wakeDiff)}+ دقیقه دیرتر`
+                  : `${toPersianDigits(Math.abs(wakeDiff))} دقیقه سحرخیزتر ✓`}
+              </b>
+            </div>
+          )}
         </div>
-        <div className={`diff-tag ${Math.abs(wakeDiff) <= 15 ? 'good' : 'warn'}`}>
-          <span>انحراف ساعت بیداری:</span>
-          <b>
-            {wakeDiff === 0
-              ? 'دقیقاً سر وقت ✓'
-              : wakeDiff > 0
-              ? `${toPersianDigits(wakeDiff)}+ دقیقه دیرتر`
-              : `${toPersianDigits(Math.abs(wakeDiff))} دقیقه سحرخیزتر ✓`}
-          </b>
-        </div>
-      </div>
+      )}
     </div>
   );
 };

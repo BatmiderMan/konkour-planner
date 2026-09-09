@@ -4,7 +4,9 @@ import {
   createDefaultDayData,
   createEmptyBlock,
   createDefaultSleepData,
-  calculateTotalStudyTime
+  calculateTotalStudyTime,
+  getSavedSleepTargets,
+  KEY_SAVED_SLEEP_TARGETS
 } from './utils';
 import {
   parseJalaliDate,
@@ -101,6 +103,26 @@ function normalizeDayData(parsed: any): DayData {
     transfer = Array.from({ length: 4 }, () => ({ text: '', done: false }));
   }
 
+  const savedTargets = getSavedSleepTargets();
+  const targetBed =
+    parsed.sleep?.targetBedtime ||
+    parsed.sleep?.bedtime ||
+    savedTargets.targetBedtime ||
+    '23:00';
+  const targetWake =
+    parsed.sleep?.targetWakeTime ||
+    parsed.sleep?.wakeTime ||
+    savedTargets.targetWakeTime ||
+    '06:00';
+  const actualBed =
+    parsed.sleep?.actualBedtime !== undefined
+      ? parsed.sleep.actualBedtime
+      : '';
+  const actualWake =
+    parsed.sleep?.actualWakeTime !== undefined
+      ? parsed.sleep.actualWakeTime
+      : '';
+
   return {
     day: parsed.day || '',
     date: parsed.date || '',
@@ -109,7 +131,17 @@ function normalizeDayData(parsed: any): DayData {
     checklist,
     routine,
     transfer,
-    sleep: parsed.sleep || createDefaultSleepData()
+    sleep: {
+      targetBedtime: targetBed,
+      targetWakeTime: targetWake,
+      actualBedtime: actualBed,
+      actualWakeTime: actualWake,
+      bedtimeCheckedIn: !!parsed.sleep?.bedtimeCheckedIn,
+      wakeCheckedIn: !!parsed.sleep?.wakeCheckedIn,
+      wakeCheckinTimestamp: parsed.sleep?.wakeCheckinTimestamp,
+      napMinutes: parsed.sleep?.napMinutes ?? 0,
+      notes: parsed.sleep?.notes || ''
+    }
   };
 }
 
@@ -255,6 +287,17 @@ export const App: React.FC = () => {
       if (Array.isArray(data.routine)) {
         const routineTexts = data.routine.map((r) => r.text || '');
         localStorage.setItem(KEY_SAVED_ROUTINE, JSON.stringify(routineTexts));
+      }
+
+      // Persist sleep target preferences so future days keep the same targets
+      if (data.sleep?.targetBedtime && data.sleep?.targetWakeTime) {
+        localStorage.setItem(
+          KEY_SAVED_SLEEP_TARGETS,
+          JSON.stringify({
+            targetBedtime: data.sleep.targetBedtime,
+            targetWakeTime: data.sleep.targetWakeTime
+          })
+        );
       }
 
       setDaysIndex((prev) => {
@@ -447,6 +490,13 @@ export const App: React.FC = () => {
           ];
         }
       }
+
+      // Carry over sleep targets from the current day or saved preferences, with actual times clear
+      const currentTargetBed =
+        state?.sleep?.targetBedtime || getSavedSleepTargets().targetBedtime || '23:00';
+      const currentTargetWake =
+        state?.sleep?.targetWakeTime || getSavedSleepTargets().targetWakeTime || '06:00';
+      fresh.sleep = createDefaultSleepData(currentTargetBed, currentTargetWake);
 
       const newEntry: DayIndexEntry = {
         id: newId,
