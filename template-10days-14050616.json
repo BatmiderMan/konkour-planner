@@ -1,0 +1,310 @@
+{
+  "daysIndex": [
+    { "id": "day_14050616", "day": "یکشنبه", "date": "1405/06/16", "updatedAt": 1788780000000 },
+    { "id": "day_14050617", "day": "دوشنبه", "date": "1405/06/17", "updatedAt": 1788866400000 },
+    { "id": "day_14050618", "day": "سه‌شنبه", "date": "1405/06/18", "updatedAt": 1788952800000 },
+    { "id": "day_14050619", "day": "چهارشنبه", "date": "1405/06/19", "updatedAt": 1789039200000 },
+    { "id": "day_14050620", "day": "پنج‌شنبه", "date": "1405/06/20", "updatedAt": 1789125600000 },
+    { "id": "day_14050621", "day": "جمعه", "date": "1405/06/21", "updatedAt": 1789212000000 },
+    { "id": "day_14050622", "day": "شنبه", "date": "1405/06/22", "updatedAt": 1789298400000 },
+    { "id": "day_14050623", "day": "یکشنبه", "date": "1405/06/23", "updatedAt": 1789384800000 },
+    { "id": "day_14050624", "day": "دوشنبه", "date": "1405/06/24", "updatedAt": 1789471200000 },
+    { "id": "day_14050625", "day": "سه‌شنبه", "date": "1405/06/25", "updatedAt": 1789557600000 }
+  ],
+  "days": {
+    "day_14050616": {
+      "day": "یکشنبه",
+      "date": "1405/06/16",
+      "blocks": [
+        { "start": "08:00", "end": "09:30", "lesson": "زیست‌شناسی", "subject": "گفتار ۱ فصل اول دوازدهم", "study": true, "cls": false, "review": false, "test": false, "desc": "مطالعه دقیق خط به خط کتاب و نکات تصویری", "totalTests": "0", "wrong": "0", "blank": "0" },
+        { "start": "09:45", "end": "11:15", "lesson": "شیمی", "subject": "مفاهیم ساختار اتم و آرایش الکترونی", "study": true, "cls": false, "review": false, "test": true, "desc": "حل تست‌های آموزشی و یادداشت نکات کلیدی", "totalTests": "25", "wrong": "3", "blank": "2" },
+        { "start": "11:30", "end": "13:00", "lesson": "ریاضی", "subject": "تابع و دامنه توابع کسری و رادیکالی", "study": false, "cls": true, "review": false, "test": true, "desc": "مشاهده جلسه کلاس آنلاین و حل تمارین جزوه", "totalTests": "15", "wrong": "2", "blank": "0" },
+        { "start": "16:00", "end": "17:30", "lesson": "فیزیک", "subject": "حرکت‌شناسی یکنواخت و نمودارها", "study": true, "cls": false, "review": false, "test": true, "desc": "تست‌های سراسری سال‌های ۹۸ تا ۱۴۰۲", "totalTests": "30", "wrong": "4", "blank": "1" },
+        { "start": "18:00", "end": "19:15", "lesson": "زیست‌شناسی", "subject": "تست گفتار ۱ فصل اول دوازدهم", "study": false, "cls": false, "review": false, "test": true, "desc": "تست آموزشی منبع اول + تحلیل کامل پاسخنامه", "totalTests": "35", "wrong": "5", "blank": "3" }
+      ],
+      "checklist": [
+        { "text": "حل تکالیف ریاضی", "done": true },
+        { "text": "خلاصه نویسی زیست دوازدهم", "done": true },
+        { "text": "بررسی پاسخ تشریحی شیمی", "done": false }
+      ],
+      "routine": [
+        { "text": "آزمون ۲۰ تایی قرابت معنایی", "done": true },
+        { "text": "حفظ ۲۰ لغت زبان انگلیسی", "done": true },
+        { "text": "حل ۵ تست روتین ژنتیک", "done": true }
+      ],
+      "transfer": [
+        { "text": "تکمیل خلاصه نموداری فیزیک", "done": false }
+      ],
+      "totalHours": "07:15",
+      "readingScore": "8",
+      "mentalScore": "7",
+      "sleepHours": "7",
+      "wakeTime": "06:30",
+      "sleepTime": "23:30",
+      "examPercent": "72",
+      "dayEvaluation": "شروع بازه با نظم خوب و عملکرد رضایت‌بخش در زیست و شیمی."
+    },
+    "day_14050617": {
+      "day": "دوشنبه",
+      "date": "1405/06/17",
+      "blocks": [
+        { "start": "07:30", "end": "09:30", "lesson": "زیست‌شناسی", "subject": "گفتار ۲ فصل اول دوازدهم", "study": true, "cls": false, "review": false, "test": false, "desc": "مطالعه همانندسازی دنا و رونویسی", "totalTests": "0", "wrong": "0", "blank": "0" },
+        { "start": "10:00", "end": "12:00", "lesson": "فیزیک", "subject": "شتاب ثابت و فرمول‌های بدون زمان", "study": true, "cls": false, "review": false, "test": true, "desc": "حل مسائل سخت و علامت‌دار", "totalTests": "25", "wrong": "5", "blank": "2" },
+        { "start": "14:00", "end": "15:30", "lesson": "ادبیات", "subject": "دستور زبان و نقش‌های دستوری", "study": true, "cls": false, "review": true, "test": true, "desc": "تست مبحثی ترکیب اضافی و وصفی", "totalTests": "20", "wrong": "2", "blank": "1" },
+        { "start": "16:00", "end": "18:00", "lesson": "شیمی", "subject": "استوکیومتری و واکنش‌های شیمیایی", "study": true, "cls": false, "review": false, "test": true, "desc": "مسائل بازده درصدی و درجه خلوص", "totalTests": "20", "wrong": "4", "blank": "3" },
+        { "start": "18:30", "end": "19:45", "lesson": "عربی", "subject": "قواعد ترجمه و فن ترجمه", "study": true, "cls": false, "review": false, "test": true, "desc": "تست کنکورهای اخیر", "totalTests": "25", "wrong": "1", "blank": "2" }
+      ],
+      "checklist": [
+        { "text": "تحلیل تست‌های غلط فیزیک", "done": true },
+        { "text": "مرور فرمول‌های استوکیومتری", "done": true }
+      ],
+      "routine": [
+        { "text": "آزمون ۲۰ تایی قرابت معنایی", "done": true },
+        { "text": "حفظ ۲۰ لغت زبان انگلیسی", "done": true },
+        { "text": "حل ۵ تست روتین ژنتیک", "done": true }
+      ],
+      "transfer": [
+        { "text": "تکمیل خلاصه نموداری فیزیک", "done": true }
+      ],
+      "totalHours": "08:15",
+      "readingScore": "9",
+      "mentalScore": "8",
+      "sleepHours": "7",
+      "wakeTime": "06:30",
+      "sleepTime": "23:45",
+      "examPercent": "78",
+      "dayEvaluation": "تایم عالی و تست‌زنی مطلوب در ادبیات و عربی."
+    },
+    "day_14050618": {
+      "day": "سه‌شنبه",
+      "date": "1405/06/18",
+      "blocks": [
+        { "start": "08:00", "end": "10:00", "lesson": "ریاضی", "subject": "معادلات درجه دوم و هندسه تحلیلی", "study": true, "cls": false, "review": false, "test": true, "desc": "تست‌های سطح متوسط و سخت جامع", "totalTests": "30", "wrong": "6", "blank": "2" },
+        { "start": "10:30", "end": "12:30", "lesson": "زیست‌شناسی", "subject": "مرور گفتار ۱ و ۲ فصل اول دوازدهم", "study": false, "cls": false, "review": true, "test": true, "desc": "تست زمان‌دار و بررسی نکات دام‌دار", "totalTests": "45", "wrong": "4", "blank": "1" },
+        { "start": "14:30", "end": "16:00", "lesson": "دینی", "subject": "درس ۱ و ۲ دوازدهم", "study": true, "cls": false, "review": false, "test": true, "desc": "حفظ پیام آیات و تست خط به خط", "totalTests": "30", "wrong": "1", "blank": "0" },
+        { "start": "16:30", "end": "18:00", "lesson": "فیزیک", "subject": "سقوط آزاد و پرتاب عمودی", "study": true, "cls": false, "review": false, "test": true, "desc": "حل تست‌های مفهومی", "totalTests": "20", "wrong": "3", "blank": "4" }
+      ],
+      "checklist": [
+        { "text": "مرور پیام آیات دینی", "done": true },
+        { "text": "نشانه‌گذاری تست‌های سقوط آزاد", "done": true }
+      ],
+      "routine": [
+        { "text": "آزمون ۲۰ تایی قرابت معنایی", "done": true },
+        { "text": "حفظ ۲۰ لغت زبان انگلیسی", "done": true },
+        { "text": "حل ۵ تست روتین ژنتیک", "done": false }
+      ],
+      "transfer": [],
+      "totalHours": "07:00",
+      "readingScore": "8",
+      "mentalScore": "7",
+      "sleepHours": "6.5",
+      "wakeTime": "07:00",
+      "sleepTime": "23:30",
+      "examPercent": "75",
+      "dayEvaluation": "تمرکز بالا در دینی و زیست شناسی."
+    },
+    "day_14050619": {
+      "day": "چهارشنبه",
+      "date": "1405/06/19",
+      "blocks": [
+        { "start": "08:00", "end": "10:00", "lesson": "شیمی", "subject": "اسیدها و بازها و تعیین pH", "study": true, "cls": false, "review": false, "test": true, "desc": "مفاهیم تعادل و تفکیک یونی + حل مسئله", "totalTests": "25", "wrong": "5", "blank": "1" },
+        { "start": "10:30", "end": "12:30", "lesson": "فیزیک", "subject": "دینامیک و قوانین نیوتون", "study": true, "cls": false, "review": false, "test": true, "desc": "مسائل اصطکاک و کشش طناب", "totalTests": "20", "wrong": "4", "blank": "2" },
+        { "start": "15:00", "end": "17:00", "lesson": "زیست‌شناسی", "subject": "فصل دوم دوازدهم - رونویسی و ترجمه", "study": true, "cls": false, "review": false, "test": false, "desc": "مطالعه عمیق مراحل سنتز پروتئین", "totalTests": "0", "wrong": "0", "blank": "0" },
+        { "start": "17:30", "end": "19:00", "lesson": "زبان انگلیسی", "subject": "گرامر زمان‌ها و درک مطلب", "study": true, "cls": false, "review": false, "test": true, "desc": "تست Cloze Test و Reading", "totalTests": "30", "wrong": "3", "blank": "2" },
+        { "start": "19:30", "end": "20:30", "lesson": "زیست‌شناسی", "subject": "تست‌های ترجمه و رونویسی", "study": false, "cls": false, "review": false, "test": true, "desc": "تست‌های آزمون‌های آزمایشی قلمچی", "totalTests": "25", "wrong": "2", "blank": "1" }
+      ],
+      "checklist": [
+        { "text": "رسم چارت درختی اسیدها و بازها", "done": true },
+        { "text": "تکمیل لغات انگلیسی خارج کتاب", "done": false }
+      ],
+      "routine": [
+        { "text": "آزمون ۲۰ تایی قرابت معنایی", "done": true },
+        { "text": "حفظ ۲۰ لغت زبان انگلیسی", "done": true },
+        { "text": "حل ۵ تست روتین ژنتیک", "done": true }
+      ],
+      "transfer": [
+        { "text": "تکمیل لغات انگلیسی خارج کتاب", "done": false }
+      ],
+      "totalHours": "08:00",
+      "readingScore": "9",
+      "mentalScore": "9",
+      "sleepHours": "7",
+      "wakeTime": "06:45",
+      "sleepTime": "23:45",
+      "examPercent": "82",
+      "dayEvaluation": "یکی از بهترین روزهای هفته با راندمان بالا."
+    },
+    "day_14050620": {
+      "day": "پنج‌شنبه",
+      "date": "1405/06/20",
+      "blocks": [
+        { "start": "08:00", "end": "10:30", "lesson": "ریاضی", "subject": "مثلثات و اتحادهای مثلثاتی", "study": true, "cls": false, "review": false, "test": true, "desc": "فرمول‌های جمع و ضرب + تست‌های جامع", "totalTests": "35", "wrong": "6", "blank": "3" },
+        { "start": "11:00", "end": "13:00", "lesson": "شیمی", "subject": "مسائل pH و اسیدهای قوی/ضعیف", "study": false, "cls": false, "review": false, "test": true, "desc": "تست زمان‌دار تیپ‌بندی شده", "totalTests": "25", "wrong": "3", "blank": "2" },
+        { "start": "15:00", "end": "17:00", "lesson": "مرور جامع", "subject": "مرور هفتگی دروس اختصاصی", "study": false, "cls": false, "review": true, "test": true, "desc": "مرور نکات علامت‌دار زیست و شیمی", "totalTests": "40", "wrong": "2", "blank": "1" },
+        { "start": "17:30", "end": "19:00", "lesson": "فیزیک", "subject": "تست جامع فصل حرکت‌شناسی", "study": false, "cls": false, "review": false, "test": true, "desc": "شبیه‌ساز ۲۰ سوالی کنکور", "totalTests": "20", "wrong": "3", "blank": "0" }
+      ],
+      "checklist": [
+        { "text": "آماده‌سازی دفترچه آزمون جمعه", "done": true },
+        { "text": "بررسی فرمول‌های مثلثات", "done": true }
+      ],
+      "routine": [
+        { "text": "آزمون ۲۰ تایی قرابت معنایی", "done": true },
+        { "text": "حفظ ۲۰ لغت زبان انگلیسی", "done": true },
+        { "text": "حل ۵ تست روتین ژنتیک", "done": true }
+      ],
+      "transfer": [],
+      "totalHours": "07:30",
+      "readingScore": "8",
+      "mentalScore": "8",
+      "sleepHours": "7.5",
+      "wakeTime": "06:30",
+      "sleepTime": "23:00",
+      "examPercent": "80",
+      "dayEvaluation": "جمع‌بندی خوب قبل از آزمون آزمایشی."
+    },
+    "day_14050621": {
+      "day": "جمعه",
+      "date": "1405/06/21",
+      "blocks": [
+        { "start": "08:00", "end": "11:30", "lesson": "آزمون آزمایشی", "subject": "شبیه‌ساز کنکور تجربی مباحث هفته", "study": false, "cls": false, "review": false, "test": true, "desc": "اجرای آزمون در شرایط استاندارد با زمان‌بندی دقیق", "totalTests": "110", "wrong": "16", "blank": "9" },
+        { "start": "14:00", "end": "17:00", "lesson": "تحلیل آزمون", "subject": "تحلیل سوالات نادرست و نزده", "study": false, "cls": false, "review": true, "test": false, "desc": "ثبت علت اشتباهات در دفتر خودارزیابی", "totalTests": "0", "wrong": "0", "blank": "0" },
+        { "start": "17:30", "end": "19:00", "lesson": "برنامه‌ریزی", "subject": "هدف‌گذاری و تنظیم برنامه هفته آینده", "study": true, "cls": false, "review": false, "test": false, "desc": "تعیین پارت‌ها و منابع هفته بعد", "totalTests": "0", "wrong": "0", "blank": "0" }
+      ],
+      "checklist": [
+        { "text": "ثبت تراز و درصدها در کارنامه", "done": true },
+        { "text": "استراحت و ورزش عصرگاهی", "done": true }
+      ],
+      "routine": [
+        { "text": "آزمون ۲۰ تایی قرابت معنایی", "done": false },
+        { "text": "حفظ ۲۰ لغت زبان انگلیسی", "done": true },
+        { "text": "حل ۵ تست روتین ژنتیک", "done": false }
+      ],
+      "transfer": [],
+      "totalHours": "08:00",
+      "readingScore": "9",
+      "mentalScore": "8",
+      "sleepHours": "8",
+      "wakeTime": "07:00",
+      "sleepTime": "23:30",
+      "examPercent": "76",
+      "dayEvaluation": "آزمون بسیار آموزنده بود. نقاط ضعف در محاسبات شیمی شناسایی شد."
+    },
+    "day_14050622": {
+      "day": "شنبه",
+      "date": "1405/06/22",
+      "blocks": [
+        { "start": "08:00", "end": "09:45", "lesson": "زیست‌شناسی", "subject": "فصل سوم دوازدهم - انتقال اطلاعات در نسل‌ها", "study": true, "cls": false, "review": false, "test": false, "desc": "مفاهیم وراثت و صفات تک جایگاهی", "totalTests": "0", "wrong": "0", "blank": "0" },
+        { "start": "10:00", "end": "11:45", "lesson": "شیمی", "subject": "ترمودینامیک و آنتالپی واکنش‌ها", "study": true, "cls": false, "review": false, "test": true, "desc": "قانون هس و محاسبه گرما", "totalTests": "20", "wrong": "3", "blank": "1" },
+        { "start": "14:00", "end": "15:45", "lesson": "ریاضی", "subject": "حد و پیوستگی توابع", "study": true, "cls": false, "review": false, "test": true, "desc": "رفع ابهام صفر صفرم و قضایای حد", "totalTests": "25", "wrong": "4", "blank": "2" },
+        { "start": "16:15", "end": "18:00", "lesson": "فیزیک", "subject": "نوسان و موج مکانیکی", "study": true, "cls": false, "review": false, "test": true, "desc": "معادله مکان-زمان و انرژی مکانیکی نوسانگر", "totalTests": "25", "wrong": "3", "blank": "2" },
+        { "start": "18:30", "end": "19:45", "lesson": "زیست‌شناسی", "subject": "مسائل ژنتیک و شجره‌نامه", "study": false, "cls": false, "review": false, "test": true, "desc": "تست‌های ترکیبی ژنتیک کنکور", "totalTests": "20", "wrong": "2", "blank": "3" }
+      ],
+      "checklist": [
+        { "text": "حل ۵ شجره نامه چالشی", "done": true },
+        { "text": "نوشتن فرمول‌های هس در برگه چیت", "done": true }
+      ],
+      "routine": [
+        { "text": "آزمون ۲۰ تایی قرابت معنایی", "done": true },
+        { "text": "حفظ ۲۰ لغت زبان انگلیسی", "done": true },
+        { "text": "حل ۵ تست روتین ژنتیک", "done": true }
+      ],
+      "transfer": [],
+      "totalHours": "08:15",
+      "readingScore": "8",
+      "mentalScore": "8",
+      "sleepHours": "7",
+      "wakeTime": "06:30",
+      "sleepTime": "23:45",
+      "examPercent": "79",
+      "dayEvaluation": "شروع عالی هفته با پوشش مباحث جدید و جذاب."
+    },
+    "day_14050623": {
+      "day": "یکشنبه",
+      "date": "1405/06/23",
+      "blocks": [
+        { "start": "08:00", "end": "10:00", "lesson": "فیزیک", "subject": "آونگ ساده و نوسانگر فنر", "study": true, "cls": false, "review": false, "test": true, "desc": "تست‌های چند قسمتی و روابط دوره تناوب", "totalTests": "30", "wrong": "5", "blank": "2" },
+        { "start": "10:30", "end": "12:30", "lesson": "زیست‌شناسی", "subject": "گروه‌های خونی و بیماری‌های وابسته به جنس", "study": true, "cls": false, "review": false, "test": true, "desc": "مطالعه دقیق متن کتاب + تست تست‌های مفهومی", "totalTests": "35", "wrong": "3", "blank": "1" },
+        { "start": "14:30", "end": "16:00", "lesson": "شیمی", "subject": "آنتالپی پیوند و محاسبات گرماشیمی", "study": false, "cls": false, "review": false, "test": true, "desc": "تست‌های کنکور سراسری داخل و خارج", "totalTests": "25", "wrong": "2", "blank": "2" },
+        { "start": "16:30", "end": "18:00", "lesson": "ادبیات", "subject": "آرایه‌های ادبی (استعاره و مجاز)", "study": true, "cls": false, "review": false, "test": true, "desc": "تست‌های آموزشی سطح بالا", "totalTests": "25", "wrong": "4", "blank": "1" },
+        { "start": "18:30", "end": "19:30", "lesson": "زمین‌شناسی", "subject": "فصل اول - آفرینش کیهان", "study": true, "cls": false, "review": false, "test": true, "desc": "مطالعه حفظیات و حل ۱۰ تست پایه‌ای", "totalTests": "10", "wrong": "0", "blank": "1" }
+      ],
+      "checklist": [
+        { "text": "مرور جدول بیماری‌های ژنتیک", "done": true },
+        { "text": "تحلیل سوالات فیزیک فنر", "done": false }
+      ],
+      "routine": [
+        { "text": "آزمون ۲۰ تایی قرابت معنایی", "done": true },
+        { "text": "حفظ ۲۰ لغت زبان انگلیسی", "done": true },
+        { "text": "حل ۵ تست روتین ژنتیک", "done": true }
+      ],
+      "transfer": [
+        { "text": "تحلیل سوالات فیزیک فنر", "done": false }
+      ],
+      "totalHours": "08:00",
+      "readingScore": "8",
+      "mentalScore": "8",
+      "sleepHours": "7",
+      "wakeTime": "06:30",
+      "sleepTime": "23:30",
+      "examPercent": "81",
+      "dayEvaluation": "زمین‌شناسی هم به برنامه اضافه شد و پیشرفت خوبی داشت."
+    },
+    "day_14050624": {
+      "day": "دوشنبه",
+      "date": "1405/06/24",
+      "blocks": [
+        { "start": "08:00", "end": "10:00", "lesson": "ریاضی", "subject": "پیوستگی و قضایای حد در بینهایت", "study": true, "cls": false, "review": false, "test": true, "desc": "تست‌های مجانب افقی و قائم", "totalTests": "30", "wrong": "4", "blank": "2" },
+        { "start": "10:30", "end": "12:30", "lesson": "شیمی", "subject": "سینتیک شیمیایی و سرعت واکنش‌ها", "study": true, "cls": false, "review": false, "test": true, "desc": "نمودارهای مول-زمان و سرعت متوسط", "totalTests": "30", "wrong": "3", "blank": "3" },
+        { "start": "14:30", "end": "16:30", "lesson": "زیست‌شناسی", "subject": "فصل چهارم دوازدهم - تغییر در اطلاعات وراثتی", "study": true, "cls": false, "review": false, "test": false, "desc": "جهش‌های نقطه‌ای و کروموزومی", "totalTests": "0", "wrong": "0", "blank": "0" },
+        { "start": "17:00", "end": "18:30", "lesson": "عربی", "subject": "افعال معلوم و مجهول و منصوبات", "study": true, "cls": false, "review": false, "test": true, "desc": "تست‌های قواعد ترکیبی کنکور", "totalTests": "25", "wrong": "2", "blank": "1" }
+      ],
+      "checklist": [
+        { "text": "خلاصه نویسی جهش‌های زیست", "done": true },
+        { "text": "حل تمرینات سرعت واکنش شیمی", "done": true }
+      ],
+      "routine": [
+        { "text": "آزمون ۲۰ تایی قرابت معنایی", "done": true },
+        { "text": "حفظ ۲۰ لغت زبان انگلیسی", "done": true },
+        { "text": "حل ۵ تست روتین ژنتیک", "done": true }
+      ],
+      "transfer": [],
+      "totalHours": "07:30",
+      "readingScore": "8",
+      "mentalScore": "7",
+      "sleepHours": "7",
+      "wakeTime": "06:45",
+      "sleepTime": "23:45",
+      "examPercent": "84",
+      "dayEvaluation": "مباحث سینتیک شیمی بسیار خوب جا افتاد."
+    },
+    "day_14050625": {
+      "day": "سه‌شنبه",
+      "date": "1405/06/25",
+      "blocks": [
+        { "start": "08:00", "end": "10:00", "lesson": "زیست‌شناسی", "subject": "تست جهش‌ها و تغییرات ژنتیکی", "study": false, "cls": false, "review": false, "test": true, "desc": "تست‌های مفهومی و مروری فصل ۴", "totalTests": "40", "wrong": "3", "blank": "2" },
+        { "start": "10:30", "end": "12:30", "lesson": "فیزیک", "subject": "امواج صوتی و اثر دوپلر", "study": true, "cls": false, "review": false, "test": true, "desc": "محاسبه تراز شدت صوت (دسی‌بل)", "totalTests": "25", "wrong": "3", "blank": "1" },
+        { "start": "14:30", "end": "16:00", "lesson": "ریاضی", "subject": "مشتق و تعبیر هندسی مشتق", "study": true, "cls": false, "review": false, "test": true, "desc": "فرمول‌های مشتق‌گیری مقدماتی و تست", "totalTests": "25", "wrong": "4", "blank": "2" },
+        { "start": "16:30", "end": "18:00", "lesson": "دینی", "subject": "درس ۳ و ۴ دوازدهم", "study": true, "cls": false, "review": false, "test": true, "desc": "تست آیات اخلاص و توبه", "totalTests": "30", "wrong": "0", "blank": "1" },
+        { "start": "18:30", "end": "20:00", "lesson": "شیمی", "subject": "مرور سرعت واکنش و گرماشیمی", "study": false, "cls": false, "review": true, "test": true, "desc": "تست زمان‌دار جامع ترکیبی", "totalTests": "30", "wrong": "2", "blank": "2" }
+      ],
+      "checklist": [
+        { "text": "تکمیل دفتر تست مشتق", "done": true },
+        { "text": "جمع بندی نکات دوپلر", "done": true }
+      ],
+      "routine": [
+        { "text": "آزمون ۲۰ تایی قرابت معنایی", "done": true },
+        { "text": "حفظ ۲۰ لغت زبان انگلیسی", "done": true },
+        { "text": "حل ۵ تست روتین ژنتیک", "done": true }
+      ],
+      "transfer": [],
+      "totalHours": "08:30",
+      "readingScore": "10",
+      "mentalScore": "9",
+      "sleepHours": "7",
+      "wakeTime": "06:30",
+      "sleepTime": "23:30",
+      "examPercent": "88",
+      "dayEvaluation": "پایان عالی دوره ۱۰ روزه با ساعت مطالعه بالا و رکوردهای درصدی درخشان."
+    }
+  }
+}

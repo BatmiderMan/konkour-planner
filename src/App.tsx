@@ -1,0 +1,1015 @@
+import { LayoutDashboard, CalendarRange, ClipboardList, Sun, Moon, Trophy, CalendarClock } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { DayData, DayIndexEntry, StudyBlock, ChecklistItem, PlannerItem } from './types';
+import {
+  createDefaultDayData,
+  createEmptyBlock,
+  createDefaultSleepData,
+  calculateTotalStudyTime,
+  getSavedSleepTargets,
+  KEY_SAVED_SLEEP_TARGETS
+} from './utils';
+import {
+  parseJalaliDate,
+  addDaysToJalali,
+  formatJalaliDate,
+  getNextDayOfWeekName,
+  getTodayJalali,
+  getJalaliDayOfWeek
+} from './jalali';
+import { supabase } from './supabase';
+import { Toolbar } from './components/Toolbar';
+import { ReportHeader } from './components/ReportHeader';
+import { StudyBlockItem } from './components/StudyBlockItem';
+import { TasksRoutineCard } from './components/TasksRoutineCard';
+import { TotalCard } from './components/TotalCard';
+import { AuthModal } from './components/AuthModal';
+import { PeriodReportModal } from './components/PeriodReportModal';
+import { StudyTimerModal } from './components/StudyTimerModal';
+import { SleepDrawer, SleepInline, useIsPhone } from './components/SleepDrawer';
+import { PlannerView } from './components/planner/PlannerView';
+import { LivePlanTimer } from './components/planner/LivePlanTimer';
+import { TodayView } from './components/TodayView';
+import { ExamsView } from './components/ExamsView';
+import { ScheduleView } from './components/ScheduleView';
+import { TodayPlanCard } from './components/planner/TodayPlanCard';
+import { DialogHost, confirmDialog, alertDialog } from './dialog';
+import { plannerItemToBlockFields, loadPlannerData, savePlannerData, dateKeyOf, todayGregorian, SendMeta } from './plannerStore';
+import { toPersianDigits } from './utils';
+
+const KEY_INDEX = 'konkour_days_index_v2';
+const KEY_CURRENT = 'konkour_current_day_id_v2';
+const KEY_THEME = 'konkour_theme_v1';
+const KEY_SLEEP_ENABLED = 'konkour_sleep_enabled_v1';
+const KEY_SAVED_ROUTINE = 'konkour_saved_routine_v2';
+const dayKey = (id: string) => `konkour_day_data_v2:${id}`;
+
+function normalizeDayData(parsed: any): DayData {
+  const fresh = createDefaultDayData();
+  if (!parsed || typeof parsed !== 'object') return fresh;
+
+  // Blocks migration
+  let blocks: StudyBlock[] = [];
+  if (Array.isArray(parsed.blocks) && parsed.blocks.length > 0) {
+    blocks = parsed.blocks.map((b: any) => ({
+      lesson: b.lesson || '',
+      subject: b.subject || '',
+      start: b.start || '',
+      end: b.end || '',
+      desc: b.desc || '',
+      study: !!b.study,
+      cls: !!b.cls,
+      review: !!b.review,
+      test: !!b.test,
+      totalTests: b.totalTests !== undefined
+        ? String(b.totalTests)
+        : (b.correct !== undefined && b.wrong !== undefined && b.blank !== undefined
+            ? String((parseInt(b.correct, 10) || 0) + (parseInt(b.wrong, 10) || 0) + (parseInt(b.blank, 10) || 0) || '')
+            : ''),
+      wrong: b.wrong !== undefined ? String(b.wrong) : '',
+      blank: b.blank !== undefined ? String(b.blank) : ''
+    }));
+  } else {
+    blocks = [createEmptyBlock()];
+  }
+
+  // Checklist migration
+  let checklist: ChecklistItem[] = [];
+  if (Array.isArray(parsed.checklist) && parsed.checklist.length > 0) {
+    checklist = parsed.checklist.map((item: any) => ({
+      text: item.text || '',
+      done: !!item.done
+    }));
+  } else {
+    checklist = [];
+  }
+
+  // Routine migration
+  let routine: ChecklistItem[] = [];
+  if (Array.isArray(parsed.routine) && parsed.routine.length > 0) {
+    routine = parsed.routine.map((item: any) => ({
+      text: item.text || '',
+      done: !!item.done
+    }));
+  } else {
+    routine = [];
+  }
+
+  // Transfer migration (handles old string format vs new list format)
+  let transfer: ChecklistItem[] = [];
+  if (Array.isArray(parsed.transfer)) {
+    transfer = parsed.transfer.map((item: any) => ({
+      text: item.text || '',
+      done: !!item.done
+    }));
+  } else if (typeof parsed.transfer === 'string' && parsed.transfer.trim()) {
+    transfer = parsed.transfer
+      .split('\n')
+      .filter((line: string) => line.trim())
+      .map((line: string) => ({ text: line.trim(), done: false }));
+  } else {
+    transfer = [];
+  }
+
+  const savedTargets = getSavedSleepTargets();
+  const targetBed =
+    parsed.sleep?.targetBedtime ||
+    parsed.sleep?.bedtime ||
+    savedTargets.targetBedtime ||
+    '23:00';
+  const targetWake =
+    parsed.sleep?.targetWakeTime ||
+    parsed.sleep?.wakeTime ||
+    savedTargets.targetWakeTime ||
+    '06:00';
+  const actualBed =
+    parsed.sleep?.actualBedtime !== undefined
+      ? parsed.sleep.actualBedtime
+      : '';
+  const actualWake =
+    parsed.sleep?.actualWakeTime !== undefined
+      ? parsed.sleep.actualWakeTime
+      : '';
+
+  return {
+    day: parsed.day || '',
+    date: parsed.date || '',
+    favorite: !!parsed.favorite,
+    blocks,
+    checklist,
+    routine,
+    transfer,
+    sleep: {
+      targetBedtime: targetBed,
+      targetWakeTime: targetWake,
+      actualBedtime: actualBed,
+      actualWakeTime: actualWake,
+      bedtimeCheckedIn: !!parsed.sleep?.bedtimeCheckedIn,
+      wakeCheckedIn: !!parsed.sleep?.wakeCheckedIn,
+      wakeCheckinTimestamp: parsed.sleep?.wakeCheckinTimestamp,
+      napMinutes: parsed.sleep?.napMinutes ?? 0,
+      notes: parsed.sleep?.notes || ''
+    }
+  };
+}
+
+export const App: React.FC = () => {
+  const [daysIndex, setDaysIndex] = useState<DayIndexEntry[]>([]);
+  const [currentId, setCurrentId] = useState<string | null>(null);
+  const [state, setState] = useState<DayData | null>(null);
+  const [saveStatus, setSaveStatus] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const isPhone = useIsPhone();
+  const [activeTab, setActiveTab] = useState<'blocks' | 'sidebar'>('blocks');
+  const [sleepEnabled, setSleepEnabled] = useState<boolean>(() => localStorage.getItem(KEY_SLEEP_ENABLED) !== '0');
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
+  const [isReportOpen, setIsReportOpen] = useState<boolean>(false);
+  const [isTimerOpen, setIsTimerOpen] = useState<boolean>(false);
+  const [section, setSection] = useState<'today' | 'report' | 'planner' | 'exams' | 'schedule'>('today');
+  const [planRefreshToken, setPlanRefreshToken] = useState(0);
+  const todayLeft = React.useMemo(() => {
+    void planRefreshToken; void section;
+    return (loadPlannerData().items[dateKeyOf(todayGregorian())] || []).filter((i) => !i.done).length;
+  }, [planRefreshToken, section]);
+  const [theme, setTheme] = useState<'light' | 'dark'>(
+    () => (localStorage.getItem(KEY_THEME) as 'light' | 'dark') || 'light'
+  );
+
+  useEffect(() => {
+    document.body.classList.toggle('is-planner', section === 'planner');
+    window.scrollTo(0, 0);
+  }, [section]);
+
+  useEffect(() => {
+    localStorage.setItem(KEY_SLEEP_ENABLED, sleepEnabled ? '1' : '0');
+  }, [sleepEnabled]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem(KEY_THEME, theme);
+  }, [theme]);
+
+  const saveTimer = useRef<any>(null);
+  const statusTimer = useRef<any>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Auth Listener
+  useEffect(() => {
+    const unsub = supabase.onAuthStateChange((session) => {
+      setUserEmail(session?.user?.email || null);
+      if (session?.user?.id) {
+        syncFromCloud();
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  const syncFromCloud = async () => {
+    try {
+      showStatus('همگام‌سازی ابری...');
+      const res = await supabase.fetchAllUserPlans();
+
+      // If user has local data but cloud is empty, upload local data to cloud
+      if (res.data && res.data.length === 0 && daysIndex.length > 0) {
+        showStatus('آپلود اطلاعات به ابر...');
+        for (const entry of daysIndex) {
+          const raw = localStorage.getItem(dayKey(entry.id));
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            await supabase.upsertUserPlan({
+              id: entry.id,
+              day: parsed.day || '',
+              date: parsed.date || '',
+              favorite: !!parsed.favorite,
+              blocks: parsed.blocks || [],
+              checklist: parsed.checklist || [],
+              routine: parsed.routine || [],
+              transfer: parsed.transfer || [],
+              updated_at: entry.updatedAt || Date.now()
+            });
+          }
+        }
+        showStatus('اطلاعات به ابر ارسال شد ✓');
+        return;
+      }
+
+      if (res.data && res.data.length > 0) {
+        const cloudIndex: DayIndexEntry[] = [];
+        res.data.forEach((p: any) => {
+          const id = p.id;
+          const planData: DayData = {
+            day: p.day || '',
+            date: p.date || '',
+            favorite: !!p.favorite,
+            blocks: p.blocks || [],
+            checklist: p.checklist || [],
+            routine: p.routine || [],
+            transfer: p.transfer || []
+          };
+          localStorage.setItem(dayKey(id), JSON.stringify(planData));
+          cloudIndex.push({
+            id,
+            day: p.day || '',
+            date: p.date || '',
+            updatedAt: p.updated_at || Date.now()
+          });
+        });
+
+        cloudIndex.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        localStorage.setItem(KEY_INDEX, JSON.stringify(cloudIndex));
+        setDaysIndex(cloudIndex);
+
+        if (cloudIndex.length > 0) {
+          const firstId = cloudIndex[0].id;
+          const raw = localStorage.getItem(dayKey(firstId));
+          if (raw) {
+            setCurrentId(firstId);
+            setState(normalizeDayData(JSON.parse(raw)));
+            localStorage.setItem(KEY_CURRENT, firstId);
+          }
+        }
+        showStatus('همگام با ابر ✓');
+      }
+    } catch (e) {
+      console.error('Sync failed:', e);
+      showStatus('خطا در همگام‌سازی');
+    }
+  };
+
+  const handleSignOut = async () => {
+    await supabase.signOut();
+    setUserEmail(null);
+    showStatus('از حساب خارج شدید');
+  };
+
+  // Capture PWA install prompt
+  useEffect(() => {
+    const handleBeforeInstall = (e: any) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setInstallPrompt(null);
+    }
+  };
+
+  const showStatus = (msg: string) => {
+    setSaveStatus(msg);
+    clearTimeout(statusTimer.current);
+    statusTimer.current = setTimeout(() => {
+      setSaveStatus('');
+    }, 1800);
+  };
+
+  // Persist current day to localStorage and cloud
+  const saveCurrentData = useCallback((data: DayData, id: string) => {
+    try {
+      localStorage.setItem(dayKey(id), JSON.stringify(data));
+
+      // Also persist the routine template so any future day gets the latest routine text
+      if (Array.isArray(data.routine)) {
+        const routineTexts = data.routine.map((r) => r.text || '');
+        localStorage.setItem(KEY_SAVED_ROUTINE, JSON.stringify(routineTexts));
+      }
+
+      // Persist sleep target preferences so future days keep the same targets
+      if (data.sleep?.targetBedtime && data.sleep?.targetWakeTime) {
+        localStorage.setItem(
+          KEY_SAVED_SLEEP_TARGETS,
+          JSON.stringify({
+            targetBedtime: data.sleep.targetBedtime,
+            targetWakeTime: data.sleep.targetWakeTime
+          })
+        );
+      }
+
+      setDaysIndex((prev) => {
+        const next = [...prev];
+        const idx = next.findIndex((x) => x.id === id);
+        const entry: DayIndexEntry = {
+          id,
+          day: data.day,
+          date: data.date,
+          updatedAt: Date.now()
+        };
+        if (idx >= 0) {
+          next[idx] = entry;
+        } else {
+          next.unshift(entry);
+        }
+        localStorage.setItem(KEY_INDEX, JSON.stringify(next));
+        return next;
+      });
+      localStorage.setItem(KEY_CURRENT, id);
+      showStatus('ذخیره شد ✓');
+
+      // Sync to cloud if user is logged in
+      if (supabase.getUser()) {
+        supabase.upsertUserPlan({
+          id,
+          day: data.day,
+          date: data.date,
+          favorite: data.favorite,
+          blocks: data.blocks,
+          checklist: data.checklist,
+          routine: data.routine,
+          transfer: data.transfer,
+          updated_at: Date.now()
+        });
+      }
+    } catch (e) {
+      console.error('Failed to save data to localStorage:', e);
+      showStatus('خطا در ذخیره!');
+    }
+  }, []);
+
+  // Debounced auto-save whenever state changes
+  useEffect(() => {
+    if (!state || !currentId || loading) return;
+
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      saveCurrentData(state, currentId);
+    }, 500);
+
+    return () => clearTimeout(saveTimer.current);
+  }, [state, currentId, loading, saveCurrentData]);
+
+  // Initial Load
+  useEffect(() => {
+    try {
+      // 1. Check v2 index first
+      let rawIndex = localStorage.getItem(KEY_INDEX);
+      let parsedIndex: DayIndexEntry[] = rawIndex ? JSON.parse(rawIndex) : [];
+
+      // 2. If v2 empty, check if there was old v1 data and clean it up or migrate
+      if (parsedIndex.length === 0) {
+        // Clean start with new schema (1 block, 5 tasks)
+        const newId = 'day_' + Date.now();
+        const freshData = createDefaultDayData();
+        const entry: DayIndexEntry = {
+          id: newId,
+          day: '',
+          date: '',
+          updatedAt: Date.now()
+        };
+        localStorage.setItem(KEY_INDEX, JSON.stringify([entry]));
+        localStorage.setItem(KEY_CURRENT, newId);
+        localStorage.setItem(dayKey(newId), JSON.stringify(freshData));
+        setDaysIndex([entry]);
+        setCurrentId(newId);
+        setState(freshData);
+        setLoading(false);
+        return;
+      }
+
+      setDaysIndex(parsedIndex);
+      const savedCid = localStorage.getItem(KEY_CURRENT);
+      let targetId = savedCid;
+
+      if (!targetId && parsedIndex.length > 0) {
+        parsedIndex.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        targetId = parsedIndex[0].id;
+      }
+
+      if (targetId) {
+        const rawData = localStorage.getItem(dayKey(targetId));
+        if (rawData) {
+          try {
+            const parsed = JSON.parse(rawData);
+            const completeData = normalizeDayData(parsed);
+            setCurrentId(targetId);
+            setState(completeData);
+            setLoading(false);
+            return;
+          } catch (err) {
+            console.error('Error parsing stored day:', err);
+          }
+        }
+      }
+
+      // Fallback fresh day
+      const newId = 'day_' + Date.now();
+      const freshData = createDefaultDayData();
+      const entry: DayIndexEntry = {
+        id: newId,
+        day: '',
+        date: '',
+        updatedAt: Date.now()
+      };
+      localStorage.setItem(KEY_INDEX, JSON.stringify([entry]));
+      localStorage.setItem(KEY_CURRENT, newId);
+      localStorage.setItem(dayKey(newId), JSON.stringify(freshData));
+      setDaysIndex([entry]);
+      setCurrentId(newId);
+      setState(freshData);
+    } catch (e) {
+      console.error('Initialization error:', e);
+      const fresh = createDefaultDayData();
+      setState(fresh);
+      setCurrentId('day_default');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Actions
+  const handleNewDay = async () => {
+    const ok = await confirmDialog(
+      'برای شروع یک برگه جدید (مثلاً برای فردا)، برگه فعلی ذخیره و برگه‌ای تازه باز می‌شود. آیا کارهای "انتقال به فردا" به چک‌لیست روز جدید منتقل شوند؟'
+    );
+    if (ok) {
+      const newId = 'day_' + Date.now();
+      const fresh = createDefaultDayData();
+
+      // Automatically compute next day's date & day name from current state or today
+      let nextDate = '';
+      let nextDayName = '';
+
+      if (state && state.date) {
+        const parsed = parseJalaliDate(state.date);
+        if (parsed) {
+          const tom = addDaysToJalali(parsed, 1);
+          nextDate = formatJalaliDate(tom);
+        }
+      }
+      if (!nextDate) {
+        nextDate = formatJalaliDate(getTodayJalali());
+      }
+
+      if (state && state.day) {
+        nextDayName = getNextDayOfWeekName(state.day);
+      }
+
+      fresh.date = nextDate;
+      fresh.day = nextDayName;
+
+      // Copy latest routine titles into the new day (unchecked)
+      if (state && Array.isArray(state.routine)) {
+        fresh.routine = state.routine.map((r) => ({ text: r.text || '', done: false }));
+      } else {
+        const savedRoutine = localStorage.getItem(KEY_SAVED_ROUTINE);
+        if (savedRoutine) {
+          try {
+            const texts: string[] = JSON.parse(savedRoutine);
+            fresh.routine = texts.map((t) => ({ text: t || '', done: false }));
+          } catch (e) {}
+        }
+      }
+
+      // Carry over non-empty uncompleted or all transfer tasks to tomorrow's checklist
+      if (state && Array.isArray(state.transfer)) {
+        const transferTasks = state.transfer
+          .filter((t) => t.text.trim().length > 0)
+          .map((t) => ({ text: t.text, done: false }));
+
+        if (transferTasks.length > 0) {
+          // Put carried over tasks first, then fill up with empty slots if < 5
+          const remainingSlots = Math.max(0, 5 - transferTasks.length);
+          fresh.checklist = [
+            ...transferTasks,
+            ...Array.from({ length: remainingSlots }, () => ({ text: '', done: false }))
+          ];
+        }
+      }
+
+      // Carry over sleep targets from the current day or saved preferences, with actual times clear
+      const currentTargetBed =
+        state?.sleep?.targetBedtime || getSavedSleepTargets().targetBedtime || '23:00';
+      const currentTargetWake =
+        state?.sleep?.targetWakeTime || getSavedSleepTargets().targetWakeTime || '06:00';
+      fresh.sleep = createDefaultSleepData(currentTargetBed, currentTargetWake);
+
+      const newEntry: DayIndexEntry = {
+        id: newId,
+        day: nextDayName,
+        date: nextDate,
+        updatedAt: Date.now()
+      };
+      const updatedIndex = [newEntry, ...daysIndex];
+      setDaysIndex(updatedIndex);
+      setCurrentId(newId);
+      setState(fresh);
+      localStorage.setItem(KEY_INDEX, JSON.stringify(updatedIndex));
+      localStorage.setItem(KEY_CURRENT, newId);
+      localStorage.setItem(dayKey(newId), JSON.stringify(fresh));
+      showStatus('برگه روز بعد با تاریخ و روتین‌ها آماده شد ✓');
+    }
+  };
+
+  const handleDeleteDay = async () => {
+    if (!currentId) return;
+    const ok = await confirmDialog('این برگه برای همیشه حذف شود؟ این کار قابل بازگشت نیست.');
+    if (ok) {
+      localStorage.removeItem(dayKey(currentId));
+      if (supabase.getUser()) {
+        supabase.deleteUserPlan(currentId);
+      }
+      const remaining = daysIndex.filter((x) => x.id !== currentId);
+      setDaysIndex(remaining);
+      localStorage.setItem(KEY_INDEX, JSON.stringify(remaining));
+
+      if (remaining.length > 0) {
+        remaining.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        const nextId = remaining[0].id;
+        const raw = localStorage.getItem(dayKey(nextId));
+        const data = raw ? JSON.parse(raw) : createDefaultDayData();
+        setCurrentId(nextId);
+        setState(data);
+        localStorage.setItem(KEY_CURRENT, nextId);
+      } else {
+        const newId = 'day_' + Date.now();
+        const fresh = createDefaultDayData();
+        const entry = { id: newId, day: '', date: '', updatedAt: Date.now() };
+        setDaysIndex([entry]);
+        setCurrentId(newId);
+        setState(fresh);
+        localStorage.setItem(KEY_INDEX, JSON.stringify([entry]));
+        localStorage.setItem(KEY_CURRENT, newId);
+        localStorage.setItem(dayKey(newId), JSON.stringify(fresh));
+      }
+      showStatus('حذف شد');
+    }
+  };
+
+  const handleSelectDay = (id: string) => {
+    if (id === currentId) return;
+    const raw = localStorage.getItem(dayKey(id));
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        const completeData = normalizeDayData(parsed);
+        setCurrentId(id);
+        setState(completeData);
+        localStorage.setItem(KEY_CURRENT, id);
+      } catch (e) {
+        console.error('Failed to load day', id, e);
+      }
+    }
+  };
+
+  // Bring a planner item over into the daily report as a study block.
+  // Finds (or creates) the report day matching the planner item's date,
+  // appends a pre-filled block, and switches over to the report view.
+  const appendBlockToList = (blocks: StudyBlock[], block: StudyBlock): StudyBlock[] => {
+    const onlyEmpty =
+      blocks.length === 1 &&
+      !blocks[0].lesson &&
+      !blocks[0].subject &&
+      !blocks[0].desc &&
+      !blocks[0].start &&
+      !blocks[0].end;
+    return onlyEmpty ? [block] : [...blocks, block];
+  };
+
+  // Puts a ready block into the report of the given day (creating the day when it doesn't exist yet).
+  const addBlockToReportDay = (dateKeyStr: string, newBlock: StudyBlock, opts: { jumpToReport: boolean; status: string }) => {
+    const existing = daysIndex.find((d) => d.date === dateKeyStr);
+
+    if (existing) {
+      if (existing.id === currentId && state) {
+        const nextState = { ...state, blocks: appendBlockToList(state.blocks, newBlock) };
+        setState(nextState);
+        saveCurrentData(nextState, existing.id);
+      } else {
+        const raw = localStorage.getItem(dayKey(existing.id));
+        const parsed = raw ? normalizeDayData(JSON.parse(raw)) : createDefaultDayData();
+        const nextState = { ...parsed, blocks: appendBlockToList(parsed.blocks, newBlock) };
+        setCurrentId(existing.id);
+        setState(nextState);
+        localStorage.setItem(KEY_CURRENT, existing.id);
+        saveCurrentData(nextState, existing.id);
+      }
+    } else {
+      const newId = 'day_' + Date.now();
+      const fresh = createDefaultDayData();
+      const j = parseJalaliDate(dateKeyStr);
+      fresh.date = dateKeyStr;
+      fresh.day = j ? getJalaliDayOfWeek(j) : '';
+      fresh.blocks = appendBlockToList([], newBlock);
+
+      const newEntry: DayIndexEntry = { id: newId, day: fresh.day, date: fresh.date, updatedAt: Date.now() };
+      const updatedIndex = [newEntry, ...daysIndex];
+      setDaysIndex(updatedIndex);
+      setCurrentId(newId);
+      setState(fresh);
+      localStorage.setItem(KEY_INDEX, JSON.stringify(updatedIndex));
+      localStorage.setItem(KEY_CURRENT, newId);
+      localStorage.setItem(dayKey(newId), JSON.stringify(fresh));
+    }
+
+    if (opts.jumpToReport) setSection('report');
+    setPlanRefreshToken((t) => t + 1);
+    showStatus(opts.status);
+  };
+
+  const handleSendFromPlanner = (dateKeyStr: string, item: PlannerItem, meta?: SendMeta) => {
+    const fields = plannerItemToBlockFields(item);
+    const isTestBook = meta?.kind === 'test';
+    const newBlock: StudyBlock = {
+      ...createEmptyBlock(),
+      lesson: fields.lesson,
+      subject: fields.subject,
+      desc: fields.desc,
+      // planned time slot (when the day's timeline is on)
+      start: meta?.start || '',
+      end: meta?.end || '',
+      // a test book becomes a "تست‌زنی" block, everything else stays "مطالعه"
+      study: !isTestBook,
+      test: isTestBook
+    };
+    addBlockToReportDay(dateKeyStr, newBlock, { jumpToReport: true, status: 'به گزارش امروز اضافه شد ✓' });
+  };
+
+  // A live plan session was finished: its block lands in that day's report, the user stays where they are.
+  const handleLivePlanSaved = (dateKeyStr: string, _item: PlannerItem, block: StudyBlock) => {
+    addBlockToReportDay(dateKeyStr, block, { jumpToReport: false, status: 'پلن زنده به گزارش روز اضافه شد ✓' });
+  };
+
+  const handleExportBackup = () => {
+    try {
+      const allData: Record<string, any> = {
+        daysIndex,
+        days: {}
+      };
+      for (const entry of daysIndex) {
+        const d = localStorage.getItem(dayKey(entry.id));
+        if (d) allData.days[entry.id] = JSON.parse(d);
+      }
+      const blob = new Blob([JSON.stringify(allData, null, 2)], {
+        type: 'application/json;charset=utf-8'
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `konkour-planner-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showStatus('پشتیبان دانلود شد ✓');
+    } catch (e) {
+      console.error(e);
+      alertDialog('خطا در ایجاد فایل پشتیبان');
+    }
+  };
+
+  const handleImportClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const parsed = JSON.parse(content);
+        if (parsed.daysIndex && parsed.days) {
+          localStorage.setItem(KEY_INDEX, JSON.stringify(parsed.daysIndex));
+          for (const [k, v] of Object.entries(parsed.days)) {
+            localStorage.setItem(dayKey(k), JSON.stringify(v));
+          }
+          setDaysIndex(parsed.daysIndex);
+          if (parsed.daysIndex.length > 0) {
+            const firstId = parsed.daysIndex[0].id;
+            setCurrentId(firstId);
+            setState(parsed.days[firstId]);
+            localStorage.setItem(KEY_CURRENT, firstId);
+          }
+          showStatus('بازیابی انجام شد ✓');
+        } else {
+          alertDialog('فایل پشتیبان معتبر نیست!');
+        }
+      } catch (err) {
+        console.error(err);
+        alertDialog('خطا در خواندن فایل!');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // State update handlers
+  const updateBlock = (index: number, updated: Partial<StudyBlock>) => {
+    if (!state) return;
+    const blocks = [...state.blocks];
+    blocks[index] = { ...blocks[index], ...updated };
+    setState({ ...state, blocks });
+  };
+
+  const handleAddBlock = () => {
+    if (!state) return;
+    setState({
+      ...state,
+      blocks: [...state.blocks, createEmptyBlock()]
+    });
+  };
+
+  const handleDeleteBlock = (index: number) => {
+    if (!state || state.blocks.length <= 1) return;
+    const blocks = state.blocks.filter((_, i) => i !== index);
+    setState({ ...state, blocks });
+  };
+
+  const handleSaveTimerBlock = (newBlock: StudyBlock) => {
+    if (!state || !currentId) return;
+
+    let updatedBlocks: StudyBlock[];
+    // If the day only has 1 empty block, replace it; otherwise append
+    if (
+      state.blocks.length === 1 &&
+      !state.blocks[0].lesson &&
+      !state.blocks[0].subject &&
+      !state.blocks[0].desc &&
+      !state.blocks[0].start &&
+      !state.blocks[0].end
+    ) {
+      updatedBlocks = [newBlock];
+    } else {
+      updatedBlocks = [...state.blocks, newBlock];
+    }
+
+    const nextState = { ...state, blocks: updatedBlocks };
+    setState(nextState);
+    saveCurrentData(nextState, currentId);
+    showStatus('پارت مطالعه با تایمر ثبت شد ✓');
+  };
+
+  if (loading || !state) {
+    return <div className="loading">در حال بارگذاری...</div>;
+  }
+
+  const totalStudyTime = calculateTotalStudyTime(state.blocks);
+
+  return (
+    <div>
+      <DialogHost />
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleImportFile}
+        accept=".json"
+        style={{ display: 'none' }}
+      />
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onSuccess={(email) => {
+          setUserEmail(email);
+          syncFromCloud();
+        }}
+      />
+      <PeriodReportModal
+        isOpen={isReportOpen}
+        onClose={() => setIsReportOpen(false)}
+        daysIndex={daysIndex}
+        currentDayDate={state.date}
+      />
+      <StudyTimerModal
+        isOpen={isTimerOpen}
+        onClose={() => setIsTimerOpen(false)}
+        onSaveBlock={handleSaveTimerBlock}
+        currentDayLabel={`${state.day || ''} ${state.date || ''}`.trim()}
+        reportDateKey={state.date}
+        onPlannerItemUsed={() => setPlanRefreshToken((t) => t + 1)}
+      />
+
+      <LivePlanTimer onSaveToReport={handleLivePlanSaved} />
+
+      {saveStatus && (
+        <div className="status-toast" role="status" aria-live="polite">
+          {saveStatus}
+        </div>
+      )}
+
+
+      <nav className="app-section-switch no-print" role="tablist" aria-label="بخش برنامه">
+        <span className="rail-brand" aria-hidden="true">کنکور</span>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === 'today'}
+          className={section === 'today' ? 'active' : ''}
+          onClick={() => { setSection('today'); setPlanRefreshToken((t) => t + 1); }}
+        >
+          <LayoutDashboard size={22} strokeWidth={1.9} />
+          <span>امروز</span>
+          {todayLeft > 0 && <i className="rail-badge">{toPersianDigits(todayLeft)}</i>}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === 'planner'}
+          className={section === 'planner' ? 'active' : ''}
+          onClick={() => { setSection('planner'); setPlanRefreshToken((t) => t + 1); }}
+        >
+          <CalendarRange size={22} strokeWidth={1.9} />
+          <span>برنامه‌ریز</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === 'schedule'}
+          className={section === 'schedule' ? 'active' : ''}
+          onClick={() => setSection('schedule')}
+        >
+          <CalendarClock size={22} strokeWidth={1.9} />
+          <span>برنامه آزمون</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === 'exams'}
+          className={section === 'exams' ? 'active' : ''}
+          onClick={() => setSection('exams')}
+        >
+          <Trophy size={22} strokeWidth={1.9} />
+          <span>آزمون‌ها</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === 'report'}
+          className={section === 'report' ? 'active' : ''}
+          onClick={() => setSection('report')}
+        >
+          <ClipboardList size={22} strokeWidth={1.9} />
+          <span>گزارش روز</span>
+        </button>
+        <button
+          type="button"
+          className="theme-toggle-btn"
+          onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+          title={theme === 'dark' ? 'حالت روشن' : 'حالت تیره'}
+          aria-label={theme === 'dark' ? 'حالت روشن' : 'حالت تیره'}
+        >
+          {theme === 'dark' ? <Sun size={22} strokeWidth={1.9} /> : <Moon size={22} strokeWidth={1.9} />}
+          <span>{theme === 'dark' ? 'روشن' : 'تیره'}</span>
+        </button>
+      </nav>
+
+      {section === 'today' ? (
+        <TodayView refreshToken={planRefreshToken} onOpenPlanner={() => setSection('planner')} onOpenSchedule={() => setSection('schedule')} onSendToReport={handleSendFromPlanner} />
+      ) : section === 'planner' ? (
+        <PlannerView onSendToReport={handleSendFromPlanner} />
+      ) : section === 'schedule' ? (
+        <ScheduleView onOpenExams={() => setSection('exams')} onOpenPlanner={() => { setSection('planner'); setPlanRefreshToken((x) => x + 1); }} />
+      ) : section === 'exams' ? (
+        <ExamsView />
+      ) : (
+        <>
+          <Toolbar
+            days={daysIndex}
+            currentId={currentId}
+            saveStatus={saveStatus}
+            installPrompt={installPrompt}
+            userEmail={userEmail}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            sleepEnabled={sleepEnabled}
+            onToggleSleep={() => setSleepEnabled((v) => !v)}
+            onSelectDay={handleSelectDay}
+            onNewDay={handleNewDay}
+            onDeleteDay={handleDeleteDay}
+            onOpenReport={() => setIsReportOpen(true)}
+            onOpenTimer={() => setIsTimerOpen(true)}
+            onExport={handleExportBackup}
+            onImport={handleImportClick}
+            onInstall={handleInstallApp}
+            onOpenAuth={() => setIsAuthOpen(true)}
+            onSignOut={handleSignOut}
+            onSyncCloud={syncFromCloud}
+          />
+
+          {sleepEnabled && (
+            <SleepDrawer
+              sleep={state.sleep || createDefaultSleepData()}
+              onChange={(sleep) => setState({ ...state, sleep })}
+              onDisable={() => setSleepEnabled(false)}
+            />
+          )}
+
+          <div className="sheet-wrap">
+            <div className="sheet">
+              <ReportHeader
+                day={state.day}
+                date={state.date}
+                onDayChange={(day) => setState({ ...state, day })}
+                onDateChange={(date) => setState({ ...state, date })}
+              />
+
+              <div className={`main-grid show-${activeTab}`}>
+                <div className="blocks-col">
+                  {state.blocks.map((block, i) => (
+                    <StudyBlockItem
+                      key={i}
+                      index={i}
+                      block={block}
+                      canDelete={state.blocks.length > 1}
+                      onChange={(upd) => updateBlock(i, upd)}
+                      onDelete={() => handleDeleteBlock(i)}
+                    />
+                  ))}
+
+                  <button
+                    type="button"
+                    className="btn-add-block"
+                    onClick={handleAddBlock}
+                  >
+                    + افزودن بازه مطالعاتی جدید
+                  </button>
+                </div>
+
+                <div className="side-col">
+                  {state.date && (
+                    <TodayPlanCard
+                      dateKey={state.date}
+                      refreshToken={planRefreshToken}
+                      onGoToPlanner={() => setSection('planner')}
+                      onSendToReport={(item, meta) => handleSendFromPlanner(state.date, item, meta)}
+                    />
+                  )}
+
+                  <TasksRoutineCard
+                    checklist={state.checklist}
+                    routine={state.routine}
+                    transfer={state.transfer}
+                    onChangeChecklist={(checklist) => setState({ ...state, checklist })}
+                    onChangeRoutine={(routine) => setState({ ...state, routine })}
+                    onChangeTransfer={(transfer) => setState({ ...state, transfer })}
+                  />
+
+                  {isPhone && sleepEnabled && (
+                    <SleepInline
+                      sleep={state.sleep || createDefaultSleepData()}
+                      onChange={(sleep) => setState({ ...state, sleep })}
+                      onDisable={() => setSleepEnabled(false)}
+                    />
+                  )}
+
+                  <TotalCard
+                    totalHours={totalStudyTime}
+                    favorite={state.favorite}
+                    onFavoriteChange={(favorite) => setState({ ...state, favorite })}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
