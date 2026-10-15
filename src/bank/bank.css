@@ -1,0 +1,88 @@
+/* بانک تست — uses the planner's theme variables so it follows light / dark */
+.bk-root{max-width:880px;margin:0 auto;padding:14px 14px 90px;color:var(--ink);font-family:var(--font-ui);direction:rtl}
+.bk-root h2,.bk-root h3{margin:0}
+.bk-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--sheet-bg,#fff);color:var(--ink);border-radius:12px;padding:10px 14px;font:inherit;font-weight:600;cursor:pointer;min-height:44px}
+.bk-btn:disabled{opacity:.45;cursor:default}
+.bk-btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.bk-btn.primary:not(:disabled):hover{background:var(--primary-hover)}
+.bk-btn.ghost{background:transparent;border-color:transparent;padding:8px 10px}
+.bk-btn.wide{width:100%}
+.bk-link{display:block;margin:14px auto 0;background:none;border:0;color:var(--sub-ink);font:inherit;text-decoration:underline;cursor:pointer}
+.bk-hh{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+.bk-hh h2{display:flex;align-items:center;gap:8px;font-size:1.3rem}
+.bk-hh p{margin:4px 0 0;color:var(--sub-ink);font-size:.9rem;max-width:520px}
+.bk-busy{background:var(--tint-1);border:1px solid var(--line-soft);border-radius:12px;padding:10px 12px;margin:0 0 12px}
+.bk-emptybox{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;border:1.5px dashed var(--line);border-radius:var(--card-radius,16px);padding:28px 18px;color:var(--sub-ink)}
+.bk-books{display:flex;flex-direction:column;gap:8px;margin:6px 0 14px}
+.bk-bookcard{display:flex;align-items:stretch;border:1.5px solid var(--line);border-radius:14px;background:var(--sheet-bg,#fff);overflow:hidden}
+.bk-bookcard.on{border-color:var(--primary);box-shadow:0 0 0 3px rgba(36,71,216,.12)}
+.bk-bookcard>button:first-child{flex:1;text-align:right;background:none;border:0;padding:12px 14px;font:inherit;color:inherit;cursor:pointer;display:flex;flex-direction:column;gap:3px}
+.bk-bookcard span{color:var(--sub-ink);font-size:.85rem}
+.bk-del{background:none;border:0;color:var(--sub-ink);padding:0 14px;cursor:pointer;min-width:44px}
+.bk-del:hover{color:#c62828}
+.bk-form{border:1px solid var(--line);border-radius:var(--card-radius,16px);background:var(--sheet-bg,#fff);padding:14px;display:flex;flex-direction:column;gap:12px}
+.bk-seg,.bk-tabs{display:flex;gap:4px;background:var(--tint-1);border-radius:12px;padding:4px}
+.bk-seg button,.bk-tabs button{flex:1;border:0;background:transparent;padding:9px 6px;border-radius:9px;font:inherit;font-weight:600;color:var(--sub-ink);cursor:pointer;min-height:40px}
+.bk-seg button.on,.bk-tabs button.on{background:var(--sheet-bg,#fff);color:var(--primary);box-shadow:0 1px 4px rgba(var(--shadow-rgb,20,35,90),.15)}
+.bk-fields{display:flex;gap:10px}
+.bk-fields label{flex:1;display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--sub-ink)}
+.bk-fields input{border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;background:var(--field-bg,#fff);color:var(--ink);text-align:center;min-height:44px}
+.bk-hint{margin:0;color:var(--sub-ink);font-size:.88rem}
+.bk-check{display:flex;gap:8px;align-items:flex-start;font-size:.9rem}
+.bk-check input{margin-top:4px;width:18px;height:18px}
+.bk-hist{margin-top:18px}
+.bk-hist h3{display:flex;gap:6px;align-items:center;margin-bottom:8px}
+.bk-hist ul,.bk-rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.bk-hist li{display:flex;border:1px solid var(--line);border-radius:12px;background:var(--sheet-bg,#fff);overflow:hidden}
+.bk-hist li>button:first-child{flex:1;display:flex;gap:12px;align-items:center;text-align:right;background:none;border:0;padding:10px 12px;font:inherit;color:inherit;cursor:pointer}
+.bk-hist li b{font-size:1.15rem;color:var(--primary);min-width:62px;text-align:center}
+.bk-hist li span{display:flex;flex-direction:column;gap:2px}
+.bk-hist li small{color:var(--sub-ink)}
+/* exam */
+.bk-ph{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.bk-prog{font-size:1rem}
+.bk-time{color:var(--sub-ink);margin-inline-start:10px;font-variant-numeric:tabular-nums}
+.bk-bar{height:5px;background:var(--tint-2);border-radius:5px;overflow:hidden;margin:6px 0 12px}
+.bk-bar i{display:block;height:100%;background:var(--accent-teal);transition:width .25s}
+.bk-map{display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:6px;margin-bottom:12px;max-height:38vh;overflow:auto;padding:4px}
+.bk-map button{border:1px solid var(--line);background:var(--sheet-bg,#fff);border-radius:9px;padding:8px 0;font:inherit;color:inherit;cursor:pointer}
+.bk-map button.done{background:var(--tint-2);border-color:var(--primary)}
+.bk-map button.cur{outline:2px solid var(--primary)}
+.bk-qcard{border:1px solid var(--line);border-radius:var(--card-radius,16px);background:#fff;padding:10px 8px 12px;box-shadow:0 2px 12px rgba(var(--shadow-rgb,20,35,90),.08)}
+.bk-qno{font-size:.8rem;color:#5a6787;margin:0 6px 4px}
+.bk-qwrap{background:#fff;border-radius:10px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.bk-img{display:block;width:100%;height:auto;min-width:min(100%,520px);background:#fff;user-select:none}
+.bk-img.ph{min-height:90px;background:linear-gradient(90deg,#f1f3f8,#e7ebf3,#f1f3f8);background-size:200% 100%;animation:bkpulse 1.2s infinite}
+@keyframes bkpulse{to{background-position:-200% 0}}
+.bk-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0 6px}
+.bk-opt{min-height:62px;border-radius:14px;border:2px solid var(--line);background:var(--sheet-bg,#fff);color:var(--ink);font:inherit;font-size:1.5rem;font-weight:700;cursor:pointer}
+.bk-opt.sel{border-color:var(--primary);background:var(--tint-2);color:var(--primary)}
+.bk-opt.right{border-color:#1b9e55;background:#e3f6ea;color:#127a3f}
+.bk-opt.wrong{border-color:#d33;background:#fde8e8;color:#b71c1c}
+.bk-fb{margin:6px 0;font-weight:600}.bk-fb.ok{color:#127a3f}.bk-fb.bad{color:#b71c1c}
+.bk-nav{display:flex;gap:10px;justify-content:space-between;margin-top:12px}
+.bk-nav .bk-btn{flex:1}
+/* result */
+.bk-rh{display:flex;align-items:center;gap:8px}
+.bk-sub{color:var(--sub-ink);margin:2px 0 12px;font-size:.9rem}
+.bk-stats{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+.bk-stats>div{border:1px solid var(--line);border-radius:14px;background:var(--sheet-bg,#fff);padding:10px 6px;text-align:center;display:flex;flex-direction:column;gap:2px}
+.bk-stats b{font-size:1.4rem}.bk-stats span{font-size:.78rem;color:var(--sub-ink)}
+.bk-stats .big b{color:var(--primary);font-size:1.8rem}.bk-stats .ok b{color:#127a3f}.bk-stats .bad b{color:#c62828}
+.bk-tabs{margin:14px 0 10px}
+.bk-empty{text-align:center;color:var(--sub-ink);padding:20px}
+.bk-row{width:100%;display:flex;gap:10px;align-items:flex-start;text-align:right;border:1px solid var(--line);background:var(--sheet-bg,#fff);border-radius:12px;padding:10px;font:inherit;color:inherit;cursor:pointer}
+.bk-badge{min-width:42px;height:42px;display:grid;place-items:center;border-radius:12px;background:var(--tint-2);font-weight:700}
+.bk-badge.ok{background:#e3f6ea;color:#127a3f}.bk-badge.bad{background:#fde8e8;color:#b71c1c}
+.bk-rt{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.bk-rt small{color:var(--sub-ink)}
+.bk-img.thumb{max-height:110px;object-fit:cover;object-position:right top;border:1px solid var(--line-soft);border-radius:8px;min-width:0}
+.bk-lightbox{position:fixed;inset:0;background:rgba(10,16,40,.62);z-index:1000;display:flex;align-items:center;justify-content:center;padding:12px}
+.bk-lb-card{background:var(--sheet-bg,#fff);color:var(--ink);border-radius:18px;max-width:900px;width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.bk-lb-card header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line-soft)}
+.bk-lb-card .bk-qwrap{flex:1;overflow:auto;padding:8px}
+.bk-lb-card footer{display:flex;gap:8px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--line-soft)}
+.bk-x{background:none;border:0;color:inherit;cursor:pointer;padding:6px}
+.bk-pill{border-radius:99px;padding:6px 12px;background:var(--tint-1);font-weight:600;font-size:.9rem}
+.bk-pill.ok{background:#e3f6ea;color:#127a3f}.bk-pill.bad{background:#fde8e8;color:#b71c1c}
+@media (max-width:520px){.bk-stats{grid-template-columns:1fr 1fr}.bk-stats .big{grid-column:1/-1}.bk-opt{min-height:58px}}
