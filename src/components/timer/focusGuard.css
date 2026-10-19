@@ -1,0 +1,22 @@
+.fg {
+  position: fixed; z-index: 10005; inset-inline: 0; margin-inline: auto; width: min(560px, calc(100vw - 20px)); top: calc(12px + env(safe-area-inset-top, 0px));
+  display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: 20px; overflow: hidden; color: #eef2ff; font-family: inherit;
+  background: linear-gradient(180deg, rgba(40, 30, 96, .97), rgba(20, 16, 60, .97)); border: 1px solid rgba(255, 255, 255, .14);
+  box-shadow: 0 18px 50px rgba(6, 8, 30, .55), inset 0 1px 0 rgba(255, 255, 255, .08); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); animation: fgIn .4s cubic-bezier(.2, .9, .3, 1);
+}
+.fg.eye { background: linear-gradient(180deg, rgba(14, 62, 78, .97), rgba(8, 36, 50, .97)); }
+.fg.rest { background: linear-gradient(180deg, rgba(18, 70, 60, .97), rgba(8, 40, 36, .97)); }
+.fg-ic { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; flex: none; background: rgba(255, 255, 255, .12); color: #ffd27a; }
+.fg.eye .fg-ic { color: #7be0ff; } .fg.rest .fg-ic { color: #8ff0b4; }
+.fg-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fg-txt b { font-size: 14px; } .fg-txt span { font-size: 12px; color: #b4bfeb; line-height: 1.6; }
+.fg button { font-family: inherit; border: 0; cursor: pointer; flex: none; -webkit-tap-highlight-color: transparent; }
+.fg-go { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; border-radius: 12px; font-size: 13px; font-weight: 800; color: #1a1205; background: linear-gradient(135deg, #ffc65c, #ff9440); }
+.fg.rest .fg-go { background: linear-gradient(135deg, #b7f5e8, #8ff0b4); color: #04251c; }
+.fg-ghost { height: 38px; padding: 0 12px; border-radius: 12px; font-size: 12.5px; font-weight: 700; color: #cfd6f7; background: rgba(255, 255, 255, .1); }
+.fg-go:active, .fg-ghost:active { transform: scale(.95); }
+.fg-bar { position: absolute; inset-inline-start: 0; bottom: 0; width: 100%; height: 3px; background: #7be0ff; transform-origin: right; animation: fgBar linear forwards; }
+@media (max-width: 520px) { .fg { flex-wrap: wrap; } .fg-txt { flex-basis: calc(100% - 60px); } .fg-go, .fg-ghost { flex: 1; } }
+@keyframes fgIn { from { opacity: 0; transform: translateY(-18px) scale(.97); } }
+@keyframes fgBar { to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .fg { animation: none !important; } }
