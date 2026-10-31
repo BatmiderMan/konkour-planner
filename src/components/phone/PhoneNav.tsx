@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  CalendarClock, CalendarRange, ClipboardList, LayoutDashboard, LayoutGrid, Library, Monitor, Moon, Music2, Pause, Play, ScanLine, Search, Sun, Timer, Trophy, Vibrate
+  CalendarClock, CalendarRange, ClipboardList, LayoutDashboard, LayoutGrid, Library, ListChecks, Monitor, Moon, Music2, Pause, Play, ScanLine, Search, Sun, Timer, Trophy, Vibrate
 } from 'lucide-react';
 import {
   liveColor, liveElapsedMs, liveKind, liveTotalPlannedSeconds, pauseLivePlan, resumeLivePlan, useLivePlan
@@ -12,8 +12,9 @@ import { Sheet } from '../ui/Sheet';
 import { toPersianDigits } from '../../utils';
 import './phone.css';
 
-type Section = 'today' | 'planner' | 'schedule' | 'exams' | 'checker' | 'bank' | 'report';
+type Section = 'today' | 'planner' | 'tracker' | 'schedule' | 'exams' | 'checker' | 'bank' | 'report';
 const MORE: Array<{ id: Section; label: string; icon: React.ReactNode }> = [
+  { id: 'tracker', label: 'پیگیری مباحث', icon: <ListChecks size={22} /> },
   { id: 'schedule', label: 'برنامه آزمون', icon: <CalendarClock size={22} /> },
   { id: 'exams', label: 'آزمون‌ها', icon: <Trophy size={22} /> },
   { id: 'checker', label: 'تصحیح', icon: <ScanLine size={22} /> },

@@ -9,6 +9,15 @@ import { requestLiveStart, useLivePlan } from '../../livePlan';
 import { useCardGestures } from './useCardGestures';
 import { showUndo } from '../../undo';
 import { hapticSuccess, hapticTap } from '../../focusBus';
+import { useTracker } from '../../trackerStore';
+
+/** small round tag on cards that were made from the topic tracker */
+const TrkBadge: React.FC<{ r: string }> = ({ r }) => {
+  const t = useTracker();
+  const round = t.rounds.find((x) => x.id === r);
+  if (!round) return null;
+  return <span className="pl-trk" style={{ '--tc': round.color } as React.CSSProperties} title="از پیگیری مباحث">{round.name}</span>;
+};
 
 interface PlannerItemRowProps {
   item: PlannerItem;
@@ -200,6 +209,7 @@ export const PlannerItemRow: React.FC<PlannerItemRowProps> = ({
           {isLive && <span className="pl-live-badge"><i className="pl-live-dot" />زنده</span>}
           <span className="pl-grade-tag">{item.grade}</span>
           <span className="pl-subj">{item.subject}</span>
+          {item.trk && <TrkBadge r={item.trk.r} />}
           {item.detail && <span className="pl-detail">{item.detail}</span>}
           {item.source && (
             <span className="pl-src-tag">

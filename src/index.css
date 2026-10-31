@@ -6942,3 +6942,11 @@ body.is-planner {
 .rsb-fill { display: block; height: 100%; border-radius: 999px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .rsb-val { font-weight: 800; text-align: left; }
 @media (max-width: 640px) { .rsb-row { grid-template-columns: 80px 1fr 44px; } }
+
+/* day print button (planner week / month day tools) */
+.pl-day-tools button.print {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  color: var(--primary);
+  font-weight: 700;
+}

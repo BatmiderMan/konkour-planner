@@ -17,6 +17,7 @@ import { getDayDropProps, usePlannerInteraction } from './plannerInteraction';
 import { DayTimelineBar } from './DayTimelineBar';
 import { computeDayPlan, itemMinutes, formatDuration } from '../../plannerSchedule';
 import { DayRestRow, breakLabel } from './DayRestRow';
+import { DayPrintSheet } from './DayPrintSheet';
 
 interface PlannerMonthViewProps {
   data: PlannerData;
@@ -64,6 +65,7 @@ export const PlannerMonthView: React.FC<PlannerMonthViewProps> = ({
 }) => {
   const ctx = usePlannerInteraction();
   const [openForm, setOpenForm] = React.useState(false);
+  const [printOpen, setPrintOpen] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
 
   const jAnchor = jalaliOfDate(monthAnchor);
@@ -249,9 +251,11 @@ export const PlannerMonthView: React.FC<PlannerMonthViewProps> = ({
             ))}
           </div>
 
-          {ctx && (items.length > 0 || ctx.clipboardCount > 0) && (
-            <div className="pl-day-tools">
-              {items.length > 0 && (
+          <div className="pl-day-tools">
+              <button type="button" className="print" title="چاپ برنامه‌ی این روز (برگه‌ی A4)" onClick={() => setPrintOpen(true)}>
+                🖨 چاپ روز
+              </button>
+              {ctx && items.length > 0 && (
                 <button
                   type="button"
                   title="کپی همه‌ی پارت‌های این روز"
@@ -260,13 +264,12 @@ export const PlannerMonthView: React.FC<PlannerMonthViewProps> = ({
                   ⧉ کپی روز
                 </button>
               )}
-              {ctx.clipboardCount > 0 && (
+              {ctx && ctx.clipboardCount > 0 && (
                 <button type="button" className="paste" title="چسباندن در این روز (Ctrl+V)" onClick={() => ctx.pasteTo(selectedKey)}>
                   📋 چسباندن ({toPersianDigits(ctx.clipboardCount)})
                 </button>
               )}
             </div>
-          )}
 
           <div className="pl-add-row">
             {openForm ? (
@@ -290,6 +293,7 @@ export const PlannerMonthView: React.FC<PlannerMonthViewProps> = ({
           </button>
         </aside>
       </div>
+      {printOpen && <DayPrintSheet data={data} dateKey={selectedKey} onClose={() => setPrintOpen(false)} />}
     </div>
   );
 };

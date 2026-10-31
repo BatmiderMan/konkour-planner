@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { BookType, PlannerGrade, PlannerItem, PlannerSubjectDef } from '../../types';
 import { PLANNER_GRADES, hashColor } from '../../plannerStore';
+import { TopicPick, TopicPicker } from '../tracker/TopicPicker';
+import { useTracker } from '../../trackerStore';
+import { toPersianDigits } from '../../utils';
 
 interface PlannerItemFormProps {
   subjects: PlannerSubjectDef[];
@@ -8,7 +11,7 @@ interface PlannerItemFormProps {
   sourceTypes?: Record<string, BookType>;
   defaultMinutes?: number; // the global part length, shown as placeholder
   existing?: PlannerItem | null;
-  onSave: (data: { subject: string; detail: string; grade: PlannerGrade; source?: string; sourceColor?: string; sourceType?: BookType; minutes?: number; start?: string }) => void;
+  onSave: (data: { subject: string; detail: string; grade: PlannerGrade; source?: string; sourceColor?: string; sourceType?: BookType; minutes?: number; start?: string; trk?: { u: string[]; r: string } | null }) => void;
   onCancel: () => void;
 }
 
@@ -41,6 +44,24 @@ export const PlannerItemForm: React.FC<PlannerItemFormProps> = ({
   const [minutes, setMinutes] = useState<string>(existing?.minutes ? String(existing.minutes) : '');
   const [start, setStart] = useState<string>(existing?.start || '');
   const recentSources = Object.keys(sourceColors).slice(-4).reverse();
+  const tracker = useTracker();
+  const [trk, setTrk] = useState<{ u: string[]; r: string } | null>(existing?.trk || null);
+  const [picker, setPicker] = useState(false);
+  const trkRound = trk ? tracker.rounds.find((r) => r.id === trk.r) : undefined;
+
+  // topics picked from the lesson tree fill the whole card: grade, subject, detail, the round's source and the link
+  const applyPick = (p: TopicPick) => {
+    setGrade(p.grade);
+    if (subjects.some((x) => x.n === p.subject && x.grades.includes(p.grade))) setSubject(p.subject);
+    setDetail(p.detail);
+    if (p.source) {
+      setSrcOn(true);
+      setSource(p.source);
+      setSrcColor(sourceColors[p.source] || hashColor(p.source));
+      setSrcType(p.sourceType || (sourceTypes && sourceTypes[p.source]) || 'test');
+    }
+    setTrk({ u: p.us, r: p.roundId });
+  };
 
   const changeGrade = (g: PlannerGrade) => {
     setGrade(g);
@@ -59,7 +80,8 @@ export const PlannerItemForm: React.FC<PlannerItemFormProps> = ({
       sourceColor: finalSource ? srcColor : undefined,
       sourceType: finalSource ? srcType : undefined,
       minutes: Number(minutes) > 0 ? Math.min(480, Math.round(Number(minutes))) : undefined,
-      start: /^\d{2}:\d{2}$/.test(start) ? start : undefined
+      start: /^\d{2}:\d{2}$/.test(start) ? start : undefined,
+      trk: trk || (existing?.trk ? null : undefined)
     });
   };
 
@@ -77,6 +99,16 @@ export const PlannerItemForm: React.FC<PlannerItemFormProps> = ({
             {g.id}
           </button>
         ))}
+      </div>
+
+      <div className="pl-trk-row">
+        <button type="button" className="pl-trk-pick" onClick={() => setPicker(true)}>📚 انتخاب از مباحث درسی</button>
+        {trk && (
+          <span className="pl-trk-linked" style={{ ['--tc' as any]: trkRound ? trkRound.color : '#888' }}>
+            🔗 {trkRound ? trkRound.name : 'دور'} · {toPersianDigits(trk.u.length)} بند
+            <button type="button" aria-label="جدا کردن از مباحث" title="جدا کردن از پیگیری مباحث" onClick={() => setTrk(null)}>×</button>
+          </span>
+        )}
       </div>
 
       <select className="pl-select" value={subject} onChange={(e) => setSubject(e.target.value)}>
@@ -178,6 +210,8 @@ export const PlannerItemForm: React.FC<PlannerItemFormProps> = ({
         {start && <button type="button" className="pl-quick-clear" onClick={() => setStart('')}>× آزاد</button>}
         <span className="pl-dur-hint">خالی = پشت پارت قبلی می‌آید</span>
       </div>
+
+      {picker && <TopicPicker initialRound={trk?.r} initialUnits={trk?.u} onPick={applyPick} onClose={() => setPicker(false)} />}
 
       <div className="pl-form-row">
         <button type="button" className="pl-save" onClick={submit}>

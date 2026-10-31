@@ -9,6 +9,7 @@ import { getDayDropProps, usePlannerInteraction } from './plannerInteraction';
 import { DayTimelineBar } from './DayTimelineBar';
 import { computeDayPlan } from '../../plannerSchedule';
 import { DayRestRow, breakLabel } from './DayRestRow';
+import { DayPrintSheet } from './DayPrintSheet';
 
 interface PlannerWeekViewProps {
   data: PlannerData;
@@ -49,6 +50,7 @@ export const PlannerWeekView: React.FC<PlannerWeekViewProps> = ({
   const ctx = usePlannerInteraction();
   const [openForm, setOpenForm] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<{ key: string; id: string } | null>(null);
+  const [printKey, setPrintKey] = React.useState<string | null>(null);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const todayKey = dateKeyOf(new Date());
@@ -141,9 +143,11 @@ export const PlannerWeekView: React.FC<PlannerWeekViewProps> = ({
                   {items.length ? `${toPersianDigits(doneInDay)} از ${toPersianDigits(items.length)} انجام شده` : '—'}
                 </div>
                 <DayTimelineBar dateKey={key} data={data} onToggle={onToggleTimeline} onAddRest={onAddRest} />
-                {ctx && (
-                  <div className="pl-day-tools">
-                    {items.length > 0 && (
+                <div className="pl-day-tools">
+                  <button type="button" className="print" title="چاپ برنامه‌ی این روز (برگه‌ی A4)" onClick={() => setPrintKey(key)}>
+                    🖨 چاپ روز
+                  </button>
+                  {ctx && items.length > 0 && (
                       <button
                         type="button"
                         title="کپی همه‌ی پارت‌های این روز"
@@ -152,13 +156,12 @@ export const PlannerWeekView: React.FC<PlannerWeekViewProps> = ({
                         ⧉ کپی روز
                       </button>
                     )}
-                    {ctx.clipboardCount > 0 && (
+                    {ctx && ctx.clipboardCount > 0 && (
                       <button type="button" className="paste" title="چسباندن در این روز (Ctrl+V)" onClick={() => ctx.pasteTo(key)}>
                         📋 چسباندن ({toPersianDigits(ctx.clipboardCount)})
                       </button>
                     )}
                   </div>
-                )}
               </div>
 
               <div
@@ -244,6 +247,7 @@ export const PlannerWeekView: React.FC<PlannerWeekViewProps> = ({
           );
         })}
       </div>
+      {printKey && <DayPrintSheet data={data} dateKey={printKey} onClose={() => setPrintKey(null)} />}
     </div>
   );
 };

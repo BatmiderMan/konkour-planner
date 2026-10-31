@@ -1,5 +1,6 @@
 import { BookType, PlannerData, PlannerGrade, PlannerItem, PlannerSubjectDef, RestBlock } from './types';
 import { cloneDefaultSchedule, computeDayPlan, normalizeRests, normalizeSchedule, timeToMin } from './plannerSchedule';
+import { applyPlannerDone } from './trackerStore';
 import { gregorianToJalali, jalaliToGregorian, formatJalaliDate, parseJalaliDate, JalaliDate } from './jalali';
 
 const KEY_PLANNER = 'konkour_planner_data_v1';
@@ -116,7 +117,30 @@ export function loadPlannerData(): PlannerData {
   };
 }
 
+// Cards made from the topic tracker carry `trk`. When such a card flips done <-> not done, the tracker follows.
+// This runs on every save, so it works wherever the card was ticked (planner, today view, island ...).
+function syncTrackerFromPlanner(data: PlannerData): void {
+  try {
+    const linked: PlannerItem[] = [];
+    Object.keys(data.items).forEach((k) => (data.items[k] || []).forEach((it) => { if (it.trk && it.trk.u && it.trk.u.length) linked.push(it); }));
+    if (!linked.length) return;
+    const prev: Record<string, boolean> = {};
+    const raw = localStorage.getItem(KEY_PLANNER);
+    if (raw) {
+      const p = JSON.parse(raw);
+      Object.keys(p.items || {}).forEach((k) => (p.items[k] || []).forEach((it: PlannerItem) => { if (it.trk) prev[it.id] = !!it.done; }));
+    }
+    linked.forEach((it) => {
+      const was = prev[it.id];
+      if (was === undefined ? it.done : was !== it.done) applyPlannerDone(it.trk!.u, it.trk!.r, it.done);
+    });
+  } catch {
+    // never let the tracker break saving the planner
+  }
+}
+
 export function savePlannerData(data: PlannerData): void {
+  syncTrackerFromPlanner(data);
   try {
     localStorage.setItem(KEY_PLANNER, JSON.stringify(data));
   } catch (e) {
@@ -133,6 +157,7 @@ export interface PlannerItemInput {
   sourceType?: BookType;
   minutes?: number; // optional custom duration of this card
   start?: string; // optional pinned start time "HH:MM"
+  trk?: { u: string[]; r: string } | null; // made from the topic tracker (null = detach on edit)
 }
 
 export function createPlannerItem(input: PlannerItemInput & { done?: boolean }): PlannerItem {
@@ -144,7 +169,8 @@ export function createPlannerItem(input: PlannerItemInput & { done?: boolean }):
     source: input.source,
     done: !!input.done,
     ...(input.minutes ? { minutes: input.minutes } : {}),
-    ...(input.start ? { start: input.start } : {})
+    ...(input.start ? { start: input.start } : {}),
+    ...(input.trk ? { trk: input.trk } : {})
   };
 }
 
@@ -301,7 +327,8 @@ export function cloneItem(it: PlannerItem): PlannerItem {
     source: it.source,
     done: false,
     ...(it.minutes ? { minutes: it.minutes } : {}),
-    ...(it.start ? { start: it.start } : {})
+    ...(it.start ? { start: it.start } : {}),
+    ...(it.trk ? { trk: it.trk } : {})
   };
 }
 

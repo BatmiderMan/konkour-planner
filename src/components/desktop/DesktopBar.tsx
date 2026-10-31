@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  CalendarClock, CalendarRange, ClipboardList, LayoutDashboard, Library, Monitor, Moon, Music2, Pause, Play, ScanLine, Search, SkipBack, SkipForward, Sun, Timer, Trophy
+  CalendarClock, CalendarRange, ClipboardList, LayoutDashboard, Library, ListChecks, Monitor, Moon, Music2, Pause, Play, ScanLine, Search, SkipBack, SkipForward, Sun, Timer, Trophy
 } from 'lucide-react';
 import { dateKeyOf, loadPlannerData, todayGregorian } from '../../plannerStore';
 import {
@@ -15,11 +15,12 @@ import { toPersianDigits } from '../../utils';
 import { BUILD_LABEL } from '../../buildInfo';
 import './desktop.css';
 
-type Section = 'today' | 'planner' | 'schedule' | 'exams' | 'checker' | 'bank' | 'report';
+type Section = 'today' | 'planner' | 'tracker' | 'schedule' | 'exams' | 'checker' | 'bank' | 'report';
 type ThemeMode = 'light' | 'dark' | 'auto';
 const TABS: Array<[Section, string, React.ReactNode]> = [
   ['today', 'امروز', <LayoutDashboard size={18} key="a" />],
   ['planner', 'برنامه‌ریز', <CalendarRange size={18} key="b" />],
+  ['tracker', 'پیگیری مباحث', <ListChecks size={18} key="b2" />],
   ['schedule', 'برنامه آزمون', <CalendarClock size={18} key="c" />],
   ['exams', 'آزمون‌ها', <Trophy size={18} key="d" />],
   ['checker', 'تصحیح', <ScanLine size={18} key="e" />],

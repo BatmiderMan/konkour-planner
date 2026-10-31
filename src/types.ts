@@ -77,6 +77,8 @@ export interface PlannerItem {
   minutes?: number;
   // optional pinned start time "HH:MM" — the card stays at this time instead of flowing
   start?: string;
+  // set when the card was made from the topic tracker: ticking the card ticks these units for that round
+  trk?: { u: string[]; r: string };
 }
 
 export interface PlannerSubjectDef {

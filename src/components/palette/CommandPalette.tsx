@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  CalendarClock, CalendarRange, ClipboardList, CornerDownLeft, LayoutDashboard, Library, Monitor, Moon, Music2, Pause, Play, Plus, ScanLine,
+  CalendarClock, CalendarRange, ClipboardList, CornerDownLeft, LayoutDashboard, Library, ListChecks, Monitor, Moon, Music2, Pause, Play, Plus, ScanLine,
   Search, SkipBack, SkipForward, Sun, Timer, Trophy
 } from 'lucide-react';
 import {
@@ -14,7 +14,7 @@ import { toPersianDigits } from '../../utils';
 import { norm, parseTask } from './parseTask';
 import './palette.css';
 
-type Section = 'today' | 'planner' | 'schedule' | 'exams' | 'checker' | 'bank' | 'report';
+type Section = 'today' | 'planner' | 'tracker' | 'schedule' | 'exams' | 'checker' | 'bank' | 'report';
 type ThemeMode = 'light' | 'dark' | 'auto';
 interface Cmd { id: string; label: string; hint?: string; group: string; keys: string; icon: React.ReactNode; run: () => void }
 
@@ -29,6 +29,7 @@ interface Props {
 const SECTIONS: Array<[Section, string, React.ReactNode, string]> = [
   ['today', 'امروز', <LayoutDashboard size={18} key="a" />, 'خانه داشبورد'],
   ['planner', 'برنامه‌ریز', <CalendarRange size={18} key="b" />, 'برنامه هفته روزانه پلنر'],
+  ['tracker', 'پیگیری مباحث', <ListChecks size={18} key="b2" />, 'چک لیست دور مباحث کتاب فصل درس پیشرفت'],
   ['schedule', 'برنامه آزمون', <CalendarClock size={18} key="c" />, 'زمان‌بندی آزمون تقویم'],
   ['exams', 'آزمون‌ها', <Trophy size={18} key="d" />, 'نتایج تراز رتبه'],
   ['checker', 'تصحیح', <ScanLine size={18} key="e" />, 'اسکن پاسخنامه نمره کلید'],

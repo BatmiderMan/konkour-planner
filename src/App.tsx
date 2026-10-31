@@ -26,6 +26,7 @@ import { AuthModal } from './components/AuthModal';
 import { PeriodReportModal } from './components/PeriodReportModal';
 import { SleepDrawer, SleepInline, useIsPhone } from './components/SleepDrawer';
 import { PlannerView } from './components/planner/PlannerView';
+import { TrackerView } from './components/tracker/TrackerView';
 import { LiveTimer } from './components/timer/LiveTimer';
 import './components/timer/timer.css';
 import { MusicSheet, MusicStrip } from './components/music/MusicPlayer';
@@ -183,7 +184,7 @@ export const App: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
   const [isReportOpen, setIsReportOpen] = useState<boolean>(false);
   const [isTimerOpen, setIsTimerOpen] = useState<boolean>(false);
-  type SectionId = 'today' | 'report' | 'planner' | 'exams' | 'schedule' | 'checker' | 'bank';
+  type SectionId = 'today' | 'report' | 'planner' | 'tracker' | 'exams' | 'schedule' | 'checker' | 'bank';
   const [section, setSection] = useState<SectionId>('today'); // the app always opens on Today
   const [checkerFocus, setCheckerFocus] = useState<CheckerFocus | null>(null);
   const [musicOpen, setMusicOpen] = useState(false);
@@ -197,8 +198,8 @@ export const App: React.FC = () => {
       const tag = el?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.isContentEditable) return;
       if (document.querySelector('.tm-backdrop, .mp-backdrop, .dlg-overlay, .pn-back')) return; // a sheet / dialog is already open
-      const order = ['today', 'planner', 'schedule', 'exams', 'checker', 'bank', 'report'] as const;
-      const dm = /^Digit([1-7])$/.exec(e.code);
+      const order = ['today', 'planner', 'tracker', 'schedule', 'exams', 'checker', 'bank', 'report'] as const;
+      const dm = /^Digit([1-8])$/.exec(e.code);
       if (dm) { e.preventDefault(); setSection(order[Number(dm[1]) - 1]); return; }
       if (e.code === 'KeyT') { e.preventDefault(); if (getLivePlan()) openLiveTimer(); else setIsTimerOpen(true); }
       else if (e.code === 'KeyM') { e.preventDefault(); setMusicOpen(true); }
@@ -917,7 +918,9 @@ export const App: React.FC = () => {
       {section === 'today' ? (
         <TodayView refreshToken={planRefreshToken} onOpenPlanner={() => setSection('planner')} onOpenSchedule={() => setSection('schedule')} onSendToReport={handleSendFromPlanner} />
       ) : section === 'planner' ? (
-        <PlannerView onSendToReport={handleSendFromPlanner} />
+        <PlannerView onSendToReport={handleSendFromPlanner} onOpenTracker={() => setSection('tracker')} />
+      ) : section === 'tracker' ? (
+        <TrackerView onPlanChanged={() => setPlanRefreshToken((x) => x + 1)} onOpenPlanner={() => setSection('planner')} />
       ) : section === 'schedule' ? (
         <ScheduleView onOpenExams={() => setSection('exams')} onOpenPlanner={() => { setSection('planner'); setPlanRefreshToken((x) => x + 1); }} />
       ) : section === 'exams' ? (

@@ -35,6 +35,9 @@ import {
 import { PERSIAN_MONTH_NAMES } from '../../jalali';
 import { newRestId } from '../../plannerSchedule';
 import { ParsedEntry } from '../../plannerNlp';
+import { PlannerTrackerBar } from './PlannerTrackerBar';
+import { AutoPlanDay, planChunksInto, rescheduleOverdue } from '../../trackerPlan';
+import type { TRound } from '../../trackerStore';
 import { PlannerQuickAdd } from './PlannerQuickAdd';
 import { toPersianDigits } from '../../utils';
 import {
@@ -51,11 +54,12 @@ import { alertDialog } from '../../dialog';
 
 interface PlannerViewProps {
   onSendToReport: (dateKey: string, item: PlannerItem, meta?: SendMeta) => void;
+  onOpenTracker?: () => void;
 }
 
 type SubView = 'week' | 'month' | 'settings';
 
-export const PlannerView: React.FC<PlannerViewProps> = ({ onSendToReport }) => {
+export const PlannerView: React.FC<PlannerViewProps> = ({ onSendToReport, onOpenTracker }) => {
   const [data, setData] = React.useState<PlannerData>(() => loadPlannerData());
   const [subView, setSubView] = React.useState<SubView>('week');
   const [cursor, setCursor] = React.useState<Date>(() => startOfWeek(new Date()));
@@ -156,6 +160,30 @@ export const PlannerView: React.FC<PlannerViewProps> = ({ onSendToReport }) => {
 
   const [showHelp, setShowHelp] = React.useState(false);
 
+  // ---------- topic tracker: auto plan + backlog (both go through persist, so undo works) ----------
+  const applyAutoPlan = (days: AutoPlanDay[], round: TRound, minutes?: number): number => {
+    let cur = dataRef.current;
+    let n = 0;
+    days.forEach((d) => {
+      const r = planChunksInto(cur, d.chunks, round, d.dateKey, minutes);
+      cur = r.data;
+      n += r.added;
+    });
+    if (n) {
+      persist(cur);
+      showToast(`${toPersianDigits(n)} کارت از پیگیری مباحث اضافه شد`, true);
+    }
+    return n;
+  };
+  const moveOverdueToToday = (): number => {
+    const r = rescheduleOverdue(dataRef.current, dateKeyOf(todayGregorian()));
+    if (r.moved) {
+      persist(r.data);
+      showToast(`${toPersianDigits(r.moved)} کارت عقب‌افتاده به امروز آمد`, true);
+    }
+    return r.moved;
+  };
+
   const isSettings = subView === 'settings';
   const selectedKey = dateKeyOf(selectedDate);
   const quickDefaultDate = (() => {
@@ -254,6 +282,8 @@ export const PlannerView: React.FC<PlannerViewProps> = ({ onSendToReport }) => {
       else delete upd.minutes;
       if (item.start) upd.start = item.start;
       else delete upd.start;
+      if (item.trk) upd.trk = item.trk;
+      else if (item.trk === null) delete upd.trk;
       if (item.start && item.start !== it.start) moved = upd;
       return upd;
     });
@@ -759,6 +789,8 @@ export const PlannerView: React.FC<PlannerViewProps> = ({ onSendToReport }) => {
       </div>
 
       {!isSettings && <PlannerQuickAdd data={data} defaultDate={quickDefaultDate} onCommit={commitEntries} />}
+
+      {!isSettings && <PlannerTrackerBar data={data} onApplyPlan={applyAutoPlan} onMoveOverdue={moveOverdueToToday} onOpenTracker={onOpenTracker} />}
 
       {!isSettings && (
       <div className="pl-toolbar">
