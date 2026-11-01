@@ -78,7 +78,8 @@ export interface PlannerItem {
   // optional pinned start time "HH:MM" — the card stays at this time instead of flowing
   start?: string;
   // set when the card was made from the topic tracker: ticking the card ticks these units for that round
-  trk?: { u: string[]; r: string };
+  // m: 'p' = this card is only one PART of the topics (they stay open); otherwise the card finishes them
+  trk?: { u: string[]; r: string; m?: 'p' };
 }
 
 export interface PlannerSubjectDef {

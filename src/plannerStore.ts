@@ -1,6 +1,6 @@
 import { BookType, PlannerData, PlannerGrade, PlannerItem, PlannerSubjectDef, RestBlock } from './types';
-import { cloneDefaultSchedule, computeDayPlan, normalizeRests, normalizeSchedule, timeToMin } from './plannerSchedule';
-import { applyPlannerDone } from './trackerStore';
+import { cloneDefaultSchedule, computeDayPlan, itemMinutes, normalizeRests, normalizeSchedule, timeToMin } from './plannerSchedule';
+import { applyPlannerDone, isTrackedSubject } from './trackerStore';
 import { gregorianToJalali, jalaliToGregorian, formatJalaliDate, parseJalaliDate, JalaliDate } from './jalali';
 
 const KEY_PLANNER = 'konkour_planner_data_v1';
@@ -117,23 +117,33 @@ export function loadPlannerData(): PlannerData {
   };
 }
 
-// Cards made from the topic tracker carry `trk`. When such a card flips done <-> not done, the tracker follows.
-// This runs on every save, so it works wherever the card was ticked (planner, today view, island ...).
+// Cards made from the topic tracker carry `trk`. When such a card flips done <-> not done, the tracker follows
+// (a "part" card only logs a study part, a "full" card finishes the topics). A finished card WITHOUT a link asks
+// "which topic was this?" through LINK_PROMPT_EVENT. This runs on every save, so it works wherever the card was ticked.
+export const LINK_PROMPT_EVENT = 'planex-link-prompt';
+
 function syncTrackerFromPlanner(data: PlannerData): void {
   try {
-    const linked: PlannerItem[] = [];
-    Object.keys(data.items).forEach((k) => (data.items[k] || []).forEach((it) => { if (it.trk && it.trk.u && it.trk.u.length) linked.push(it); }));
-    if (!linked.length) return;
-    const prev: Record<string, boolean> = {};
     const raw = localStorage.getItem(KEY_PLANNER);
+    const prev: Record<string, { done: boolean; linked: boolean }> = {};
     if (raw) {
       const p = JSON.parse(raw);
-      Object.keys(p.items || {}).forEach((k) => (p.items[k] || []).forEach((it: PlannerItem) => { if (it.trk) prev[it.id] = !!it.done; }));
+      Object.keys(p.items || {}).forEach((k) => (p.items[k] || []).forEach((it: PlannerItem) => { prev[it.id] = { done: !!it.done, linked: !!it.trk }; }));
     }
-    linked.forEach((it) => {
+    const flips: Array<{ dateKey: string; item: PlannerItem }> = [];
+    Object.keys(data.items).forEach((k) => (data.items[k] || []).forEach((it) => {
       const was = prev[it.id];
-      if (was === undefined ? it.done : was !== it.done) applyPlannerDone(it.trk!.u, it.trk!.r, it.done);
-    });
+      if (it.trk && it.trk.u && it.trk.u.length) {
+        // new links on an already done card count as "just finished"
+        const changed = !was || !was.linked ? it.done : was.done !== it.done;
+        if (changed) applyPlannerDone(it.trk.u, it.trk.r, it.done, it.trk.m === 'p' ? 'p' : 'f', itemMinutes(it, data.schedule));
+      } else if (it.done && was && !was.done) {
+        flips.push({ dateKey: k, item: it });
+      }
+    }));
+    if (flips.length === 1 && isTrackedSubject(flips[0].item.subject) && typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(LINK_PROMPT_EVENT, { detail: { dateKey: flips[0].dateKey, itemId: flips[0].item.id, subject: flips[0].item.subject } }));
+    }
   } catch {
     // never let the tracker break saving the planner
   }
@@ -157,7 +167,7 @@ export interface PlannerItemInput {
   sourceType?: BookType;
   minutes?: number; // optional custom duration of this card
   start?: string; // optional pinned start time "HH:MM"
-  trk?: { u: string[]; r: string } | null; // made from the topic tracker (null = detach on edit)
+  trk?: { u: string[]; r: string; m?: 'p' } | null; // made from the topic tracker (null = detach on edit)
 }
 
 export function createPlannerItem(input: PlannerItemInput & { done?: boolean }): PlannerItem {

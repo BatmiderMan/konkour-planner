@@ -11,7 +11,7 @@ interface PlannerItemFormProps {
   sourceTypes?: Record<string, BookType>;
   defaultMinutes?: number; // the global part length, shown as placeholder
   existing?: PlannerItem | null;
-  onSave: (data: { subject: string; detail: string; grade: PlannerGrade; source?: string; sourceColor?: string; sourceType?: BookType; minutes?: number; start?: string; trk?: { u: string[]; r: string } | null }) => void;
+  onSave: (data: { subject: string; detail: string; grade: PlannerGrade; source?: string; sourceColor?: string; sourceType?: BookType; minutes?: number; start?: string; trk?: { u: string[]; r: string; m?: 'p' } | null }) => void;
   onCancel: () => void;
 }
 
@@ -45,7 +45,7 @@ export const PlannerItemForm: React.FC<PlannerItemFormProps> = ({
   const [start, setStart] = useState<string>(existing?.start || '');
   const recentSources = Object.keys(sourceColors).slice(-4).reverse();
   const tracker = useTracker();
-  const [trk, setTrk] = useState<{ u: string[]; r: string } | null>(existing?.trk || null);
+  const [trk, setTrk] = useState<{ u: string[]; r: string; m?: 'p' } | null>(existing?.trk || null);
   const [picker, setPicker] = useState(false);
   const trkRound = trk ? tracker.rounds.find((r) => r.id === trk.r) : undefined;
 
@@ -60,7 +60,7 @@ export const PlannerItemForm: React.FC<PlannerItemFormProps> = ({
       setSrcColor(sourceColors[p.source] || hashColor(p.source));
       setSrcType(p.sourceType || (sourceTypes && sourceTypes[p.source]) || 'test');
     }
-    setTrk({ u: p.us, r: p.roundId });
+    setTrk({ u: p.us, r: p.roundId, ...(p.part ? { m: 'p' as const } : {}) });
   };
 
   const changeGrade = (g: PlannerGrade) => {
@@ -105,7 +105,8 @@ export const PlannerItemForm: React.FC<PlannerItemFormProps> = ({
         <button type="button" className="pl-trk-pick" onClick={() => setPicker(true)}>📚 انتخاب از مباحث درسی</button>
         {trk && (
           <span className="pl-trk-linked" style={{ ['--tc' as any]: trkRound ? trkRound.color : '#888' }}>
-            🔗 {trkRound ? trkRound.name : 'دور'} · {toPersianDigits(trk.u.length)} بند
+            🔗 {trkRound ? trkRound.name : 'دور'} · {toPersianDigits(trk.u.length)} بند · {trk.m === 'p' ? '◐ یک پارت' : '✓ تمام‌کننده'}
+            <button type="button" aria-label="تغییر حالت" title="تغییر: پارت / تمام‌کننده" onClick={() => setTrk(trk.m === 'p' ? { u: trk.u, r: trk.r } : { ...trk, m: 'p' })}>⇄</button>
             <button type="button" aria-label="جدا کردن از مباحث" title="جدا کردن از پیگیری مباحث" onClick={() => setTrk(null)}>×</button>
           </span>
         )}
@@ -211,7 +212,7 @@ export const PlannerItemForm: React.FC<PlannerItemFormProps> = ({
         <span className="pl-dur-hint">خالی = پشت پارت قبلی می‌آید</span>
       </div>
 
-      {picker && <TopicPicker initialRound={trk?.r} initialUnits={trk?.u} onPick={applyPick} onClose={() => setPicker(false)} />}
+      {picker && <TopicPicker initialRound={trk?.r} initialUnits={trk?.u} initialPart={trk?.m === 'p'} onPick={applyPick} onClose={() => setPicker(false)} />}
 
       <div className="pl-form-row">
         <button type="button" className="pl-save" onClick={submit}>

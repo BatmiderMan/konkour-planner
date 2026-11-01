@@ -259,3 +259,16 @@
 .pl-trkbar .tb-btn.pri { background: var(--primary); border-color: var(--primary); color: #fff; }
 [data-theme="dark"] .pl-trkbar .tb-btn.pri { color: #0a0d16; }
 .pl-trkbar .tb-btn.warn { border-color: var(--warn-solid); color: var(--warn-solid); background: var(--warn-soft-bg); }
+
+/* ---------- v53: scope, parts, link prompt ---------- */
+.tk-gradebar { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
+.tk-gradebar button { border: 1px solid var(--line); background: var(--field-bg); border-radius: 20px; padding: 6px 14px; font-size: 12.5px; font-weight: 700; }
+.tk-gradebar button.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+[data-theme="dark"] .tk-gradebar button.on { color: #0a0d16; }
+.tk-row .t small.pp { color: var(--c); font-weight: 700; }
+.tk-chip.part { border-style: dashed; }
+.tk-linkprompt { position: fixed; inset-inline: 12px; bottom: calc(92px + env(safe-area-inset-bottom, 0px)); margin: 0 auto; width: fit-content; max-width: 94vw; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--ink); color: var(--sheet-bg); padding: 10px 14px; border-radius: 16px; font-size: 13px; font-weight: 700; box-shadow: 0 12px 34px rgba(0, 0, 0, .4); z-index: 720; animation: tk-pop .25s ease; direction: rtl; }
+.tk-linkprompt .go { border: 0; background: var(--primary); color: #fff; border-radius: 10px; padding: 6px 12px; font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; }
+.tk-linkprompt button[aria-label] { border: 0; background: transparent; color: inherit; font-size: 18px; line-height: 1; cursor: pointer; opacity: .75; }
+.pl-trk-linked button[title^="تغییر"] { font-size: 13px; }
+.tp-dots i.half { background: linear-gradient(135deg, var(--c) 50%, transparent 50%); }

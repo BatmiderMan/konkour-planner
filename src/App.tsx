@@ -27,6 +27,7 @@ import { PeriodReportModal } from './components/PeriodReportModal';
 import { SleepDrawer, SleepInline, useIsPhone } from './components/SleepDrawer';
 import { PlannerView } from './components/planner/PlannerView';
 import { TrackerView } from './components/tracker/TrackerView';
+import { LinkPromptHost } from './components/tracker/LinkPromptHost';
 import { LiveTimer } from './components/timer/LiveTimer';
 import './components/timer/timer.css';
 import { MusicSheet, MusicStrip } from './components/music/MusicPlayer';
@@ -868,6 +869,7 @@ export const App: React.FC = () => {
       <WelcomeBack />
       <UndoHost />
       <FocusGuard />
+      <LinkPromptHost />
       <CommandPalette
         onGo={setSection}
         onSetThemeMode={setThemeMode}

@@ -2,7 +2,7 @@ import React from 'react';
 import { Sheet } from '../ui/Sheet';
 import { PlannerData } from '../../types';
 import { toPersianDigits } from '../../utils';
-import { BOOKS, TRound, focusRound, sourceFor, useTracker } from '../../trackerStore';
+import { BOOKS, TRound, appliesBook, focusRound, sourcesFor, useTracker } from '../../trackerStore';
 import { AutoPlanDay, AutoPlanOpts, buildAutoPlan, dayLabel, plannedUnits } from '../../trackerPlan';
 import './tracker.css';
 
@@ -42,14 +42,18 @@ export const AutoPlanSheet: React.FC<Props> = ({ plannerData, onApply, onDone, o
   const [mode, setMode] = React.useState<'sequential' | 'interleave'>('interleave');
   const [needPrev, setNeedPrev] = React.useState(true);
   const [mins, setMins] = React.useState('');
+  const [partsPer, setPartsPer] = React.useState(1);
+  const [srcPick, setSrcPick] = React.useState('');
 
   const round = s.rounds.find((r) => r.id === rid) || s.rounds[0];
   const ri = s.rounds.findIndex((r) => r.id === round.id);
   const planned = React.useMemo(() => plannedUnits(plannerData), [plannerData]);
-  const opts: AutoPlanOpts = { roundId: round.id, books, perDay, days, startOffset, skipFridays, granularity, mode, needPrev: needPrev && ri > 0 };
+  const useBooks = books.filter((b) => appliesBook(round, b));
+  const opts: AutoPlanOpts = { roundId: round.id, books: useBooks, perDay, days, startOffset, skipFridays, granularity, mode, needPrev: needPrev && ri > 0, partsPerChunk: partsPer, source: srcPick };
   const plan = React.useMemo(() => buildAutoPlan(s, opts, planned), [s, rid, books, perDay, days, startOffset, skipFridays, granularity, mode, needPrev, planned]);
   const cards = plan.days.reduce((n, d) => n + d.chunks.length, 0);
 
+  const srcNames = Array.from(new Set(useBooks.flatMap((b) => sourcesFor(round, b).map((x) => x.s))));
   const toggleBook = (i: number) => setBooks((b) => (b.includes(i) ? b.filter((x) => x !== i) : [...b, i]));
 
   const apply = () => {
@@ -66,7 +70,7 @@ export const AutoPlanSheet: React.FC<Props> = ({ plannerData, onApply, onDone, o
         <div className="tk-lab">کدام دور؟</div>
         <div className="tk-pills">
           {s.rounds.map((r) => (
-            <button key={r.id} type="button" className={'tk-pill' + (r.id === rid ? ' on' : '')} style={{ '--c': r.color } as CssVars} onClick={() => setRid(r.id)}>{r.name}</button>
+            <button key={r.id} type="button" className={'tk-pill' + (r.id === rid ? ' on' : '')} style={{ '--c': r.color } as CssVars} onClick={() => { setRid(r.id); setSrcPick(''); }}>{r.name}</button>
           ))}
         </div>
 
@@ -75,8 +79,8 @@ export const AutoPlanSheet: React.FC<Props> = ({ plannerData, onApply, onDone, o
           {LESSONS.map((l) => (
             <div key={l} className="grp" style={{ '--lc': LESSON_COLOR[l] } as CssVars}>
               <span className="gl">{l}</span>
-              {BOOKS.map((x, i) => x.lesson === l && (
-                <button key={x.id} type="button" className={'tk-bp' + (books.includes(i) ? ' on' : '')} onClick={() => toggleBook(i)} title={(sourceFor(round, i) || { s: '' }).s ? 'منبع: ' + (sourceFor(round, i) as { s: string }).s : ''}>
+              {BOOKS.map((x, i) => x.lesson === l && appliesBook(round, i) && (
+                <button key={x.id} type="button" className={'tk-bp' + (books.includes(i) ? ' on' : '')} onClick={() => toggleBook(i)} title={sourcesFor(round, i).length ? 'منبع: ' + sourcesFor(round, i).map((y) => y.s).join('، ') : ''}>
                   {books.includes(i) && <small>{fa(books.indexOf(i) + 1)}</small>}{x.book}
                 </button>
               ))}
@@ -88,7 +92,19 @@ export const AutoPlanSheet: React.FC<Props> = ({ plannerData, onApply, onDone, o
           <Stepper label="کارت در هر روز" value={perDay} min={1} max={10} onChange={setPerDay} />
           <Stepper label="تعداد روز مطالعه" value={days} min={1} max={60} onChange={setDays} />
           <Stepper label="شروع از" value={startOffset} min={0} max={14} unit={startOffset === 0 ? '(امروز)' : startOffset === 1 ? '(فردا)' : 'روز بعد'} onChange={setStartOffset} />
+          <Stepper label="هر مبحث در چند پارت؟" value={partsPer} min={1} max={6} unit="پارت" onChange={setPartsPer} />
         </div>
+        {partsPer > 1 && <div className="tk-note">هر مبحث به {fa(partsPer)} کارت شکسته می‌شود؛ فقط کارت آخر مبحث را تمام می‌کند و بقیه «پارت» ثبت می‌کنند.</div>}
+
+        {srcNames.length > 1 && (
+          <>
+            <div className="tk-lab">📖 منبع کارت‌ها</div>
+            <div className="tk-pills">
+              <button type="button" className={'tk-pill sm' + (!srcPick ? ' on' : '')} onClick={() => setSrcPick('')}>پیش‌فرضِ هر کتاب</button>
+              {srcNames.map((n) => (<button key={n} type="button" className={'tk-pill sm' + (srcPick === n ? ' on' : '')} onClick={() => setSrcPick(n)}>{n}</button>))}
+            </div>
+          </>
+        )}
 
         <div className="tk-lab">هر کارت چه باشد؟</div>
         <div className="tk-pills">

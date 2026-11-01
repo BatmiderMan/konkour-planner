@@ -1,7 +1,7 @@
 import React from 'react';
 import { PlannerData } from '../../types';
 import { toPersianDigits } from '../../utils';
-import { ALL_UNITS, TRound, cnt, focusRound, setFocus, useTracker } from '../../trackerStore';
+import { ALL_UNITS, TRound, cnt, focusRound, setFocus, tot, useTracker } from '../../trackerStore';
 import { AutoPlanDay, overdueLinked, paceInfo } from '../../trackerPlan';
 import { AutoPlanSheet } from '../tracker/AutoPlanSheet';
 import '../tracker/tracker.css';
@@ -23,7 +23,7 @@ export const PlannerTrackerBar: React.FC<Props> = ({ data, onApplyPlan, onMoveOv
   const s = useTracker();
   const [auto, setAuto] = React.useState(false);
   const r = focusRound(s);
-  const total = ALL_UNITS.length;
+  const total = tot(s, ALL_UNITS, r.id);
   const done = cnt(s, ALL_UNITS, r.id);
   const p = total ? Math.round((done / total) * 100) : 0;
   const od = React.useMemo(() => overdueLinked(data), [data]);

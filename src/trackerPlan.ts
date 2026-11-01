@@ -5,11 +5,14 @@ import {
 import { PERSIAN_MONTH_NAMES, PERSIAN_WEEK_DAYS, parseJalaliDate } from './jalali';
 import { weekdayIndexOfKey } from './plannerSchedule';
 import { toPersianDigits } from './utils';
-import { BOOKS, BY_UNIT, TRound, TrackerState, cnt, isOn, sourceFor, unitPath, unitsOfBook, unitsOfSection } from './trackerStore';
+import { BOOKS, BY_UNIT, TRound, TrackerState, appliesUnit, cnt, isOn, scopedUnits, sourceFor, unitPath, unitsOfBook, unitsOfSection } from './trackerStore';
 
 export interface PlanChunk {
   us: string[]; // the units one planner card covers
   label: string; // "فصل › بخش › مورد" (or a section / chapter title)
+  part?: boolean; // true = this card is only one part of the topics (they stay open after it)
+  tag?: string; // "۱ از ۲" for the parts of one topic
+  source?: string; // a specific source (کتاب) of the round for this card
 }
 
 const clip = (a: string[], n: number) => (a.length > n ? a.slice(0, n).join('، ') + '…' : a.join('، '));
@@ -48,22 +51,23 @@ export function chunkOfChapter(bi: number, ci: number, us: string[]): PlanChunk 
 }
 
 /** one planner card per chunk, added to a day. Pure: returns new planner data (nothing is saved). */
-export function planChunksInto(data: PlannerData, chunks: PlanChunk[], round: TRound, dateKey: string, minutes?: number): { data: PlannerData; added: number } {
+export function planChunksInto(data: PlannerData, chunks: PlanChunk[], round: TRound, dateKey: string, minutes?: number, pickSource?: string): { data: PlannerData; added: number } {
   const next: PlannerData = { ...data, items: { ...data.items }, sourceColors: { ...data.sourceColors }, sourceTypes: { ...data.sourceTypes } };
   let list = next.items[dateKey] ? [...next.items[dateKey]] : [];
   let added = 0;
   chunks.forEach((c) => {
-    const first = BY_UNIT[c.us[0]];
+    const us = scopedUnits(round, c.us);
+    const first = us.length ? BY_UNIT[us[0]] : undefined;
     if (!first) return;
     const book = BOOKS[first.bi];
-    const src = sourceFor(round, first.bi);
+    const src = sourceFor(round, first.bi, c.source || pickSource);
     const item = createPlannerItem({
       subject: book.subject,
-      detail: `${c.label} — ${round.name}`,
+      detail: `${c.label}${c.tag ? ` (پارت ${c.tag})` : ''} — ${round.name}`,
       grade: book.grade,
       ...(src ? { source: src.s } : {}),
       ...(minutes ? { minutes } : {}),
-      trk: { u: c.us, r: round.id }
+      trk: { u: us, r: round.id, ...(c.part ? { m: 'p' as const } : {}) }
     });
     if (src) {
       if (!next.sourceColors[src.s]) next.sourceColors[src.s] = hashColor(src.s);
@@ -77,8 +81,8 @@ export function planChunksInto(data: PlannerData, chunks: PlanChunk[], round: TR
 }
 
 /** same, but straight on the saved planner data (used while the planner screen is not open) */
-export function planChunks(chunks: PlanChunk[], round: TRound, dateKey: string, minutes?: number): number {
-  const r = planChunksInto(loadPlannerData(), chunks, round, dateKey, minutes);
+export function planChunks(chunks: PlanChunk[], round: TRound, dateKey: string, minutes?: number, pickSource?: string): number {
+  const r = planChunksInto(loadPlannerData(), chunks, round, dateKey, minutes, pickSource);
   if (r.added) savePlannerData(r.data);
   return r.added;
 }
@@ -148,6 +152,8 @@ export interface AutoPlanOpts {
   granularity: 'section' | 'item';
   mode: 'sequential' | 'interleave';
   needPrev: boolean; // only units that already have the previous round
+  partsPerChunk: number; // 1 = a topic is one card; 2+ = a topic is split into that many cards (all but the last are "parts")
+  source: string; // a source name of the round, or '' for each book's default
 }
 
 export interface AutoPlanDay { dateKey: string; chunks: PlanChunk[] }
@@ -158,15 +164,20 @@ export function buildAutoPlan(s: TrackerState, o: AutoPlanOpts, planned: Record<
   const round = s.rounds[ri];
   if (!round) return { days: [], total: 0, leftover: 0 };
   const prev = ri > 0 ? s.rounds[ri - 1] : null;
-  const ok = (u: string) => !isOn(s, u, round.id) && !planned[u] && (!o.needPrev || !prev || isOn(s, u, prev.id));
+  const ok = (u: string) => appliesUnit(round, u) && !isOn(s, u, round.id) && !planned[u] && (!o.needPrev || !prev || isOn(s, u, prev.id));
 
   const queues: PlanChunk[][] = o.books.map((bi) => {
     const q: PlanChunk[] = [];
     BOOKS[bi].chapters.forEach((c, ci) => c.s.forEach((_, si) => {
       const us = unitsOfSection(bi, ci, si).filter(ok);
       if (!us.length) return;
-      if (o.granularity === 'section') q.push(chunkOfUnits(us));
-      else us.forEach((u) => q.push(chunkOfUnit(u)));
+      const base = o.granularity === 'section' ? [chunkOfUnits(us)] : us.map(chunkOfUnit);
+      base.forEach((c) => {
+        const n = Math.max(1, Math.min(6, o.partsPerChunk || 1));
+        for (let i = 0; i < n; i++) {
+          q.push({ ...c, ...(o.source ? { source: o.source } : {}), ...(n > 1 ? { part: i < n - 1, tag: `${toPersianDigits(i + 1)} از ${toPersianDigits(n)}` } : {}) });
+        }
+      });
     }));
     return q;
   });
@@ -210,7 +221,8 @@ export interface PaceInfo {
   late: boolean; // current pace misses the due date
 }
 
-export function paceInfo(s: TrackerState, r: TRound, us: string[]): PaceInfo {
+export function paceInfo(s: TrackerState, r: TRound, all: string[]): PaceInfo {
+  const us = scopedUnits(r, all);
   const total = us.length;
   const done = cnt(s, us, r.id);
   const remaining = total - done;

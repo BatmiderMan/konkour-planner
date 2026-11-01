@@ -3,7 +3,7 @@ import { Sheet } from '../ui/Sheet';
 import { BookType, PlannerData, PlannerGrade } from '../../types';
 import { toPersianDigits } from '../../utils';
 import {
-  BOOKS, BY_UNIT, TrackerState, focusRound, sourceFor, unitsOfBook, unitsOfChapter, unitsOfSection, useTracker
+  BOOKS, BY_UNIT, TrackerState, appliesUnit, focusRound, roundsOfBook, scopedUnits, sourcesFor, unitsOfBook, unitsOfChapter, unitsOfSection, useTracker
 } from '../../trackerStore';
 import { labelForUnits, plannedUnits } from '../../trackerPlan';
 import './tracker.css';
@@ -17,6 +17,8 @@ export interface TopicPick {
   grade: PlannerGrade;
   source?: string;
   sourceType?: BookType;
+  /** true = this card is only one part of the picked topics (they stay open) */
+  part: boolean;
 }
 
 const LESSONS = ['ریاضی', 'فیزیک', 'شیمی'];
@@ -25,8 +27,12 @@ type CssVars = React.CSSProperties & Record<string, string | number>;
 const fa = (n: number) => toPersianDigits(n);
 
 interface Props {
+  title?: string;
+  confirmLabel?: string;
   initialRound?: string;
   initialUnits?: string[];
+  initialPart?: boolean;
+  initialBook?: number;
   plannerData?: PlannerData;
   onPick: (p: TopicPick) => void;
   onClose: () => void;
@@ -35,22 +41,26 @@ interface Props {
 /** a small read-only strip of the rounds a unit already has */
 const Dots: React.FC<{ u: string; s: TrackerState }> = ({ u, s }) => (
   <span className="tp-dots">
-    {s.rounds.map((r) => (<i key={r.id} className={s.done[u] && s.done[u][r.id] ? 'on' : ''} style={{ '--c': r.color } as CssVars} title={r.name} />))}
+    {s.rounds.filter((r) => appliesUnit(r, u)).map((r) => (<i key={r.id} className={s.done[u] && s.done[u][r.id] ? 'on' : s.parts[u] && s.parts[u][r.id] ? 'half' : ''} style={{ '--c': r.color } as CssVars} title={r.name} />))}
   </span>
 );
 
-export const TopicPicker: React.FC<Props> = ({ initialRound, initialUnits, plannerData, onPick, onClose }) => {
+export const TopicPicker: React.FC<Props> = ({ title, confirmLabel, initialRound, initialUnits, initialPart, initialBook, plannerData, onPick, onClose }) => {
   const s = useTracker();
-  const firstBook = initialUnits && initialUnits.length && BY_UNIT[initialUnits[0]] ? BY_UNIT[initialUnits[0]].bi : 0;
+  const firstBook = initialUnits && initialUnits.length && BY_UNIT[initialUnits[0]] ? BY_UNIT[initialUnits[0]].bi : initialBook !== undefined && BOOKS[initialBook] ? initialBook : 0;
   const [bi, setBi] = React.useState(firstBook);
   const [rid, setRid] = React.useState(initialRound && s.rounds.some((r) => r.id === initialRound) ? initialRound : focusRound(s).id);
+  const [part, setPart] = React.useState(!!initialPart);
+  const [srcPick, setSrcPick] = React.useState('');
   const [sel, setSel] = React.useState<Set<string>>(() => new Set(initialUnits || []));
   const planned = React.useMemo(() => plannedUnits(plannerData), [plannerData]);
-  const round = s.rounds.find((r) => r.id === rid) || s.rounds[0];
   const book = BOOKS[bi];
-  const src = sourceFor(round, bi);
+  const usable = roundsOfBook(s, bi);
+  const round = usable.find((r) => r.id === rid) || usable[0] || s.rounds[0];
+  const srcs = sourcesFor(round, bi);
+  const src = srcs.find((x) => x.s === srcPick) || srcs[0] || null;
 
-  const changeBook = (i: number) => { setBi(i); setSel(new Set()); };
+  const changeBook = (i: number) => { setBi(i); setSel(new Set()); setSrcPick(''); };
   const toggle = (us: string[]) => setSel((p) => {
     const n = new Set(p);
     const all = us.every((u) => n.has(u));
@@ -62,9 +72,12 @@ export const TopicPicker: React.FC<Props> = ({ initialRound, initialUnits, plann
   const chosen = unitsOfBook(bi).filter((u) => sel.has(u));
   const confirm = () => {
     if (!chosen.length) return;
-    const label = labelForUnits(chosen);
+    const us = scopedUnits(round, chosen);
+    if (!us.length) return;
+    const label = labelForUnits(us);
     onPick({
-      us: chosen,
+      part,
+      us,
       roundId: round.id,
       label,
       detail: `${label} — ${round.name}`,
@@ -76,16 +89,30 @@ export const TopicPicker: React.FC<Props> = ({ initialRound, initialUnits, plann
   };
 
   return (
-    <Sheet onClose={onClose} title="انتخاب از مباحث درسی" z={650}>
+    <Sheet onClose={onClose} title={title || "انتخاب از مباحث درسی"} z={650}>
       <div className="tk-sheet tp">
         <div className="tk-lab" style={{ marginTop: 0 }}>برای کدام دور؟</div>
         <div className="tk-pills">
-          {s.rounds.map((r) => (
-            <button key={r.id} type="button" className={'tk-pill' + (r.id === rid ? ' on' : '')} style={{ '--c': r.color } as CssVars} onClick={() => setRid(r.id)}>{r.name}</button>
+          {usable.map((r) => (
+            <button key={r.id} type="button" className={'tk-pill' + (r.id === round.id ? ' on' : '')} style={{ '--c': r.color } as CssVars} onClick={() => { setRid(r.id); setSrcPick(''); }}>{r.name}</button>
           ))}
         </div>
-        <div className="tk-note" style={{ marginTop: 6 }}>
-          {src ? <>منبع این دور برای «{book.book}»: <b>{src.s}</b>{src.t ? (src.t === 'test' ? ' · تستی' : ' · تشریحی') : ''}</> : 'برای این دور هنوز منبعی تعیین نشده (در «پیگیری مباحث › دورها» می‌توانی تعیین کنی).'}
+        {srcs.length > 1 ? (
+          <>
+            <div className="tk-lab">📖 منبع «{book.book}» در این دور</div>
+            <div className="tk-pills">
+              {srcs.map((x) => (<button key={x.s} type="button" className={'tk-pill sm' + (src && src.s === x.s ? ' on' : '')} onClick={() => setSrcPick(x.s)}>{x.s}{x.t ? (x.t === 'test' ? ' ✏️' : ' 📖') : ''}</button>))}
+            </div>
+          </>
+        ) : (
+          <div className="tk-note" style={{ marginTop: 6 }}>
+            {src ? <>منبع این دور برای «{book.book}»: <b>{src.s}</b>{src.t ? (src.t === 'test' ? ' · تستی' : ' · تشریحی') : ''}</> : 'برای این دور هنوز منبعی تعیین نشده (در «پیگیری مباحث › دورها» می‌توانی تعیین کنی).'}
+          </div>
+        )}
+        <div className="tk-lab">این پارت…</div>
+        <div className="tk-pills">
+          <button type="button" className={'tk-pill sm' + (!part ? ' on' : '')} onClick={() => setPart(false)}>✓ مبحث را تمام می‌کند</button>
+          <button type="button" className={'tk-pill sm' + (part ? ' on' : '')} onClick={() => setPart(true)}>◐ فقط یک پارت از مبحث است</button>
         </div>
 
         <div className="tk-lab">کتاب</div>
@@ -142,7 +169,7 @@ export const TopicPicker: React.FC<Props> = ({ initialRound, initialUnits, plann
 
         <div className="tk-actions tp-foot">
           <span className="tk-mut">{chosen.length ? `${fa(chosen.length)} بند انتخاب شد` : 'مباحث را تیک بزن'}</span>
-          <button type="button" className="tk-btn pri" disabled={!chosen.length} onClick={confirm}>تأیید و پر کردن کارت</button>
+          <button type="button" className="tk-btn pri" disabled={!chosen.length} onClick={confirm}>{confirmLabel || 'تأیید و پر کردن کارت'}</button>
         </div>
       </div>
     </Sheet>
