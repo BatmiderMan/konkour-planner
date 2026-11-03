@@ -14,6 +14,18 @@ export interface ScanContext {
   sheetOnly?: boolean;             // photo → save the sheet for later, no key and no grading
 }
 
+/** open the virtual answer sheet from anywhere (the plan card's timer, the checker) */
+export interface VirtualContext {
+  title?: string;
+  lesson?: string; source?: string; detail?: string;
+  link?: ScanLink;                 // the planner card this test belongs to: its timer runs the sheet's clock
+  size?: number; startQ?: number; step?: number; off?: number;
+  sheet?: SavedSheet;              // open this saved sheet instead of making a new one
+}
+let vOpener: ((c: VirtualContext) => void) | null = null;
+export const registerVirtualOpener = (fn: ((c: VirtualContext) => void) | null) => { vOpener = fn; };
+export function openVirtual(ctx: VirtualContext = {}): void { if (vOpener) vOpener(ctx); }
+
 let opener: ((c: ScanContext) => void) | null = null;
 export const registerScanOpener = (fn: ((c: ScanContext) => void) | null) => { opener = fn; };
 export function openScan(ctx: ScanContext = {}): void { if (opener) opener(ctx); }

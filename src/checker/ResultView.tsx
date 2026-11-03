@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Grade, ScanRecord } from './model';
+import { TimeCandles } from './TimeCandles';
 import { toPersianDigits as P } from '../utils';
 
 const LBL: Record<string, string> = { ok: 'درست', bad: 'غلط', blank: 'نزده', dbl: 'دو علامت', nokey: 'بدون کلید' };
 const penaltyText = (p: number) => (p ? `با نمره‌ی منفی ${P('۱/' + p)}` : 'بدون نمره‌ی منفی');
 
 /** Score, answer-sheet-like bubble map, and the list of questions. With `onPick` the answers can be corrected by tapping. */
-export const ResultView: React.FC<{ grade: Grade; penalty: number; onPick?: (q: number, o: number) => void }> = ({ grade: g, penalty, onPick }) => {
+export const ResultView: React.FC<{ grade: Grade; penalty: number; onPick?: (q: number, o: number) => void; times?: number[]; title?: string }> = ({ grade: g, penalty, onPick, times, title }) => {
   const [filter, setFilter] = useState<'all' | 'bad' | 'blank' | 'dbl'>('bad');
   const counts = { all: g.rows.length, bad: g.wrong, blank: g.blank, dbl: g.double };
   const rows = g.rows.filter((x) => filter === 'all' || x.st === filter);
@@ -25,6 +26,7 @@ export const ResultView: React.FC<{ grade: Grade; penalty: number; onPick?: (q: 
           {g.rows.map((x) => <i key={x.q} className={'st-' + x.st} title={`سؤال ${x.bq}: ${LBL[x.st]}`} onClick={() => jump(x.q)}>{P(x.q)}</i>)}
         </div>
       </section>
+      {times && times.length > 0 && <TimeCandles rows={g.rows} times={times} title={title} />}
       <section className="ck-card">
         <div className="ck-chips">
           {([['bad', 'غلط'], ['blank', 'نزده'], ['dbl', 'دو علامت'], ['all', 'همه']] as const).map(([k, t]) =>

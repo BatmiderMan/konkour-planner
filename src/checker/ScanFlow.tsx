@@ -5,7 +5,7 @@ import { ResultView } from './ResultView';
 import { SheetStep, emptySheet, SheetState } from './SheetStep';
 import { useLibrary } from './hooks';
 import { ScanContext, openScan } from './launch';
-import { Book, BookMeta, GradeSettings, KeyMap, Manual, RawRead, SavedSheet, effective, gradeSheet, lastMarked, makeRecord, makeSavedSheet, matchBook, packSheet, rangeHint, toPartCounts, unpackSheet, withAnswers } from './model';
+import { Book, BookMeta, GradeSettings, KeyMap, Manual, RawRead, SavedSheet, effective, gradeSheet, lastMarked, makeRecord, makeSavedSheet, matchBook, packSheet, rangeHint, stepLabel, timesToSeconds, toPartCounts, unpackSheet, withAnswers } from './model';
 import { getBook, keysOf, loadPrefs, recallChoice, rememberChoice, savePrefs, saveScan, saveSheet } from './store';
 import { defaultTitle } from './format';
 import { marksFromScan } from './engine';
@@ -28,6 +28,8 @@ export const ScanFlow: React.FC<{ ctx: ScanContext; onClose: () => void }> = ({ 
   const [startQ, setStartQ] = useState(preset?.startQ || 1);
   const [from, setFrom] = useState(1);
   const [to, setTo] = useState<number | null>(null);
+  const [xStep, setXStep] = useState(preset?.step || 1);                // «۲x / ۳x»: only every n-th question belongs to the test
+  const [xOff, setXOff] = useState(preset?.off || 0);
   const [showSet, setShowSet] = useState(false);
   const [builder, setBuilder] = useState<{ book?: Book } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -61,9 +63,9 @@ export const ScanFlow: React.FC<{ ctx: ScanContext; onClose: () => void }> = ({ 
   const last = hasRead ? lastMarked(read, manual) : 0;
   // a typed sheet is graded over all the rows it shows (blank rows at the end count as «نزده»); a scan up to the last marked answer
   const defaultTo = hint ? hint.to - hint.from + 1 : preset ? Math.max(preset.size, last) : (last || 50);
-  const settings: GradeSettings = { startQ, from, to: to ?? defaultTo, penalty: prefs.penalty, dblWrong: prefs.dblWrong };
+  const settings: GradeSettings = { startQ, from, to: to ?? defaultTo, penalty: prefs.penalty, dblWrong: prefs.dblWrong, step: xStep, off: xOff };
   const grade = useMemo(() => (hasRead ? gradeSheet(read, manual, keys, settings) : null), // eslint-disable-line react-hooks/exhaustive-deps
-    [hasRead, manual, keys, startQ, from, to, prefs.penalty, prefs.dblWrong, hint, last]);
+    [hasRead, manual, keys, startQ, from, to, prefs.penalty, prefs.dblWrong, hint, last, xStep, xOff]);
 
   const setPref = (p: Partial<typeof prefs>) => { const n = { ...prefs, ...p }; setPrefs(n); savePrefs(n); };
   const onSens = (v: number) => {
@@ -76,10 +78,10 @@ export const ScanFlow: React.FC<{ ctx: ScanContext; onClose: () => void }> = ({ 
     if (!grade || !sheet.marks) return;
     setSaving(true);
     const link = { ...(ctx.link || {}), lesson: ctx.lesson, label: ctx.subject || (ctx.detail ? ctx.detail.slice(0, 40) : preset?.title), ...(preset ? { sheetId: preset.id } : {}) };
-    const rec = makeRecord(read, manual, grade, settings, meta, link);
+    const rec = makeRecord(read, manual, grade, settings, meta, link, preset && preset.times ? timesToSeconds(preset.times, settings.to) : undefined);
     await saveScan(rec);
     // the saved sheet remembers its last comparison (and any answer corrected on the result screen)
-    if (preset) await saveSheet(withAnswers(preset, packSheet(read, manual), { state: 'done', bookId: meta?.id, bookTitle: meta?.title, scanId: rec.id, pct: grade.pct, startQ }));
+    if (preset) await saveSheet(withAnswers(preset, packSheet(read, manual), { state: 'done', bookId: meta?.id, bookTitle: meta?.title, scanId: rec.id, pct: grade.pct, startQ, step: xStep > 1 ? xStep : undefined, off: xStep > 1 && xOff ? xOff : undefined }));
     if (meta) rememberChoice({ source: ctx.source, lesson: ctx.lesson }, meta.id, startQ);
     if (apply && ctx.onApply) ctx.onApply(toPartCounts(grade), rec);
     setSaving(false); onClose();
@@ -140,6 +142,21 @@ export const ScanFlow: React.FC<{ ctx: ScanContext; onClose: () => void }> = ({ 
                 <input type="number" min={1} max={300} value={settings.to} onChange={(e) => setTo(Math.min(300, Math.max(1, parseInt(e.target.value, 10) || 1)))} />
               </label>
             </div>
+            <div className="ck-fields">
+              <div className="ck-field grow"><span>کدام سؤال‌ها را زده‌ای؟ (۲x / ۳x)</span>
+                <div className="ck-chips">
+                  {[1, 2, 3, 4].map((n) => <button key={n} type="button" aria-pressed={xStep === n} onClick={() => { setXStep(n); setXOff(0); }}>{n === 1 ? 'همه' : `${P(n)}x`}</button>)}
+                </div>
+              </div>
+              {xStep > 1 && (
+                <div className="ck-field"><span>شروع از</span>
+                  <div className="ck-chips">
+                    {Array.from({ length: xStep }, (_, i) => <button key={i} type="button" aria-pressed={xOff === i} onClick={() => setXOff(i)}>سؤال {P(i + 1)}</button>)}
+                  </div>
+                </div>
+              )}
+            </div>
+            {xStep > 1 && <p className="ck-note">{P(stepLabel(xStep, xOff))}: سؤال‌های خارج از این الگو که خالی مانده‌اند اصلاً حساب نمی‌شوند؛ نه غلط، نه نزده. اگر یکی‌شان را جواب داده باشی، حساب می‌شود.</p>}
             {hint && !startTouched && <p className="ck-note">از توضیح این پارت به نظر می‌رسد تست‌های {P(hint.from)} تا {P(hint.to)} را زده‌ای؛ پاسخ‌برگ با همین فرض تصحیح شد. اگر این‌طور نیست، شماره‌ی بالا را عوض کن.</p>}
             <button type="button" className="ck-btn sm ghost" onClick={() => setShowSet(!showSet)}><Settings2 size={15} /> تنظیمات نمره</button>
             {showSet && (
@@ -163,7 +180,7 @@ export const ScanFlow: React.FC<{ ctx: ScanContext; onClose: () => void }> = ({ 
           {grade && grade.nokey > 0 && meta && keys && (
             <p className="ck-warn">{P(grade.nokey)} سؤال از محدوده کلید ندارد و حساب نشد. شماره‌ی «سؤال ۱ پاسخ‌برگ» را بررسی کن یا کلیدهای کم را به کتاب اضافه کن.</p>
           )}
-          {grade && grade.graded > 0 && <ResultView grade={grade} penalty={prefs.penalty} onPick={pick} />}
+          {grade && grade.graded > 0 && <ResultView grade={grade} penalty={prefs.penalty} onPick={pick} times={preset && preset.times ? timesToSeconds(preset.times, settings.to) : undefined} title={ctx.lesson || preset?.lesson || meta?.title} />}
           {!preset && <div className="ck-row"><button type="button" className="ck-btn ghost" onClick={() => setStep('sheet')}><ArrowRight size={16} /> برگشت به پاسخ‌برگ</button></div>}
         </div>
       )}

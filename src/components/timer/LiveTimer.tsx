@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, Coffee, Expand, Maximize2, Minimize2, Minus, Pause, PictureInPicture2, Play, Plus, Shrink, SlidersHorizontal, Square, X } from 'lucide-react';
+import { ChevronDown, Coffee, Expand, ListChecks, Maximize2, Minimize2, Minus, Pause, PictureInPicture2, Play, Plus, Shrink, SlidersHorizontal, Square, X } from 'lucide-react';
 import { PlannerItem, StudyBlock } from '../../types';
 import { loadPlannerData, patchPlannerItem } from '../../plannerStore';
 import {
@@ -28,6 +28,7 @@ import { TickPanel } from './TickPanel';
 import { FinishForm } from './FinishForm';
 import { StartPicker } from './StartPicker';
 import { MusicCompact } from '../music/MusicPlayer';
+import { openVirtual } from '../../checker/launch';
 import { PipTimer, pipSupported, preparePipWindow } from './LivePip';
 import { FocusFx } from './FocusFx';
 import { PhoneTools } from './PhoneTools';
@@ -342,6 +343,15 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
   const pipNode = pipWin ? createPortal(<PipTimer win={pipWin} />, pipWin.document.body) : null;
   const pipActive = !!pipWin;
   const toggleRun = () => { unlockAudio(); hapticTap(); live.running ? pauseLivePlan() : resumeLivePlan(); };
+  // the virtual answer sheet of this card: its clock follows this timer, per-question time is counted while the timer runs
+  const openSheet = () => {
+    openVirtual({
+      title: [item.subject, item.detail].filter(Boolean).join(' — '),
+      lesson: item.subject, detail: item.detail, source: item.source,
+      link: { dateKey: live.dateKey, plannerItemId: item.id }
+    });
+    setExpanded(false);
+  };
 
   const labelTop = isBreak
     ? model.over ? 'استراحت تمام شد' : 'استراحت'
@@ -363,6 +373,7 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
             {tick.on && !isBreak && <i className="tm-pill-tick" title={`تیک هر ${secondsLabel(tick.seconds)}`}>♪{toPersianDigits(tickIdx)}</i>}
             <span className="tm-pill-time">{model.over ? '+' : ''}{toPersianDigits(fmtClock(model.shown))}</span>
           </button>
+          {!isBreak && <button type="button" className="tm-pill-btn" onClick={openSheet} aria-label="پاسخ‌برگ مجازی" title="پاسخ‌برگ مجازی این پارت"><ListChecks size={16} /></button>}
           <button type="button" className="tm-pill-btn" onClick={toggleRun} aria-label={live.running ? 'توقف موقت' : 'ادامه'}>
             {live.running ? <Pause size={16} /> : <Play size={16} />}
           </button>
@@ -467,6 +478,11 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
                   <MusicCompact onOpen={onOpenMusic} />
                 </div>)}
 
+                {!isBreak && (
+                  <button type="button" className="tm-btn-ghost tm-sheet-btn" onClick={openSheet} title="پاسخ‌برگ مجازی با کیبورد؛ زمان هر سؤال هم ثبت می‌شود">
+                    <ListChecks size={16} /> پاسخ‌برگ مجازی (حل تست)
+                  </button>
+                )}
                 <div className="tm-finish-row">
                   <button type="button" className="tm-btn-main finish" onClick={handleFinish}>
                     <Square size={16} /> {isBreak ? 'پایان استراحت' : 'اتمام و ثبت در گزارش'}

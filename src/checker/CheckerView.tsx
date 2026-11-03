@@ -8,7 +8,8 @@ import { VirtualSheet } from './VirtualSheet';
 import { dayOf, timeOf } from './format';
 import { MissList } from './ResultView';
 import { openScan, CheckerFocus } from './launch';
-import { Book, BookMeta, SavedSheet, ScanRecord, regrade } from './model';
+import { Book, BookMeta, SavedSheet, ScanRecord, regrade, rowsFromRecord } from './model';
+import { TimeCandles } from './TimeCandles';
 import { deleteScan, downloadJson, exportLibrary, getBook, importLibrary, keysOf, saveScan } from './store';
 import { Seg } from './ui';
 import { alertDialog } from '../dialog';
@@ -60,6 +61,7 @@ const HistoryRow: React.FC<{ s: ScanRecord }> = ({ s }) => {
       {open && (
         <div className="ck-hist-body">
           <p className="ck-hint">{P(s.total)} سؤال تصحیح شد: سؤال {P(s.startQ + s.from - 1)} تا {P(s.startQ + s.to - 1)} کتاب. زیر، فقط سؤال‌هایی است که درست نبود.</p>
+          {s.times && s.times.length > 0 && <TimeCandles rows={rowsFromRecord(s)} times={s.times} title={s.link?.lesson || s.bookTitle} />}
           <MissList rec={s} />
           <div className="ck-row">
             {s.bookId && <button type="button" className="ck-btn sm" onClick={redo}><RefreshCw size={14} /> نمره‌گیری دوباره با کلید فعلی</button>}

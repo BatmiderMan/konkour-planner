@@ -132,7 +132,15 @@ export const SHEET_N = 300;
 export interface RawRead { ans: number[]; dbl: boolean[] } // from the scanner, 1-based
 export type Manual = Record<number, number>;               // person's corrections, 1-based; 0 = blank
 
-export interface GradeSettings { startQ: number; from: number; to: number; penalty: 0 | 3 | 4; dblWrong: boolean }
+/**
+ * «۲x / ۳x»: sometimes only every 2nd / 3rd test is solved. `step` = 2 means every second question belongs to the person's
+ * plan, `off` = how many questions to skip before the first one (0 = start with question 1, 1 = start with question 2).
+ * A question outside the plan that was left blank is not counted at all (neither wrong nor «نزده»); if it was answered anyway it counts.
+ */
+export const onStep = (q: number, step = 1, off = 0): boolean => step <= 1 || (q - 1 - off >= 0 && (q - 1 - off) % step === 0);
+export const stepLabel = (step = 1, off = 0): string => (step <= 1 ? 'همه‌ی سؤال‌ها' : `هر ${step}تا یکی (${step}x)${off ? ` از سؤال ${off + 1}` : ''}`);
+
+export interface GradeSettings { startQ: number; from: number; to: number; penalty: 0 | 3 | 4; dblWrong: boolean; step?: number; off?: number }
 export type Status = 'ok' | 'bad' | 'blank' | 'dbl' | 'nokey';
 export interface GradedRow { q: number; bq: number; key?: number; mine: number; dbl: boolean; edited: boolean; st: Status }
 export interface Grade {
@@ -150,6 +158,7 @@ export function gradeSheet(read: RawRead, manual: Manual, keys: KeyMap | null, s
   const rows: GradedRow[] = []; let C = 0, W = 0, B = 0, D = 0, N = 0, X = 0;
   for (let q = from; q <= to; q++) {
     const bq = s.startQ + q - 1, key = keys ? keys.get(bq) : undefined, a = effective(read, manual, q);
+    if (!onStep(q, s.step, s.off) && !a.v && !a.dbl) continue; // outside the person's 2x/3x plan and left blank: not counted
     let st: Status;
     if (key === undefined) st = 'nokey';
     else if (a.dbl) st = s.dblWrong ? 'bad' : 'dbl';
@@ -184,6 +193,8 @@ export interface ScanRecord {
   total: number; correct: number; wrong: number; blank: number; double: number; pct: number;
   miss: [number, number, number][];       // [book question, my answer (0 blank, 5 double), key] for everything not correct
   link?: ScanLink;
+  step?: number; off?: number;            // the person's 2x/3x plan this sheet was graded with
+  times?: number[];                       // seconds spent on each sheet question (index q-1), from the virtual sheet
 }
 
 export function packSheet(read: RawRead, manual: Manual): string {
@@ -197,21 +208,23 @@ export function unpackSheet(s: string): RawRead {
   return { ans, dbl };
 }
 
-export function makeRecord(read: RawRead, manual: Manual, g: Grade, s: GradeSettings, book: BookMeta | null, link?: ScanLink): ScanRecord {
+export function makeRecord(read: RawRead, manual: Manual, g: Grade, s: GradeSettings, book: BookMeta | null, link?: ScanLink, times?: number[]): ScanRecord {
   const miss: [number, number, number][] = [];
   g.rows.forEach((r) => { if (r.st === 'bad' || r.st === 'blank' || r.st === 'dbl') miss.push([r.bq, r.dbl ? 5 : r.mine, r.key || 0]); });
   return {
     id: newId('sc_'), at: Date.now(), bookId: book?.id, bookTitle: book?.title,
     startQ: s.startQ, from: s.from, to: s.to, sheet: packSheet(read, manual), penalty: s.penalty, dblWrong: s.dblWrong,
-    total: g.graded, correct: g.correct, wrong: g.wrong, blank: g.blank, double: g.double, pct: g.pct, miss, link
+    total: g.graded, correct: g.correct, wrong: g.wrong, blank: g.blank, double: g.double, pct: g.pct, miss, link,
+    ...(s.step && s.step > 1 ? { step: s.step, off: s.off || 0 } : {}),
+    ...(times && times.some((t) => t > 0) ? { times: times.slice(0, Math.max(s.to, 1)).map((t) => Math.round(t)) } : {})
   };
 }
 /** grade the same sheet again, e.g. after a wrong key was corrected in the library */
 export function regrade(rec: ScanRecord, keys: KeyMap): ScanRecord {
   const read = unpackSheet(rec.sheet);
-  const s: GradeSettings = { startQ: rec.startQ, from: rec.from, to: rec.to, penalty: rec.penalty, dblWrong: rec.dblWrong };
+  const s: GradeSettings = { startQ: rec.startQ, from: rec.from, to: rec.to, penalty: rec.penalty, dblWrong: rec.dblWrong, step: rec.step, off: rec.off };
   const g = gradeSheet(read, {}, keys, s);
-  const fresh = makeRecord(read, {}, g, s, rec.bookId ? { id: rec.bookId, title: rec.bookTitle || '' } as BookMeta : null, rec.link);
+  const fresh = makeRecord(read, {}, g, s, rec.bookId ? { id: rec.bookId, title: rec.bookTitle || '' } as BookMeta : null, rec.link, rec.times);
   return { ...fresh, id: rec.id, at: rec.at };
 }
 
@@ -244,6 +257,11 @@ export interface SavedSheet {
   bookId?: string; bookTitle?: string; // book of the last comparison
   scanId?: string; pct?: number;       // history record + percent of the last comparison
   lesson?: string; note?: string;
+  step?: number; off?: number;     // 2x / 3x plan: only every `step`-th question (starting after `off` skipped ones) is part of this test
+  times?: number[];                // milliseconds spent on each question (index q-1) - adds up when a question is visited again
+  cursor?: number;                 // the question the person was on last
+  link?: ScanLink;                 // the planner card (dateKey + plannerItemId) this sheet was made for
+  source?: string; detail?: string; // what the planner card said (used to pick the book when comparing)
 }
 
 export const emptySheetString = () => '0'.repeat(SHEET_N);
@@ -273,4 +291,34 @@ export function makeSavedSheet(title: string, mode: SavedSheet['mode'], sheet: s
 /** returns the sheet with a new packed answer string; counters follow */
 export function withAnswers(s: SavedSheet, packed: string, extra: Partial<SavedSheet> = {}): SavedSheet {
   return { ...s, ...extra, sheet: packed, answered: countAnswered(packed), updatedAt: Date.now() };
+}
+
+
+/* ================================================================ per-question time */
+/** a copy of the time list with `ms` added to question q */
+export function addTime(times: number[] | undefined, q: number, ms: number): number[] {
+  const t = (times || []).slice();
+  while (t.length < q) t.push(0);
+  t[q - 1] = (t[q - 1] || 0) + Math.max(0, Math.round(ms));
+  return t;
+}
+export const totalTime = (times: number[] | undefined): number => (times || []).reduce((a, b) => a + (b || 0), 0);
+/** milliseconds list → whole seconds, for the saved scan record */
+export const timesToSeconds = (times: number[] | undefined, n: number): number[] => Array.from({ length: n }, (_, i) => Math.round(((times || [])[i] || 0) / 1000));
+
+/** the graded rows of a saved record, rebuilt from its sheet + miss list (used to draw the time chart later) */
+export function rowsFromRecord(rec: ScanRecord): GradedRow[] {
+  const read = unpackSheet(rec.sheet);
+  const miss = new Map<number, [number, number, number]>();
+  rec.miss.forEach((m) => miss.set(m[0], m));
+  const rows: GradedRow[] = [];
+  for (let q = Math.max(1, rec.from); q <= Math.min(SHEET_N, rec.to); q++) {
+    const bq = rec.startQ + q - 1, m = miss.get(bq);
+    const answered = !!read.ans[q] || read.dbl[q];
+    if (m) {
+      const dbl = m[1] === 5;
+      rows.push({ q, bq, key: m[2] || undefined, mine: dbl ? 0 : m[1], dbl, edited: false, st: dbl ? 'dbl' : m[1] === 0 ? 'blank' : 'bad' });
+    } else if (answered) rows.push({ q, bq, key: read.ans[q], mine: read.ans[q], dbl: false, edited: false, st: 'ok' });
+  }
+  return rows;
 }

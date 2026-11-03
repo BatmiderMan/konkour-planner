@@ -1,6 +1,8 @@
 import React from 'react';
 import { BookOpen, ClipboardList, GraduationCap, Repeat2, Plus, ArrowRight, Check, ScanLine } from 'lucide-react';
 import { openScan } from '../../checker/launch';
+import { listScans, listSheets } from '../../checker/store';
+import type { SavedSheet, ScanRecord } from '../../checker/model';
 import { PlannerItem, StudyBlock } from '../../types';
 import { calculateTestPercentage, createEmptyBlock, toPersianDigits } from '../../utils';
 import { blockKindFor, gradeColor, loadPlannerData, plannerItemToBlockFields } from '../../plannerStore';
@@ -38,6 +40,20 @@ export const FinishForm: React.FC<FinishFormProps> = ({ result, onSave, onBack }
   const [blank, setBlank] = React.useState('');
   const [scanId, setScanId] = React.useState<string | undefined>(undefined);
   const [linked, setLinked] = React.useState<PlannerItem | null>(null);
+
+  // a virtual answer sheet that was kept for THIS card during the timer (and maybe already compared with a key)
+  const [mySheet, setMySheet] = React.useState<SavedSheet | null>(null);
+  const [myScan, setMyScan] = React.useState<ScanRecord | null>(null);
+  React.useEffect(() => {
+    if (isFree) return;
+    let on = true;
+    (async () => {
+      const sh = (await listSheets()).filter((x) => x.link && x.link.plannerItemId === s.item.id && x.link.dateKey === s.dateKey).sort((a, b) => b.updatedAt - a.updatedAt)[0];
+      const sc = (await listScans()).filter((x) => x.link && x.link.plannerItemId === s.item.id && x.link.dateKey === s.dateKey).sort((a, b) => b.at - a.at)[0];
+      if (on) { setMySheet(sh || null); setMyScan(sc || null); }
+    })();
+    return () => { on = false; };
+  }, [isFree, s.item.id, s.dateKey]);
 
   const todays = isFree ? data.items[s.dateKey] || [] : [];
   const pickPlan = (it: PlannerItem) => {
@@ -144,6 +160,29 @@ export const FinishForm: React.FC<FinishFormProps> = ({ result, onSave, onBack }
           >
             <ScanLine size={16} /> {scanId ? 'تصحیح دوباره‌ی پاسخ‌برگ' : 'اسکن پاسخ‌برگ و پر کردن خودکار'}
           </button>
+          {mySheet && (
+            <div className="tm-sheetbox">
+              <b>پاسخ‌برگ مجازی این پارت</b>
+              <span>{toPersianDigits(mySheet.answered)} پاسخ{mySheet.spentMs ? ` · ${toPersianDigits(Math.round(mySheet.spentMs / 60000))} دقیقه` : ''}{myScan ? ` · تصحیح‌شده: ${toPersianDigits(myScan.pct)}٪` : ''}</span>
+              {myScan && myScan.at >= mySheet.updatedAt - 1000 ? (
+                <button type="button" className="ck-scan-btn done" onClick={() => { setTotalTests(String(myScan.total)); setWrong(String(myScan.wrong)); setBlank(String(myScan.blank + myScan.double)); setScanId(myScan.id); }}>
+                  <ScanLine size={16} /> ثبت نتیجه در این پارت (کل {toPersianDigits(myScan.total)} · غلط {toPersianDigits(myScan.wrong)} · نزده {toPersianDigits(myScan.blank + myScan.double)})
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="ck-scan-btn"
+                  onClick={() => openScan({
+                    sheet: mySheet, lesson: lesson || s.item.subject, subject, detail: [s.item.detail, desc].filter(Boolean).join(' '), source: s.item.source,
+                    link: mySheet.link, current: { total: totalTests, wrong, blank }, applyLabel: 'ثبت در این پارت',
+                    onApply: (c, rec) => { setTotalTests(String(c.total)); setWrong(String(c.wrong)); setBlank(String(c.blank)); setScanId(rec.id); setMyScan(rec); }
+                  })}
+                >
+                  <ScanLine size={16} /> تصحیح پاسخ‌برگ مجازی با کلید و پر کردن خودکار
+                </button>
+              )}
+            </div>
+          )}
           {parseInt(totalTests, 10) > 0 && (
             <div className="tm-test-result">درست: <b>{toPersianDigits(stats.correctCount)}</b> · درصد: <b>{stats.percentage}</b></div>
           )}

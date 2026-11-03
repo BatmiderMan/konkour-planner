@@ -20,4 +20,4 @@ if (import.meta.env.DEV && 'serviceWorker' in navigator) {
     location.reload();
   }).catch(() => { /* ignore */ });
 }
-document.documentElement.setAttribute('data-build', 'v53');
+document.documentElement.setAttribute('data-build', 'v54');
