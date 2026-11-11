@@ -1,3 +1,5 @@
+import { clockText } from '../../clock/clockFormat';
+
 export type Phase = 'calm' | 'warn' | 'over' | 'free' | 'rest';
 
 export interface DialModel {
@@ -7,19 +9,13 @@ export interface DialModel {
   phase: Phase;
   cycle: number; // 0..1 — position inside the current tick (or question) interval
   shown: number; // seconds shown in the middle
+  elapsed: number; // active seconds of the session so far
   remaining: number; // seconds until the planned end (never negative; 0 for a stopwatch)
   over: boolean;
 }
 
-export const fmtClock = (totalSec: number): string => {
-  const s = Math.max(0, Math.floor(totalSec));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  const mm = String(m).padStart(2, '0');
-  const ss = String(sec).padStart(2, '0');
-  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
-};
+/** «mm:ss» / «h:mm:ss» — kept for old imports; the shared formatter does the work */
+export const fmtClock = (totalSec: number): string => clockText(totalSec, true).text;
 
 /**
  * Everything the dial needs, from plain numbers.
@@ -52,7 +48,7 @@ export function dialModel(elapsed: number, total: number, tickOn: boolean, tickS
     }
   }
   const cycle = tickOn && tickSec > 0 ? (elapsed % tickSec) / tickSec : (elapsed % 60) / 60;
-  return { progress, notches, lit, phase, cycle, shown: free ? elapsed : over ? elapsed - total : remaining, remaining, over };
+  return { progress, notches, lit, phase, cycle, shown: free ? elapsed : over ? elapsed - total : remaining, elapsed, remaining, over };
 }
 
 /** point on a circle, angle 0 = top, clockwise (for the glowing head of the arc) */

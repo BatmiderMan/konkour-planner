@@ -11,7 +11,9 @@ export type KeyAction =
   | { t: 'move'; dir: 1 | -1; any: boolean }
   | { t: 'home' }
   | { t: 'end' }
-  | { t: 'pause' };
+  | { t: 'pause' }
+  | { t: 'flag' }             // F: mark / unmark this question (doubtful, come back to it)
+  | { t: 'nextFlag' };        // G: jump to the next marked question
 
 interface KeyLike { key: string; code?: string; shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean }
 
@@ -38,6 +40,8 @@ export function keyToAction(e: KeyLike): KeyAction | null {
     if (d === 0) return { t: 'blank' };
     return null;
   }
+  if (e.code === 'KeyF') return { t: 'flag' };      // by key position, so it works on a Persian layout too
+  if (e.code === 'KeyG') return { t: 'nextFlag' };
   switch (e.key) {
     case 'ArrowDown': case 'ArrowRight': return { t: 'move', dir: 1, any: !!e.shiftKey };
     case 'ArrowUp': case 'ArrowLeft': return { t: 'move', dir: -1, any: !!e.shiftKey };
@@ -109,4 +113,11 @@ export function rangeFromText(text: string | undefined): { from: number; count: 
   if (!m) return null;
   const a = +m[1], b = +m[2];
   return b > a && b - a < SHEET_N ? { from: a, count: b - a + 1 } : null;
+}
+
+/** the next marked question after q (wrapping around); q itself when nothing else is marked */
+export function nextFlagged(flags: number[] | undefined, q: number): number {
+  const f = (flags || []).slice().sort((a, b) => a - b);
+  if (!f.length) return q;
+  return f.find((x) => x > q) || f[0];
 }

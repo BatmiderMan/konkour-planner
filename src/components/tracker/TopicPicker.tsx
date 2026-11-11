@@ -27,6 +27,7 @@ type CssVars = React.CSSProperties & Record<string, string | number>;
 const fa = (n: number) => toPersianDigits(n);
 
 interface Props {
+  z?: number; // stacking: above whatever opened the picker (default 650, above the test room)
   title?: string;
   confirmLabel?: string;
   initialRound?: string;
@@ -45,7 +46,7 @@ const Dots: React.FC<{ u: string; s: TrackerState }> = ({ u, s }) => (
   </span>
 );
 
-export const TopicPicker: React.FC<Props> = ({ title, confirmLabel, initialRound, initialUnits, initialPart, initialBook, plannerData, onPick, onClose }) => {
+export const TopicPicker: React.FC<Props> = ({ z, title, confirmLabel, initialRound, initialUnits, initialPart, initialBook, plannerData, onPick, onClose }) => {
   const s = useTracker();
   const firstBook = initialUnits && initialUnits.length && BY_UNIT[initialUnits[0]] ? BY_UNIT[initialUnits[0]].bi : initialBook !== undefined && BOOKS[initialBook] ? initialBook : 0;
   const [bi, setBi] = React.useState(firstBook);
@@ -89,7 +90,7 @@ export const TopicPicker: React.FC<Props> = ({ title, confirmLabel, initialRound
   };
 
   return (
-    <Sheet onClose={onClose} title={title || "انتخاب از مباحث درسی"} z={650}>
+    <Sheet onClose={onClose} title={title || "انتخاب از مباحث درسی"} z={z ?? 650}>
       <div className="tk-sheet tp">
         <div className="tk-lab" style={{ marginTop: 0 }}>برای کدام دور؟</div>
         <div className="tk-pills">

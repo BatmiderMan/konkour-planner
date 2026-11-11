@@ -102,3 +102,9 @@ export async function weakTests(bookId: string): Promise<number[]> {
   return [...state.entries()].filter(([, ok]) => !ok).map(([n]) => n).sort((a, b) => a - b);
 }
 export const konkurPct = (correct: number, wrong: number, total: number) => (total ? Math.round(((3 * correct - wrong) / (3 * total)) * 1000) / 10 : 0);
+
+/** the picture of one question as a Blob (used when a question is copied into the question vault) */
+export async function imageBlob(bookId: string, n: number): Promise<Blob | null> {
+  const d = await open(); const rec: any = await rq(d.transaction('images').objectStore('images').get(imgKey(bookId, n)));
+  return rec ? (rec.blob as Blob) : null;
+}

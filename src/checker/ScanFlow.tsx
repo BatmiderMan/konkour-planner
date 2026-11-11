@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, ArrowRight, Check, Settings2, Save } from 'lucide-react';
 import { KeyBuilder } from './KeyBuilder';
 import { ResultView } from './ResultView';
+import { openVaultEditor } from '../vault/launch';
 import { SheetStep, emptySheet, SheetState } from './SheetStep';
 import { useLibrary } from './hooks';
 import { ScanContext, openScan } from './launch';
@@ -75,10 +76,10 @@ export const ScanFlow: React.FC<{ ctx: ScanContext; onClose: () => void }> = ({ 
   const pick = (q: number, o: number) => { const cur = effective(read, manual, q); setManual({ ...manual, [q]: cur.v === o && !cur.dbl ? 0 : o }); };
 
   const save = async (apply: boolean) => {
-    if (!grade || !sheet.marks) return;
+    if (!grade || !hasRead) return; // a typed (virtual) sheet has no photo marks - the old check silently did nothing for it
     setSaving(true);
     const link = { ...(ctx.link || {}), lesson: ctx.lesson, label: ctx.subject || (ctx.detail ? ctx.detail.slice(0, 40) : preset?.title), ...(preset ? { sheetId: preset.id } : {}) };
-    const rec = makeRecord(read, manual, grade, settings, meta, link, preset && preset.times ? timesToSeconds(preset.times, settings.to) : undefined);
+    const rec = makeRecord(read, manual, grade, settings, meta, link, preset && preset.times ? timesToSeconds(preset.times, settings.to) : undefined, preset ? preset.flags : undefined);
     await saveScan(rec);
     // the saved sheet remembers its last comparison (and any answer corrected on the result screen)
     if (preset) await saveSheet(withAnswers(preset, packSheet(read, manual), { state: 'done', bookId: meta?.id, bookTitle: meta?.title, scanId: rec.id, pct: grade.pct, startQ, step: xStep > 1 ? xStep : undefined, off: xStep > 1 && xOff ? xOff : undefined }));
@@ -180,7 +181,7 @@ export const ScanFlow: React.FC<{ ctx: ScanContext; onClose: () => void }> = ({ 
           {grade && grade.nokey > 0 && meta && keys && (
             <p className="ck-warn">{P(grade.nokey)} سؤال از محدوده کلید ندارد و حساب نشد. شماره‌ی «سؤال ۱ پاسخ‌برگ» را بررسی کن یا کلیدهای کم را به کتاب اضافه کن.</p>
           )}
-          {grade && grade.graded > 0 && <ResultView grade={grade} penalty={prefs.penalty} onPick={pick} times={preset && preset.times ? timesToSeconds(preset.times, settings.to) : undefined} title={ctx.lesson || preset?.lesson || meta?.title} />}
+          {grade && grade.graded > 0 && <ResultView grade={grade} penalty={prefs.penalty} onPick={pick} times={preset && preset.times ? timesToSeconds(preset.times, settings.to) : undefined} flags={preset && preset.flags ? preset.flags.map((q) => startQ + q - 1) : undefined} title={ctx.lesson || preset?.lesson || meta?.title} onVault={(x) => openVaultEditor({ book: meta?.title || ctx.source || ctx.lesson || '', lesson: ctx.lesson || preset?.lesson || '', units: [], why: x.st === 'ok' ? 'guess' : x.st === 'blank' ? 'time' : 'wrong', choices: 4, ...(x.key ? { answer: x.key } : {}), etext: `سؤال ${x.bq}` })} />}
           {!preset && <div className="ck-row"><button type="button" className="ck-btn ghost" onClick={() => setStep('sheet')}><ArrowRight size={16} /> برگشت به پاسخ‌برگ</button></div>}
         </div>
       )}

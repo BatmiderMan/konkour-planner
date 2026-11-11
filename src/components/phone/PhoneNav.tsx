@@ -1,7 +1,8 @@
 import React from 'react';
 import {
-  CalendarClock, CalendarRange, ClipboardList, LayoutDashboard, LayoutGrid, Library, ListChecks, Monitor, Moon, Music2, Pause, Play, ScanLine, Search, Sun, Timer, Trophy, Vibrate
+  CalendarClock, CalendarRange, ClipboardList, Gem, LayoutDashboard, Library, ListChecks, Monitor, Moon, Music2, Pause, Play, ScanLine, Search, Settings2, Sun, Timer, Trophy, Vibrate
 } from 'lucide-react';
+import { OPEN_MORE_EVENT, SPACES, SpaceId, entryOf, spaceOf } from '../../nav';
 import {
   liveColor, liveElapsedMs, liveKind, liveTotalPlannedSeconds, pauseLivePlan, resumeLivePlan, useLivePlan
 } from '../../livePlan';
@@ -10,38 +11,35 @@ import { Equalizer } from '../music/musicUi';
 import { getHaptics, haptic, hapticTap, openLiveTimer, openPalette, setHaptics } from '../../focusBus';
 import { Sheet } from '../ui/Sheet';
 import { toPersianDigits } from '../../utils';
+import { Clock } from '../../clock/Clock';
+import { useNow } from '../../clock/useNow';
 import './phone.css';
 
-type Section = 'today' | 'planner' | 'tracker' | 'schedule' | 'exams' | 'checker' | 'bank' | 'report';
+type Section = 'today' | 'planner' | 'tracker' | 'schedule' | 'exams' | 'checker' | 'bank' | 'vault' | 'report' | 'settings';
+const SPACE_ICON: Record<SpaceId, React.ReactNode> = {
+  today: <LayoutDashboard size={22} />, plan: <CalendarRange size={22} />, study: <ListChecks size={22} />, insight: <ClipboardList size={22} />, settings: <Settings2 size={22} />
+};
 const MORE: Array<{ id: Section; label: string; icon: React.ReactNode }> = [
+  { id: 'settings', label: 'تنظیمات', icon: <Settings2 size={22} /> },
+  { id: 'planner', label: 'برنامه‌ریز', icon: <CalendarRange size={22} /> },
+  { id: 'report', label: 'گزارش روز', icon: <ClipboardList size={22} /> },
   { id: 'tracker', label: 'پیگیری مباحث', icon: <ListChecks size={22} /> },
   { id: 'schedule', label: 'برنامه آزمون', icon: <CalendarClock size={22} /> },
   { id: 'exams', label: 'آزمون‌ها', icon: <Trophy size={22} /> },
   { id: 'checker', label: 'تصحیح', icon: <ScanLine size={22} /> },
-  { id: 'bank', label: 'بانک تست', icon: <Library size={22} /> }
+  { id: 'bank', label: 'بانک تست', icon: <Library size={22} /> },
+  { id: 'vault', label: 'گنجینه سؤال', icon: <Gem size={22} /> }
 ];
-
-const clock = (sec: number) => {
-  const s = Math.max(0, Math.floor(sec));
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
-  return toPersianDigits(h ? `${h}:${String(m).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`);
-};
 
 // ---------------------------------------------------------------- the centre button: start / live timer
 export const FocusButton: React.FC<{ onStart: () => void; variant?: 'bar' | 'rail' }> = ({ onStart, variant = 'bar' }) => {
   const live = useLivePlan();
-  const [now, setNow] = React.useState(() => Date.now());
+  const now = useNow(!!live?.running, () => (live ? liveElapsedMs(live) % 1000 : 0));
   const hold = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const held = React.useRef(false);
 
-  React.useEffect(() => {
-    if (!live?.running) return;
-    const id = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(id);
-  }, [live?.running]);
-
   const R = 25, C = 2 * Math.PI * R;
-  const elapsed = live ? liveElapsedMs(live, now) / 1000 : 0;
+  const elapsed = live ? Math.floor(liveElapsedMs(live, now) / 1000) : 0;
   const total = live ? liveTotalPlannedSeconds(live) : 0;
   const stopwatch = !!live && total <= 0;
   const progress = !live ? 0 : stopwatch ? (elapsed % 3600) / 3600 : Math.min(1, elapsed / total);
@@ -76,7 +74,7 @@ export const FocusButton: React.FC<{ onStart: () => void; variant?: 'bar' | 'rai
               <circle cx="28" cy="28" r={R} className="bg" />
               <circle cx="28" cy="28" r={R} className="fg" strokeDasharray={C} strokeDashoffset={C * (1 - progress)} transform="rotate(-90 28 28)" />
             </svg>
-            <span className="pn-time">{clock(shown)}</span>
+            <span className="pn-time"><Clock sec={shown} running={live.running} secs={shown < 3600} round={stopwatch ? 'floor' : 'ceil'} /></span>
             {!live.running && <Pause size={11} className="pn-pause" />}
           </>
         ) : (
@@ -130,22 +128,25 @@ export const PhoneNav: React.FC<{
   section: string; setSection: (s: Section) => void; onStartTimer: () => void; onOpenMusic: () => void; themeMode: ThemeMode; onSetThemeMode: (m: ThemeMode) => void;
 }> = ({ section, setSection, onStartTimer, onOpenMusic, themeMode, onSetThemeMode }) => {
   const [more, setMore] = React.useState(false);
-  const inMore = MORE.some((m) => m.id === section);
-  const tab = (id: Section, label: string, icon: React.ReactNode) => (
-    <button key={id} type="button" role="tab" aria-selected={section === id} className={'pn-tab' + (section === id ? ' on' : '')} onClick={() => { hapticTap(); setSection(id); }}>
-      <span className="pn-ic">{icon}</span><span className="pn-label">{label}</span>
+  React.useEffect(() => {
+    const open = () => setMore(true);
+    window.addEventListener(OPEN_MORE_EVENT, open);
+    return () => window.removeEventListener(OPEN_MORE_EVENT, open);
+  }, []);
+  const cur = spaceOf(section).id;
+  const tab = (id: SpaceId, label: string) => (
+    <button key={id} type="button" role="tab" aria-selected={cur === id} className={'pn-tab' + (cur === id ? ' on' : '')} onClick={() => { hapticTap(); setSection(entryOf(SPACES.find((x) => x.id === id)!)); }}>
+      <span className="pn-ic">{SPACE_ICON[id]}</span><span className="pn-label">{label}</span>
     </button>
   );
   return (
     <>
       <nav className="pn-bar no-print" role="tablist" aria-label="بخش برنامه">
-        {tab('today', 'امروز', <LayoutDashboard size={22} />)}
-        {tab('planner', 'برنامه‌ریز', <CalendarRange size={22} />)}
+        {tab('today', 'امروز')}
+        {tab('plan', 'برنامه')}
         <FocusButton onStart={onStartTimer} />
-        {tab('report', 'گزارش روز', <ClipboardList size={22} />)}
-        <button type="button" className={'pn-tab' + (inMore || more ? ' on' : '')} onClick={() => setMore(true)} aria-haspopup="dialog" aria-expanded={more}>
-          <span className="pn-ic"><LayoutGrid size={22} /></span><span className="pn-label">بیشتر</span>
-        </button>
+        {tab('study', 'مطالعه')}
+        {tab('insight', 'تحلیل')}
       </nav>
       {more && <MoreSheet onClose={() => setMore(false)} section={section} go={setSection} themeMode={themeMode} onSetThemeMode={onSetThemeMode} onOpenMusic={onOpenMusic} />}
     </>

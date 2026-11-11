@@ -13,12 +13,14 @@ export const ScanHost: React.FC = () => {
   useEffect(() => { registerScanOpener((c) => setCtx({ c, k: Date.now() })); return () => registerScanOpener(null); }, []);
   useEffect(() => {
     registerVirtualOpener(async (c) => {
+      window.dispatchEvent(new CustomEvent('planex:timer-collapse')); // the part timer is a separate thing: keep its big panel out of the way
       let sheet = c.sheet;
       // the same planner card already has a test in progress: continue it instead of starting a second one
       if (!sheet && c.link && c.link.plannerItemId) {
         const all = await listSheets();
-        sheet = all.filter((s) => s.mode === 'live' && s.state === 'open' && s.link && s.link.plannerItemId === c.link!.plannerItemId && s.link.dateKey === c.link!.dateKey)
-          .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+        const mine = all.filter((s) => s.mode === 'live' && s.link && s.link.plannerItemId === c.link!.plannerItemId && s.link.dateKey === c.link!.dateKey);
+        sheet = mine.filter((s) => s.state === 'open').sort((a, b) => b.updatedAt - a.updatedAt)[0]; // the test still in progress, else the latest finished one
+        if (!sheet && c.link && c.openLast) sheet = mine.sort((a, b) => b.updatedAt - a.updatedAt)[0];
       }
       setVs({ c, sheet, k: Date.now() });
     });

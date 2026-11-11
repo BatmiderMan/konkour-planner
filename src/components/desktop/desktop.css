@@ -64,7 +64,7 @@
 .isl-ring { width: 30px; height: 30px; flex: none; }
 .isl-ring circle { fill: none; stroke-width: 3; }
 .isl-ring .bg { stroke: var(--line-soft); }
-.isl-ring .fg { stroke: var(--c, var(--primary)); stroke-linecap: round; transition: stroke-dashoffset .5s linear; }
+.isl-ring .fg { stroke: var(--c, var(--primary)); stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
 .isl-seg.paused .isl-ring .fg { stroke: #ff9f0a; }
 .isl-btn { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: var(--ink); flex: none; }
 .isl-btn:hover { background: var(--tint-1); }

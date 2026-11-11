@@ -3,7 +3,10 @@ import { Pause, Play } from 'lucide-react';
 import { toPersianDigits } from '../../utils';
 import { liveColor, liveElapsedMs, liveKind, liveTotalPlannedSeconds, pauseLivePlan, resumeLivePlan, useLivePlan } from '../../livePlan';
 import { useTickPrefs } from '../../tickSound';
-import { dialModel, fmtClock } from './timerMath';
+import { dialModel } from './timerMath';
+import { Clock } from '../../clock/Clock';
+import { useNow } from '../../clock/useNow';
+import { useLook } from './timerLook';
 
 // ---------- always-on-top mini window (Document Picture-in-Picture) ----------
 export const pipSupported = (): boolean => typeof window !== 'undefined' && 'documentPictureInPicture' in window;
@@ -40,11 +43,9 @@ export function preparePipWindow(w: Window) {
 export const PipTimer: React.FC<{ win: Window }> = ({ win }) => {
   const live = useLivePlan();
   const tick = useTickPrefs();
-  const [now, setNow] = React.useState(() => Date.now());
-  React.useEffect(() => {
-    const id = win.setInterval(() => setNow(Date.now()), 250);
-    return () => win.clearInterval(id);
-  }, [win]);
+  const look = useLook();
+  // the floating window has its own JS timers (the main tab may be in the background): one update per second
+  const now = useNow(!!live && live.running, () => (live ? liveElapsedMs(live) % 1000 : 0), win);
   if (!live) return null;
 
   const kind = liveKind(live);
@@ -65,7 +66,7 @@ export const PipTimer: React.FC<{ win: Window }> = ({ win }) => {
           {live.running ? <Pause size={16} /> : <Play size={16} />}
         </button>
       </div>
-      <div className="tm-pip-time">{m.over ? '+' : ''}{toPersianDigits(fmtClock(m.shown))}</div>
+      <div className="tm-pip-time"><Clock sec={look.mode === 'elapsed' || total <= 0 ? m.elapsed : m.shown} over={m.over && look.mode !== 'elapsed'} running={live.running} scope="timer" secs={look.secs} round={look.mode === 'elapsed' || total <= 0 ? 'floor' : 'ceil'} unit="دقیقه" /></div>
       <div className="tm-pip-bar"><i style={{ width: m.progress * 100 + '%' }} /></div>
       {tickOn ? (
         <div className="tm-pip-ticks">

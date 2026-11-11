@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Grade, ScanRecord } from './model';
+import { Grade, GradedRow, ScanRecord } from './model';
 import { TimeCandles } from './TimeCandles';
 import { toPersianDigits as P } from '../utils';
 
@@ -7,8 +7,10 @@ const LBL: Record<string, string> = { ok: 'درست', bad: 'غلط', blank: 'ن�
 const penaltyText = (p: number) => (p ? `با نمره‌ی منفی ${P('۱/' + p)}` : 'بدون نمره‌ی منفی');
 
 /** Score, answer-sheet-like bubble map, and the list of questions. With `onPick` the answers can be corrected by tapping. */
-export const ResultView: React.FC<{ grade: Grade; penalty: number; onPick?: (q: number, o: number) => void; times?: number[]; title?: string }> = ({ grade: g, penalty, onPick, times, title }) => {
+export const ResultView: React.FC<{ grade: Grade; penalty: number; onPick?: (q: number, o: number) => void; times?: number[]; title?: string; flags?: number[]; onVault?: (x: GradedRow) => void }> = ({ grade: g, penalty, onPick, times, title, flags, onVault }) => {
   const [filter, setFilter] = useState<'all' | 'bad' | 'blank' | 'dbl'>('bad');
+  const flagSet = new Set(flags || []);
+  const fRows = g.rows.filter((x) => flagSet.has(x.bq));
   const counts = { all: g.rows.length, bad: g.wrong, blank: g.blank, dbl: g.double };
   const rows = g.rows.filter((x) => filter === 'all' || x.st === filter);
   const jump = (q: number) => { setFilter('all'); setTimeout(() => document.getElementById('ckq' + q)?.scrollIntoView({ block: 'center' }), 30); };
@@ -23,10 +25,17 @@ export const ResultView: React.FC<{ grade: Grade; penalty: number; onPick?: (q: 
           {g.double > 0 && <div className="dbl"><b>{P(g.double)}</b><span>دو علامت</span></div>}
         </div>
         <div className="ck-map" aria-label="نقشه‌ی پاسخ‌ها">
-          {g.rows.map((x) => <i key={x.q} className={'st-' + x.st} title={`سؤال ${x.bq}: ${LBL[x.st]}`} onClick={() => jump(x.q)}>{P(x.q)}</i>)}
+          {g.rows.map((x) => <i key={x.q} className={'st-' + x.st + (flagSet.has(x.bq) ? ' flag' : '')} title={`سؤال ${x.bq}: ${LBL[x.st]}${flagSet.has(x.bq) ? ' · نشان‌دار' : ''}`} onClick={() => jump(x.q)}>{P(x.q)}</i>)}
         </div>
       </section>
-      {times && times.length > 0 && <TimeCandles rows={g.rows} times={times} title={title} />}
+      {fRows.length > 0 && (
+        <section className="ck-card ck-flags">
+          <b>⚑ سؤال‌های نشان‌دار ({P(fRows.length)})</b>
+          <span>{P(fRows.filter((x) => x.st === 'ok').length)} درست · {P(fRows.filter((x) => x.st === 'bad' || x.st === 'dbl').length)} غلط · {P(fRows.filter((x) => x.st === 'blank').length)} نزده</span>
+          <div className="ck-map">{fRows.map((x) => <i key={x.q} className={'st-' + x.st} title={LBL[x.st]} onClick={() => jump(x.q)}>{P(x.bq)}</i>)}</div>
+        </section>
+      )}
+      {times && times.length > 0 && <TimeCandles rows={g.rows} times={times} title={title} flags={flags} />}
       <section className="ck-card">
         <div className="ck-chips">
           {([['bad', 'غلط'], ['blank', 'نزده'], ['dbl', 'دو علامت'], ['all', 'همه']] as const).map(([k, t]) =>
@@ -36,7 +45,7 @@ export const ResultView: React.FC<{ grade: Grade; penalty: number; onPick?: (q: 
         <div className="ck-list">
           {rows.map((x) => (
             <div key={x.q} id={'ckq' + x.q} className={'ck-q s-' + x.st}>
-              <div className="ck-qid">{P(x.bq)}<small>پاسخ‌برگ {P(x.q)}</small></div>
+              <div className="ck-qid">{flagSet.has(x.bq) && <em className="flg">⚑</em>}{P(x.bq)}<small>پاسخ‌برگ {P(x.q)}</small></div>
               <div className="ck-opts">
                 {[1, 2, 3, 4].map((o) => {
                   const cls = ['ck-opt'];
@@ -46,6 +55,7 @@ export const ResultView: React.FC<{ grade: Grade; penalty: number; onPick?: (q: 
                 })}
               </div>
               <div className="ck-qst">{LBL[x.st]}{x.edited ? ' (اصلاح‌شده)' : ''}</div>
+              {onVault && (x.st !== 'ok' || flagSet.has(x.bq)) && <div className="ck-qact"><button type="button" className="ck-vtbtn" title="ذخیره‌ی این سؤال در گنجینه‌ی سؤال" onClick={() => onVault(x)}>💎 ذخیره در گنجینه</button></div>}
             </div>
           ))}
           {rows.length === 0 && <div className="ck-empty flat">{filter === 'all' ? 'سؤالی نیست.' : 'در این گروه چیزی نیست. آفرین!'}</div>}
@@ -57,12 +67,13 @@ export const ResultView: React.FC<{ grade: Grade; penalty: number; onPick?: (q: 
 
 /** Saved scan: only what was not answered correctly, with the right key next to it. */
 export const MissList: React.FC<{ rec: ScanRecord }> = ({ rec }) => {
+  const flagged = new Set(rec.flags || []);
   if (!rec.miss.length) return <div className="ck-empty flat">همه‌ی سؤال‌ها درست بود.</div>;
   return (
     <div className="ck-miss">
       {rec.miss.map(([bq, mine, key]) => (
         <div key={bq} className={'ck-mrow ' + (mine === 0 ? 'blank' : mine === 5 ? 'dbl' : 'bad')}>
-          <b>{P(bq)}</b>
+          <b>{flagged.has(bq) ? '⚑ ' : ''}{P(bq)}</b>
           <span>{mine === 0 ? 'نزده' : mine === 5 ? 'دو علامت' : <>پاسخ تو {P(mine)}</>}</span>
           <em>{key ? <>کلید {P(key)}</> : 'بدون کلید'}</em>
         </div>

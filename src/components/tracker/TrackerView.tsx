@@ -18,6 +18,9 @@ import {
   AutoPlanDay, PlanChunk, chunkOfChapter, chunkOfSection, chunkOfUnit, dayLabel, nextDays, overdueLinked, paceInfo, planChunks, planChunksInto, plannedUnits, rescheduleOverdue
 } from '../../trackerPlan';
 import { AutoPlanSheet } from './AutoPlanSheet';
+import { Gem } from 'lucide-react';
+import { useVault } from '../../vault/store';
+import { goToVault, openVaultEditor } from '../../vault/launch';
 import type { BookType } from '../../types';
 import './tracker.css';
 
@@ -233,6 +236,9 @@ interface Props {
 
 export const TrackerView: React.FC<Props> = ({ onPlanChanged, onOpenPlanner }) => {
   const s = useTracker();
+  const vault = useVault();
+  // how many vault questions are linked to each unit
+  const vcnt = React.useMemo(() => { const m: Record<string, number> = {}; vault.items.forEach((q) => q.units.forEach((u) => { m[u] = (m[u] || 0) + 1; })); return m; }, [vault.items]);
   const [ui, setUi] = React.useState<Ui>(loadUi);
   const [q, setQ] = React.useState('');
   const [go, setGo] = React.useState<string | null>(null);
@@ -314,6 +320,8 @@ export const TrackerView: React.FC<Props> = ({ onPlanChanged, onOpenPlanner }) =
         </span>
         <Chips us={[u]} s={s} />
         {appliesUnit(fr, u) && <button type="button" className="tk-ic" title={`ثبت یک پارت مطالعه برای «${fr.name}» (مبحث باز می‌ماند)`} aria-label="ثبت پارت" onClick={() => addParts([u], fr.id, 1, 0)}>◐</button>}
+        {vcnt[u] > 0 && <button type="button" className="tk-vt" title="سؤال‌های گنجینه برای این مبحث" onClick={() => goToVault({ unit: u })}>{fa(vcnt[u])} سؤال</button>}
+        <button type="button" className="tk-ic" title="ذخیره‌ی سؤال غلط این مبحث در گنجینه" aria-label="ذخیره سؤال" onClick={() => openVaultEditor({ units: [u], book: BOOKS[x.bi].subject, lesson: BOOKS[x.bi].chapters[x.ci].t, why: 'wrong' })}><Gem size={15} /></button>
         <button type="button" className={'tk-ic' + (s.flags[u] ? ' on' : '')} title="نیاز به مرور" aria-label="علامت" onClick={() => toggleFlag(u)}>⚑</button>
         <button type="button" className={'tk-ic' + (s.notes[u] ? ' on' : '')} title="یادداشت" aria-label="یادداشت" onClick={() => setNoteU(u)}>✎</button>
         <button type="button" className="tk-ic" title="افزودن به برنامه" aria-label="افزودن به برنامه" onClick={() => setPlan([chunkOfUnit(u)])}><CalendarRange size={15} /></button>

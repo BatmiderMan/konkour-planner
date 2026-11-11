@@ -41,10 +41,10 @@
 .pn-ring { position: absolute; inset: -1px; width: calc(100% + 2px); height: calc(100% + 2px); }
 .pn-ring circle { fill: none; stroke-width: 3.4; }
 .pn-ring .bg { stroke: rgba(255, 255, 255, .14); }
-.pn-ring .fg { stroke: var(--pn-c, #6b8cff); stroke-linecap: round; transition: stroke-dashoffset .5s linear; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--pn-c, #6b8cff) 60%, transparent)); }
+.pn-ring .fg { stroke: var(--pn-c, #6b8cff); stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
 .pn-focus.rest .pn-ring .fg { stroke: #8ff0b4; }
 .pn-focus.paused .pn-ring .fg { stroke: #ffc24a; }
-.pn-time { position: relative; font-size: 10.5px; font-weight: 800; direction: ltr; font-variant-numeric: tabular-nums; }
+.pn-time { position: relative; font-size: 10.5px; font-weight: 800; direction: ltr; font-variant-numeric: tabular-nums; display: inline-flex; }
 .pn-pause { position: absolute; top: 5px; color: #ffc24a; }
 .pn-focus.live:not(.paused) { animation: pnBreath 3s ease-in-out infinite; }
 @keyframes pnBreath { 0%, 100% { box-shadow: 0 0 0 1px rgba(255, 255, 255, .1), 0 6px 18px rgba(0, 0, 0, .35); } 50% { box-shadow: 0 0 0 1px rgba(255, 255, 255, .1), 0 6px 24px color-mix(in srgb, var(--pn-c, #6b8cff) 45%, transparent); } }

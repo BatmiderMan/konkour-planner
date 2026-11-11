@@ -1,28 +1,32 @@
 import React from 'react';
-import { Play, Check, SkipForward, ArrowLeftToLine, CalendarClock, Sparkles, Undo2 } from 'lucide-react';
+import { Play, Check, SkipForward, ArrowLeftToLine, CalendarClock, Sparkles, Undo2, ListChecks } from 'lucide-react';
 import { PlannerItem } from '../types';
 import {
   loadPlannerData, savePlannerData, dateKeyOf, todayGregorian, addDays, gradeColor,
-  markPlannerItemSent, reportMetaFor, moveItemsByDays, jalaliOfDate, SendMeta
+  markPlannerItemSent, reportMetaFor, moveItemsByDays, jalaliOfDate, SendMeta, blockKindFor
 } from '../plannerStore';
+import { openVirtual } from '../checker/launch';
+import { CardSheetBadge } from '../checker/CardSheetBadge';
 import { computeDayPlan, itemMinutes, formatDuration, timeToMin } from '../plannerSchedule';
 import { PERSIAN_WEEK_DAYS, PERSIAN_MONTH_NAMES } from '../jalali';
 import { toPersianDigits } from '../utils';
 import { requestLiveStart, useLivePlan } from '../livePlan';
 import { loadScheduleState, todayBrief, displayTitle, INST_META } from '../schedule/scheduleStore';
 import { whenText } from './ScheduleView';
+import { VaultToday } from '../vault/VaultToday';
 
 interface Props {
   refreshToken: number;
   onOpenPlanner: () => void;
   onOpenSchedule?: () => void;
+  onOpenVault?: () => void;
   onSendToReport: (dateKey: string, item: PlannerItem, meta?: SendMeta) => void;
 }
 
 const fd = (m: number) => toPersianDigits(formatDuration(m));
 const RING = 2 * Math.PI * 52;
 
-export const TodayView: React.FC<Props> = ({ refreshToken, onOpenPlanner, onOpenSchedule, onSendToReport }) => {
+export const TodayView: React.FC<Props> = ({ refreshToken, onOpenPlanner, onOpenSchedule, onOpenVault, onSendToReport }) => {
   const live = useLivePlan();
   const [, bump] = React.useReducer((n: number) => n + 1, 0);
   const [now, setNow] = React.useState(() => new Date());
@@ -113,6 +117,8 @@ export const TodayView: React.FC<Props> = ({ refreshToken, onOpenPlanner, onOpen
         );
       })()}
 
+      {onOpenVault && <VaultToday onOpen={onOpenVault} />}
+
       {focus && focusSlot && (
         <section className={'td-focus' + (isLiveFocus ? ' live' : '')} style={{ ['--c' as any]: gradeColor(focus.grade) }}>
           <div className="td-focus-meta">
@@ -123,6 +129,19 @@ export const TodayView: React.FC<Props> = ({ refreshToken, onOpenPlanner, onOpen
           <p>{focus.detail || focus.source || focus.grade}</p>
           <div className="td-focus-actions">
             {!isLiveFocus && <button className="td-btn primary" onClick={() => requestLiveStart(key, focus)}><Play size={18} />شروع مطالعه</button>}
+            {(isLiveFocus || blockKindFor(focus, data.sourceTypes) === 'test') && (
+              <button
+                className={'td-btn' + (!isLiveFocus ? ' accent' : '')}
+                onClick={() => {
+                  if (!isLiveFocus) requestLiveStart(key, focus); // one tap: the card's timer starts and the test room opens on it
+                  window.setTimeout(() => openVirtual({
+                    title: [focus.subject, focus.detail].filter(Boolean).join(' — '), lesson: focus.subject, detail: focus.detail, source: focus.source,
+                    link: { dateKey: key, plannerItemId: focus.id }
+                  }), isLiveFocus ? 0 : 280);
+                }}
+              ><ListChecks size={18} />{isLiveFocus ? 'پاسخ‌برگ مجازی' : 'حل تست با پاسخ‌برگ'}</button>
+            )}
+            <CardSheetBadge dateKey={key} itemId={focus.id} big />
             <button className="td-btn" onClick={() => toggle(focus.id)}><Check size={18} />انجام شد</button>
             {canSkip && !isLiveFocus && (
               <button className="td-btn ghost" onClick={() => setSkipped((s) => (pool.length > 1 ? [...s, focus.id] : []))}><SkipForward size={18} />پارت بعدی</button>

@@ -1,6 +1,7 @@
 import React from 'react';
-import { BookOpen, ClipboardList, GraduationCap, Repeat2, Plus, ArrowRight, Check, ScanLine } from 'lucide-react';
+import { BookOpen, ClipboardList, GraduationCap, Repeat2, Plus, ArrowRight, Check, ScanLine, Gem } from 'lucide-react';
 import { openScan } from '../../checker/launch';
+import { openVaultEditor } from '../../vault/launch';
 import { listScans, listSheets } from '../../checker/store';
 import type { SavedSheet, ScanRecord } from '../../checker/model';
 import { PlannerItem, StudyBlock } from '../../types';
@@ -54,6 +55,23 @@ export const FinishForm: React.FC<FinishFormProps> = ({ result, onSave, onBack }
     })();
     return () => { on = false; };
   }, [isFree, s.item.id, s.dateKey]);
+
+  // the test room already graded this part: fill the counts and the note without asking (the person can still change them)
+  const prefilled = React.useRef(false);
+  React.useEffect(() => {
+    if (prefilled.current || !mySheet) return;
+    const fresh = myScan && myScan.at >= mySheet.updatedAt - 2000 ? myScan : null;
+    if (!fresh && !mySheet.note) return;
+    prefilled.current = true;
+    if (fresh) {
+      setTest(true);
+      setTotalTests((v) => v || String(fresh.total));
+      setWrong((v) => v || String(fresh.wrong));
+      setBlank((v) => v || String(fresh.blank + fresh.double));
+      setScanId((v) => v || fresh.id);
+    }
+    if (mySheet.note && mySheet.note.trim()) setDesc((d) => (d && d.includes(mySheet.note!.trim()) ? d : (d ? d + ' — ' : '') + mySheet.note!.trim()));
+  }, [mySheet, myScan]);
 
   const todays = isFree ? data.items[s.dateKey] || [] : [];
   const pickPlan = (it: PlannerItem) => {
@@ -159,6 +177,13 @@ export const FinishForm: React.FC<FinishFormProps> = ({ result, onSave, onBack }
             })}
           >
             <ScanLine size={16} /> {scanId ? 'تصحیح دوباره‌ی پاسخ‌برگ' : 'اسکن پاسخ‌برگ و پر کردن خودکار'}
+          </button>
+          <button
+            type="button"
+            className="ck-scan-btn"
+            onClick={() => openVaultEditor({ book: s.item.source || lesson || s.item.subject, lesson: lesson || s.item.subject, units: s.item.trk ? s.item.trk.u : [], why: 'wrong' })}
+          >
+            <Gem size={16} /> ذخیره‌ی یک سؤال غلط در گنجینه
           </button>
           {mySheet && (
             <div className="tm-sheetbox">

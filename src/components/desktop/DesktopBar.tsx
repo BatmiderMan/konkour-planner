@@ -1,7 +1,8 @@
 import React from 'react';
 import {
-  CalendarClock, CalendarRange, ClipboardList, LayoutDashboard, Library, ListChecks, Monitor, Moon, Music2, Pause, Play, ScanLine, Search, SkipBack, SkipForward, Sun, Timer, Trophy
+  CalendarRange, ClipboardList, LayoutDashboard, ListChecks, Monitor, Moon, Music2, Pause, Play, Search, Settings2, SkipBack, SkipForward, Sun, Timer
 } from 'lucide-react';
+import { SPACES, SpaceId, entryOf, spaceOf } from '../../nav';
 import { dateKeyOf, loadPlannerData, todayGregorian } from '../../plannerStore';
 import {
   liveColor, liveElapsedMs, liveKind, liveTotalPlannedSeconds, pauseLivePlan, requestLiveStart, resumeLivePlan, useLivePlan
@@ -12,27 +13,16 @@ import { openLiveTimer, openPalette } from '../../focusBus';
 import { unlockAudio } from '../../tickSound';
 import { itemMinutes } from '../../plannerSchedule';
 import { toPersianDigits } from '../../utils';
+import { Clock } from '../../clock/Clock';
+import { useNow } from '../../clock/useNow';
 import { BUILD_LABEL } from '../../buildInfo';
 import './desktop.css';
 
-type Section = 'today' | 'planner' | 'tracker' | 'schedule' | 'exams' | 'checker' | 'bank' | 'report';
+type Section = 'today' | 'planner' | 'tracker' | 'schedule' | 'exams' | 'checker' | 'bank' | 'report' | 'settings';
 type ThemeMode = 'light' | 'dark' | 'auto';
-const TABS: Array<[Section, string, React.ReactNode]> = [
-  ['today', 'امروز', <LayoutDashboard size={18} key="a" />],
-  ['planner', 'برنامه‌ریز', <CalendarRange size={18} key="b" />],
-  ['tracker', 'پیگیری مباحث', <ListChecks size={18} key="b2" />],
-  ['schedule', 'برنامه آزمون', <CalendarClock size={18} key="c" />],
-  ['exams', 'آزمون‌ها', <Trophy size={18} key="d" />],
-  ['checker', 'تصحیح', <ScanLine size={18} key="e" />],
-  ['bank', 'بانک تست', <Library size={18} key="f" />],
-  ['report', 'گزارش روز', <ClipboardList size={18} key="g" />]
-];
-const clock = (sec: number) => {
-  const s = Math.max(0, Math.floor(sec));
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
-  return toPersianDigits(h ? `${h}:${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`);
+const SPACE_ICON: Record<SpaceId, React.ReactNode> = {
+  today: <LayoutDashboard size={18} />, plan: <CalendarRange size={18} />, study: <ListChecks size={18} />, insight: <ClipboardList size={18} />, settings: <Settings2 size={18} />
 };
-
 /** the first unfinished card of today's plan (re-read now and then: the planner can change anywhere) */
 function useNextTask() {
   const read = () => {
@@ -59,12 +49,8 @@ const Island: React.FC<{ onStartPicker: () => void; onOpenMusic: () => void }> =
   const track = currentTrack(music);
   const cover = useCoverUrl(music.currentId);
   const next = useNextTask();
-  const [now, setNow] = React.useState(() => Date.now());
-  React.useEffect(() => {
-    if (!live?.running) return;
-    const id = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(id);
-  }, [live?.running]);
+  // one update per displayed second, in step with the digit flip (was: a 500 ms poll)
+  const now = useNow(!!live?.running, () => (live ? liveElapsedMs(live) % 1000 : 0));
 
   const showMusic = music.active && !!track;
   const ambient = isAmbientId(music.currentId);
@@ -73,7 +59,7 @@ const Island: React.FC<{ onStartPicker: () => void; onOpenMusic: () => void }> =
   let timer: React.ReactNode;
   if (live) {
     const R = 13, C = 2 * Math.PI * R;
-    const el = liveElapsedMs(live, now) / 1000, total = liveTotalPlannedSeconds(live);
+    const el = Math.floor(liveElapsedMs(live, now) / 1000), total = liveTotalPlannedSeconds(live);
     const stop = total <= 0, brk = liveKind(live) === 'break';
     const p = stop ? (el % 3600) / 3600 : Math.min(1, el / total);
     const shown = stop ? el : Math.max(0, total - el);
@@ -83,7 +69,7 @@ const Island: React.FC<{ onStartPicker: () => void; onOpenMusic: () => void }> =
           <svg viewBox="0 0 32 32" className="isl-ring" aria-hidden="true">
             <circle cx="16" cy="16" r={R} className="bg" /><circle cx="16" cy="16" r={R} className="fg" strokeDasharray={C} strokeDashoffset={C * (1 - p)} transform="rotate(-90 16 16)" />
           </svg>
-          <span className="isl-tx"><b className="isl-time">{clock(shown)}</b><em>{brk ? 'استراحت' : live.item.subject}{live.running ? '' : ' · متوقف'}</em></span>
+          <span className="isl-tx"><b className="isl-time"><Clock sec={shown} running={live.running} round="ceil" /></b><em>{brk ? 'استراحت' : live.item.subject}{live.running ? '' : ' · متوقف'}</em></span>
         </button>
         <button type="button" className="isl-btn" onClick={() => (live.running ? pauseLivePlan() : resumeLivePlan())} aria-label={live.running ? 'توقف' : 'ادامه'} title={live.running ? 'توقف' : 'ادامه'}>
           {live.running ? <Pause size={16} /> : <Play size={16} />}
@@ -134,11 +120,14 @@ export const DesktopBar: React.FC<{
     <header className="dtb no-print">
       <nav className="dtb-tabs" role="tablist" aria-label="بخش‌های برنامه">
         <img className="dtb-brand" src={`${import.meta.env.BASE_URL}planex-icon.png`} alt="Planex" title={BUILD_LABEL} />
-        {TABS.map(([id, label, icon], i) => (
-          <button key={id} type="button" role="tab" aria-selected={section === id} className={'dtb-tab' + (section === id ? ' on' : '')} onClick={() => setSection(id)} title={`${label} (${toPersianDigits(i + 1)})`}>
-            {icon}<span>{label}</span>{id === 'today' && todayLeft > 0 && <i className="dtb-badge">{toPersianDigits(todayLeft)}</i>}
-          </button>
-        ))}
+        {SPACES.map((sp, i) => {
+          const on = spaceOf(section).id === sp.id;
+          return (
+            <button key={sp.id} type="button" role="tab" aria-selected={on} className={'dtb-tab' + (on ? ' on' : '')} onClick={() => setSection(entryOf(sp))} title={`${sp.label} (${toPersianDigits(i + 1)})`}>
+              {SPACE_ICON[sp.id]}<span>{sp.label}</span>{sp.id === 'today' && todayLeft > 0 && <i className="dtb-badge">{toPersianDigits(todayLeft)}</i>}
+            </button>
+          );
+        })}
       </nav>
       <Island onStartPicker={onStartPicker} onOpenMusic={onOpenMusic} />
       <div className="dtb-tools">

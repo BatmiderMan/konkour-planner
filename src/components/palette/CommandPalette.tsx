@@ -1,7 +1,7 @@
 import React from 'react';
 import {
-  CalendarClock, CalendarRange, ClipboardList, CornerDownLeft, LayoutDashboard, Library, ListChecks, Monitor, Moon, Music2, Pause, Play, Plus, ScanLine,
-  Search, SkipBack, SkipForward, Sun, Timer, Trophy
+  CalendarClock, CalendarRange, ClipboardList, CornerDownLeft, Gem, LayoutDashboard, Library, ListChecks, Monitor, Moon, Music2, Pause, Play, Plus, ScanLine,
+  Search, Settings2, SkipBack, SkipForward, Sun, Timer, Trophy
 } from 'lucide-react';
 import {
   dateKeyOf, addDays, createPlannerItem, insertByPin, loadPlannerData, savePlannerData, todayGregorian
@@ -12,9 +12,11 @@ import { OPEN_PALETTE_EVENT, haptic, openLiveTimer } from '../../focusBus';
 import { showUndo } from '../../undo';
 import { toPersianDigits } from '../../utils';
 import { norm, parseTask } from './parseTask';
+import { dueOf, getVault, isOpenMistake } from '../../vault/store';
+import { openVaultEditor, openVaultReview } from '../../vault/launch';
 import './palette.css';
 
-type Section = 'today' | 'planner' | 'tracker' | 'schedule' | 'exams' | 'checker' | 'bank' | 'report';
+type Section = 'today' | 'planner' | 'tracker' | 'schedule' | 'exams' | 'checker' | 'bank' | 'vault' | 'report' | 'settings';
 type ThemeMode = 'light' | 'dark' | 'auto';
 interface Cmd { id: string; label: string; hint?: string; group: string; keys: string; icon: React.ReactNode; run: () => void }
 
@@ -34,7 +36,9 @@ const SECTIONS: Array<[Section, string, React.ReactNode, string]> = [
   ['exams', 'آزمون‌ها', <Trophy size={18} key="d" />, 'نتایج تراز رتبه'],
   ['checker', 'تصحیح', <ScanLine size={18} key="e" />, 'اسکن پاسخنامه نمره کلید'],
   ['bank', 'بانک تست', <Library size={18} key="f" />, 'تست سوال کتاب'],
-  ['report', 'گزارش روز', <ClipboardList size={18} key="g" />, 'گزارش ساعت مطالعه']
+  ['vault', 'گنجینه سؤال', <Gem size={18} key="f2" />, 'سوال غلط اشتباه مرور کارت یادآوری لایتنر'],
+  ['report', 'گزارش روز', <ClipboardList size={18} key="g" />, 'گزارش ساعت مطالعه'],
+  ['settings', 'تنظیمات', <Settings2 size={18} key="h" />, 'تنظیم پاسخ‌برگ ظاهر پشتیبان داده']
 ];
 
 export const CommandPalette: React.FC<Props> = ({ onGo, onSetThemeMode, onStartTimer, onOpenMusic, onTaskAdded }) => {
@@ -54,7 +58,7 @@ export const CommandPalette: React.FC<Props> = ({ onGo, onSetThemeMode, onStartT
       if (e.code === 'Slash' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const el = e.target as HTMLElement | null; const tag = el?.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.isContentEditable) return;
-        if (document.querySelector('.tm-backdrop, .mp-backdrop, .dlg-overlay, .pn-back')) return;
+        if (document.querySelector('.tm-backdrop, .mp-backdrop, .dlg-overlay, .pn-back, .ui-scrim, .vt-lock')) return;
         e.preventDefault(); on();
       }
     };
@@ -116,6 +120,13 @@ export const CommandPalette: React.FC<Props> = ({ onGo, onSetThemeMode, onStartT
     for (const it of (data.items[today] || []).filter((x) => !x.done).slice(0, 12)) {
       out.push({ id: 'p-' + it.id, label: `شروع: ${it.subject}${it.detail ? ' — ' + it.detail : ''}`, hint: 'از برنامه‌ی امروز', group: 'برنامه‌ی امروز', keys: `${it.subject} ${it.detail} شروع`, icon: <Play size={18} />, run: () => { void requestLiveStart(today, it); } });
     }
+    const vault = getVault().items;
+    if (vault.length) {
+      const due = dueOf(vault).length, open = vault.filter(isOpenMistake).length;
+      out.push({ id: 'v-review', label: 'مرور هوشمند گنجینه سؤال', hint: due ? `${toPersianDigits(due)} سؤال سررسید` : 'مرور فاصله‌دار', group: 'گنجینه سؤال', keys: 'مرور گنجینه سوال غلط یادآوری vault review', icon: <Gem size={18} />, run: () => openVaultReview({ mode: 'smart' }) });
+      if (open) out.push({ id: 'v-weak', label: 'مرور اشتباه‌های باز', hint: `${toPersianDigits(open)} سؤال`, group: 'گنجینه سؤال', keys: 'اشتباه باز غلط مرور vault weak', icon: <Gem size={18} />, run: () => openVaultReview({ mode: 'weak' }) });
+    }
+    out.push({ id: 'v-add', label: 'ذخیره‌ی سؤال در گنجینه', hint: 'عکس سؤال غلط', group: 'گنجینه سؤال', keys: 'ذخیره سوال جدید گنجینه افزودن عکس غلط vault add', icon: <Gem size={18} />, run: () => openVaultEditor({}) });
     for (const [id, label, icon, keys] of SECTIONS) out.push({ id: 's-' + id, label: `رفتن به ${label}`, group: 'بخش‌ها', keys: `${label} ${keys}`, icon, run: () => onGo(id) });
     out.push({ id: 'm-open', label: 'باز کردن پخش‌کننده‌ی موسیقی', group: 'موسیقی', keys: 'موسیقی پخش‌کننده music player', icon: <Music2 size={18} />, run: onOpenMusic });
     if (track) {

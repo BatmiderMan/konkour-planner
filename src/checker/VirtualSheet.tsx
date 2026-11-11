@@ -1,28 +1,59 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pause, Play, Plus, Scale, Link2, Keyboard } from 'lucide-react';
-import { SHEET_N, SavedSheet, addTime, countAnswered, emptySheetString, makeSavedSheet, onStep, setAnswer, stepLabel, totalTime, withAnswers } from './model';
-import { Plan, answeredIn, applyAction, firstOn, keyToAction, planCount, rangeFromText } from './sheetEngine';
-import { notifyChanged, saveSheet } from './store';
+import { Pause, Play, Plus, Scale, Link2, Keyboard, X } from 'lucide-react';
+import {
+  BookMeta, Grade, GradeSettings, SHEET_N, SavedSheet, addTime, countAnswered, emptySheetString, gradeSheet, makeRecord, makeSavedSheet, matchBook, onStep, setAnswer,
+  stepLabel, timesToSeconds, toggleFlagQ, totalTime, unpackSheet, withAnswers
+} from './model';
+import { Plan, answeredIn, applyAction, firstOn, keyToAction, nextFlagged, planCount, rangeFromText } from './sheetEngine';
+import { keysOf, loadPrefs as loadCkPrefs, notifyChanged, recallChoice, rememberChoice, saveScan, saveSheet } from './store';
+import { useLibrary } from './hooks';
 import { Modal } from './ui';
+import { ResultView } from './ResultView';
 import { clock, defaultTitle } from './format';
 import { VirtualContext } from './launch';
-import { liveElapsedMs, liveKind, liveTotalPlannedSeconds, pauseLivePlan, resumeLivePlan, useLivePlan } from '../livePlan';
+import { useVsPrefs } from './vsPrefs';
+import { liveElapsedMs, liveKind, liveTotalPlannedSeconds, useLivePlan } from '../livePlan';
+import { loadPlannerData, patchPlannerItem } from '../plannerStore';
+import { PartPicker } from './PartPicker';
+import { openVaultEditor } from '../vault/launch';
+import { lockScroll } from '../scrollLock';
+import type { PlannerItem } from '../types';
+import { TopicPick, TopicPicker } from '../components/tracker/TopicPicker';
+import { labelForUnits } from '../trackerPlan';
+import { useTracker } from '../trackerStore';
 import { toPersianDigits as P } from '../utils';
+import { Clock } from '../clock/Clock';
+import './checker.css';
 
 const PRESETS = [20, 30, 45, 50, 75, 100];
 const STEPS: Array<[number, string]> = [[1, 'همه‌ی سؤال‌ها'], [2, '۲x · یکی در میان'], [3, '۳x · یکی در سه تا'], [4, '۴x']];
-const PREF_KEY = 'planex_vs_prefs';
-const loadPrefs = (): { autoNext: boolean } => { try { return { autoNext: true, ...JSON.parse(localStorage.getItem(PREF_KEY) || '{}') }; } catch { return { autoNext: true }; } };
+
+interface Outcome { grade: Grade; settings: GradeSettings; meta: BookMeta | null; times: number[]; flags: number[] }
+
+/** Mini bar chart of the time per question while the test is running (no key yet, so colour = answered / empty / current). */
+const LiveBars: React.FC<{ plan: Plan; sheet: string; times: number[]; cur: number }> = ({ plan, sheet, times, cur }) => {
+  const qs: number[] = [];
+  for (let q = 1; q <= plan.size; q++) if (onStep(q, plan.step, plan.off)) qs.push(q);
+  const max = Math.max(1, ...qs.map((q) => times[q - 1] || 0));
+  return (
+    <div className="ck-ws-bars" dir="ltr" aria-label="زمان هر سؤال تا اینجا">
+      {qs.map((q) => {
+        const ms = times[q - 1] || 0, done = sheet[q - 1] && sheet[q - 1] !== '0';
+        return <i key={q} className={(q === cur ? 'cur ' : '') + (done ? 'done' : ms > 1500 ? 'skip' : '')} style={{ height: `${Math.max(ms ? 8 : 3, (ms / max) * 100)}%` }} title={`${P(q)} · ${P(clock(ms))}`} />;
+      })}
+    </div>
+  );
+};
 
 /**
- * The virtual answer sheet - made for solving a test part with the keyboard:
- *  - the sheet reads left to right like a paper sheet; the selected question is highlighted;
- *  - 1-4 (also ۱-۴ and the numpad) marks the answer and moves to the next question, 0 leaves it empty and moves on,
- *    arrow keys go up / down (Shift+arrow ignores the 2x/3x plan), Backspace empties the question, Space pauses the clock;
- *  - the time on every question is counted (visiting a question again adds to it) and saved with the answers;
- *  - «2x / 3x»: only every 2nd / 3rd question belongs to the test; the others are dimmed, skipped by the arrows and not counted when comparing;
- *  - when the sheet belongs to a planner card whose timer is running, that timer drives the clock (pause it there, the sheet pauses too).
- * Nothing here needs a key. Comparing with a book is the next step (onCompare).
+ * The test room (virtual answer sheet), made for solving a test part with the keyboard:
+ *  - the sheet reads left to right like paper; 1-4 (also ۱-۴ / numpad) marks the answer and moves on, 0 leaves the question empty,
+ *    arrows move (Shift ignores the 2x/3x plan), Backspace empties, Space pauses the clock;
+ *  - the time on each question is counted (visiting again adds up) and saved with the answers;
+ *  - «2x / 3x»: only every 2nd / 3rd question belongs to the test; the others are dimmed, skipped and not counted when grading;
+ *  - the sheet is attached to its planner card: the card's timer is the clock, the card's topics and notes ride along, and when the
+ *    test is finished with an attached key it is graded right here and the result lands on the card (finish form is pre-filled);
+ *  - a side panel keeps the pace (target time per question, forecast), the attachments (answer key, topics, note) and the settings.
  */
 export const VirtualSheet: React.FC<{
   sheet?: SavedSheet;
@@ -31,6 +62,9 @@ export const VirtualSheet: React.FC<{
   onCompare: (s: SavedSheet) => void;
 }> = ({ sheet: initial, ctx, onClose, onCompare }) => {
   const hint = useMemo(() => rangeFromText([ctx?.detail, ctx?.title].filter(Boolean).join(' ')), [ctx?.detail, ctx?.title]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { books } = useLibrary();
+  const tracker = useTracker();
+  const [vp, setVp] = useVsPrefs();
   const [rec, setRec] = useState<SavedSheet | null>(initial || null);
   const recRef = useRef<SavedSheet | null>(initial || null);
   const [title, setTitle] = useState(() => ctx?.title || defaultTitle('آزمون'));
@@ -38,10 +72,18 @@ export const VirtualSheet: React.FC<{
   const [first, setFirst] = useState(ctx?.startQ || hint?.from || 1);
   const [step, setStep] = useState(ctx?.step || 1);
   const [off, setOff] = useState(ctx?.off || 0);
+  const [budget, setBudget] = useState('');
+  const [bookPick, setBookPick] = useState<string>('');
   const [paused, setPaused] = useState(false);
-  const [prefs, setPrefs] = useState(loadPrefs);
   const [, force] = useState(0);
   const [endHint, setEndHint] = useState(false);
+  const [phase, setPhase] = useState<'doing' | 'result'>('doing');
+  const [out, setOut] = useState<Outcome | null>(null);
+  const [grading, setGrading] = useState(false);
+  const [picker, setPicker] = useState(false);
+  const [partPick, setPartPick] = useState(false);
+  const waitStart = useRef(false); // the clock waits for the first answer (when «شروع خودکار» is off)
+  const [side, setSide] = useState(false); // phone: the tools drawer
   const dirty = useRef(false);
   const live = useLivePlan();
 
@@ -49,26 +91,36 @@ export const VirtualSheet: React.FC<{
   const [q, setQState] = useState(() => qOf(initial || null));
   const qRef = useRef(q);
   const setQ = useCallback((n: number) => { qRef.current = n; setQState(n); }, []);
-  const autoRef = useRef(prefs.autoNext);
-  autoRef.current = prefs.autoNext;
+  const prefsRef = useRef(vp);
+  prefsRef.current = vp;
 
   const rows = rec ? Math.min(SHEET_N, Math.max(1, rec.size)) : 0;
   const plan: Plan = { size: rows, step: rec?.step || 1, off: rec?.off || 0 };
   const planRef = useRef(plan);
   planRef.current = plan;
 
-  // the planner card this sheet belongs to: while its timer runs, it is the clock of the test
+  // the planner card this sheet belongs to. Its timer is shown for reference only: the sheet runs its OWN clock
   const liveOn = !!(rec && rec.link && rec.link.plannerItemId && live && liveKind(live) === 'plan' && live.item.id === rec.link.plannerItemId && live.dateKey === rec.link.dateKey);
-  const ticking = !!rec && rec.mode === 'live' && rec.state === 'open' && (liveOn ? !!live && live.running : !paused);
+  const ticking = !!rec && phase === 'doing' && rec.mode === 'live' && rec.state === 'open' && !paused;
   const tickRef = useRef(ticking);
   tickRef.current = ticking;
+
+  // a key that fits the card: remembered choice → same book / lesson as the card (like the scanner does)
+  const autoBook = useCallback((): string => {
+    const h = { source: ctx?.source, lesson: ctx?.lesson };
+    const mem = recallChoice(h);
+    const m = (mem && books.find((b) => b.id === mem.bookId)) || matchBook(books, h);
+    return m ? m.id : '';
+  }, [books, ctx?.source, ctx?.lesson]);
+  const bookTouched = useRef(false);
+  useEffect(() => { if (!rec && !bookTouched.current && books.length) setBookPick(autoBook()); }, [books.length, rec, autoBook]);
 
   const persist = useCallback((next: SavedSheet, silent = true) => {
     recRef.current = next; setRec(next); dirty.current = true;
     saveSheet(next, { silent });
   }, []);
 
-  /* ---------- the clock: every 200 ms the elapsed slice goes to the question that is selected ---------- */
+  /* ---------- the clock: every 200 ms the elapsed slice goes to the selected question ---------- */
   useEffect(() => {
     let last = performance.now(), n = 0, sec = -1;
     const id = window.setInterval(() => {
@@ -91,20 +143,22 @@ export const VirtualSheet: React.FC<{
     const cur = recRef.current;
     if (cur && dirty.current) saveSheet({ ...cur, cursor: qRef.current, updatedAt: Date.now() }, { silent: false }); else notifyChanged();
   }, []);
+  useEffect(() => (rec ? lockScroll() : undefined), [!!rec]); // eslint-disable-line react-hooks/exhaustive-deps -- only while the room itself is on screen (the setup form is a Modal with its own lock)
 
   /* ---------- keyboard ---------- */
-  const togglePause = useCallback(() => {
-    const cur = recRef.current;
-    if (!cur) return;
-    if (cur.link && live && liveKind(live) === 'plan' && live.item.id === cur.link.plannerItemId) { if (live.running) pauseLivePlan(); else resumeLivePlan(); }
-    else setPaused((p) => !p);
-  }, [live]);
+  const togglePause = useCallback(() => { waitStart.current = false; setPaused((p) => !p); }, []);
+
+  const buzz = () => { if (prefsRef.current.haptic && typeof navigator !== 'undefined' && navigator.vibrate) { try { navigator.vibrate(6); } catch { /* ignore */ } } };
 
   const press = useCallback((a: NonNullable<ReturnType<typeof keyToAction>>) => {
     const cur = recRef.current;
     if (!cur) return;
     if (a.t === 'pause') { togglePause(); return; }
-    const r = applyAction({ sheet: cur.sheet, q: qRef.current }, a, planRef.current, autoRef.current);
+    if (a.t === 'flag') { persist({ ...cur, flags: toggleFlagQ(cur.flags, qRef.current), cursor: qRef.current }); buzz(); return; }
+    if (a.t === 'nextFlag') { const nq = nextFlagged(cur.flags, qRef.current); setQ(nq); setEndHint(false); return; }
+    if ((a.t === 'answer' || a.t === 'blank') && waitStart.current) { waitStart.current = false; setPaused(false); }
+    const r = applyAction({ sheet: cur.sheet, q: qRef.current }, a, planRef.current, prefsRef.current.autoNext);
+    if (a.t === 'answer' || a.t === 'blank') buzz();
     setEndHint(r.atEnd);
     setQ(r.q);
     if (r.changed) persist({ ...withAnswers(cur, r.sheet), times: recRef.current?.times, spentMs: recRef.current?.spentMs, cursor: r.q });
@@ -112,7 +166,7 @@ export const VirtualSheet: React.FC<{
   }, [persist, setQ, togglePause]);
 
   useEffect(() => {
-    if (!rec) return;
+    if (!rec || phase !== 'doing' || picker) return;
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && typeof t.closest === 'function' && t.closest('input,textarea,select,[contenteditable="true"]')) return;
@@ -123,20 +177,34 @@ export const VirtualSheet: React.FC<{
     };
     window.addEventListener('keydown', onKey, true); // capture: runs before the other handlers
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [!!rec, press]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [!!rec, phase, picker, press]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape' && !picker) onClose(); };
+    document.addEventListener('keydown', onEsc);
+    return () => document.removeEventListener('keydown', onEsc);
+  }, [onClose, picker]);
 
   // keep the selected row in view
   useEffect(() => { document.getElementById('vsq' + q)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [q]);
 
   const start = () => {
     const stepV = Math.max(1, step), offV = Math.min(off, stepV - 1);
+    const meta = books.find((b) => b.id === bookPick);
     const r = makeSavedSheet(title.trim() || defaultTitle('آزمون'), 'live', emptySheetString(), {
       size, startQ: Math.max(1, first), step: stepV > 1 ? stepV : undefined, off: stepV > 1 && offV ? offV : undefined,
-      times: [], link: ctx?.link, lesson: ctx?.lesson, source: ctx?.source, detail: ctx?.detail
+      times: [], link: ctx?.link, lesson: ctx?.lesson, source: ctx?.source, detail: ctx?.detail,
+      bookId: meta?.id, bookTitle: meta?.title, budgetMin: parseInt(budget, 10) > 0 ? parseInt(budget, 10) : undefined
     });
+    // topics the planner card already carries
+    if (ctx?.link?.plannerItemId) {
+      const it = (loadPlannerData().items[ctx.link.dateKey || ''] || []).find((x) => x.id === ctx.link!.plannerItemId);
+      if (it && it.trk) r.trk = it.trk;
+    }
     const q0 = firstOn({ size, step: stepV, off: offV });
     r.cursor = q0;
     recRef.current = r; setRec(r); setQ(q0); dirty.current = true; saveSheet(r, { silent: true });
+    if (!vp.autoStart) { waitStart.current = true; setPaused(true); }
   };
 
   /* ---------- setup screen ---------- */
@@ -145,8 +213,8 @@ export const VirtualSheet: React.FC<{
       <Modal title="پاسخ‌برگ مجازی" onClose={onClose}
         footer={<button type="button" className="ck-btn primary" onClick={start}>شروع آزمون</button>}>
         <section className="ck-card">
-          <p className="ck-hint">پاسخ‌ها را با کیبورد وارد کن: <b>۱ تا ۴</b> گزینه را می‌زند و می‌رود سؤال بعد، <b>۰</b> سؤال را نزده می‌گذارد، با <b>فلش‌ها</b> بالا و پایین می‌روی. زمانِ هر سؤال هم حساب می‌شود. هر علامت همان لحظه ذخیره می‌شود.</p>
-          {ctx?.link && <p className="ck-note"><Link2 size={14} /> این پاسخ‌برگ به همین پارتِ برنامه‌ریز وصل است؛ ساعتش با تایمر آن پارت هم‌گام می‌شود.</p>}
+          <p className="ck-hint">پاسخ‌ها را با کیبورد وارد کن: <b>۱ تا ۴</b> گزینه را می‌زند و می‌رود سؤال بعد، <b>۰</b> سؤال را نزده می‌گذارد، با <b>فلش‌ها</b> بالا و پایین می‌روی. زمانِ هر سؤال هم حساب می‌شود و هر علامت همان لحظه ذخیره می‌شود.</p>
+          {ctx?.link && <p className="ck-note"><Link2 size={14} /> این پاسخ‌برگ به همین پارتِ برنامه‌ریز وصل است؛ ساعتش با تایمر آن پارت هم‌گام می‌شود و نتیجه‌اش روی همان کارت می‌نشیند.</p>}
           <div className="ck-fields">
             <label className="ck-field grow"><span>نام آزمون</span>
               <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -182,110 +250,297 @@ export const VirtualSheet: React.FC<{
             </div>
           )}
           {step > 1 && <p className="ck-note">با {P(step)}x سؤال‌های {P(first + off)}، {P(first + off + step)}، {P(first + off + 2 * step)}… فعال‌اند؛ بقیه کم‌رنگ می‌شوند، فلش‌ها از رویشان می‌پرند و موقع تصحیح اگر خالی بمانند اصلاً حساب نمی‌شوند.</p>}
+          <div className="ck-fields">
+            <label className="ck-field grow"><span>🔑 کلید این آزمون (اختیاری؛ با کلید، پایان آزمون همان‌جا تصحیح می‌شود)</span>
+              <select value={bookPick} onChange={(e) => { bookTouched.current = true; setBookPick(e.target.value); }}>
+                <option value="">بدون کلید — بعداً انتخاب می‌کنم</option>
+                {books.map((b) => <option key={b.id} value={b.id}>{b.title}{b.count ? ` (${P(b.count)} کلید)` : ''}</option>)}
+              </select>
+            </label>
+            {!ctx?.link && (
+              <label className="ck-field"><span>⏱ زمان آزمون (دقیقه، اختیاری)</span>
+                <input type="number" min={1} max={600} value={budget} placeholder="مثلاً ۴۵" onChange={(e) => setBudget(e.target.value.replace(/\D/g, '').slice(0, 3))} />
+              </label>
+            )}
+          </div>
         </section>
       </Modal>
     );
   }
 
-  /* ---------- the sheet ---------- */
+  /* ---------- derived values for the room ---------- */
   const answers = rec.sheet;
-  const planNow = plan;
-  const totalOn = planCount(planNow);
-  const { onPlan, extra } = answeredIn(answers, planNow);
+  const totalOn = planCount(plan);
+  const { onPlan, extra } = answeredIn(answers, plan);
   const startNo = rec.startQ || 1;
   const times = rec.times || [];
+  const flagList = (rec.flags || []).filter((x) => x >= 1 && x <= rows);
+  const flagSet = new Set(flagList);
   const isLive = rec.mode === 'live';
-  const open = isLive && rec.state === 'open';
+  const open = isLive && rec.state === 'open' && phase === 'doing';
   const spent = rec.spentMs || totalTime(times);
   const cardElapsed = liveOn && live ? liveElapsedMs(live) : 0;
   const planned = liveOn && live ? liveTotalPlannedSeconds(live) : 0;
-  const mainClock = liveOn ? cardElapsed : spent;
-  const runningNow = liveOn ? !!(live && live.running) : !paused;
+  const mainClock = spent; // the sheet's own clock
+  const runningNow = !paused;
+  const budgetSec = planned > 0 ? planned : rec.budgetMin ? rec.budgetMin * 60 : 0;
+  const targetSec = budgetSec && totalOn ? budgetSec / totalOn : 0;
+  const spentSec = spent / 1000;
+  const avgSec = onPlan ? spentSec / onPlan : 0;
+  const remainQ = Math.max(0, totalOn - onPlan);
+  const leftSec = budgetSec ? Math.max(0, budgetSec - spentSec) : 0;
+  const forecastSec = avgSec * remainQ;
+  const curMs = times[q - 1] || 0;
+  const slowLimit = (targetSec || (onPlan >= 5 ? avgSec : 0)) * vp.slowFactor * 1000;
+  const curSlow = vp.slowWarn && open && slowLimit > 0 && curMs > slowLimit && onStep(q, plan.step, plan.off);
+  const meta = books.find((b) => b.id === rec.bookId) || null;
+  const itemTrk = (() => {
+    if (rec.trk) return rec.trk;
+    if (rec.link && rec.link.plannerItemId) { const it = (loadPlannerData().items[rec.link.dateKey || ''] || []).find((x) => x.id === rec.link!.plannerItemId); return it && it.trk ? it.trk : undefined; }
+    return undefined;
+  })();
+  const trkRound = itemTrk ? tracker.rounds.find((r) => r.id === itemTrk.r) : undefined;
+  const outOfKey = meta && (startNo < meta.min || startNo + rows - 1 > meta.max);
 
   const pickMouse = (qq: number, o: number) => {
     const cur = answers[qq - 1];
     const v = cur === String(o) ? 0 : o; // clicking the chosen option again clears it
     const nextSheet = setAnswer(answers, qq, v);
-    const nq = v && prefs.autoNext ? (applyAction({ sheet: nextSheet, q: qq }, { t: 'move', dir: 1, any: false }, planNow).q) : qq;
-    setQ(nq); setEndHint(false);
+    const nq = v && vp.autoNext ? applyAction({ sheet: nextSheet, q: qq }, { t: 'move', dir: 1, any: false }, plan).q : qq;
+    setQ(nq); setEndHint(false); buzz();
     persist({ ...withAnswers(rec, nextSheet), times: recRef.current?.times, spentMs: recRef.current?.spentMs, cursor: nq });
   };
   const grow = () => persist({ ...withAnswers(rec, answers, { size: Math.min(SHEET_N, rows + 25) }), times: recRef.current?.times });
   const rename = (t: string) => persist({ ...rec, title: t, updatedAt: Date.now() });
-  const finish = (andCompare: boolean) => {
-    const cur = recRef.current || rec;
-    const next = { ...withAnswers(cur, cur.sheet), state: 'done' as const, cursor: qRef.current };
-    recRef.current = next; dirty.current = true;
-    saveSheet(next, { silent: false }).then(() => { if (andCompare) onCompare(next); else onClose(); });
+  const setNote = (t: string) => persist({ ...rec, note: t, updatedAt: Date.now() });
+  const setBook = (id: string) => { const b = books.find((x) => x.id === id); persist({ ...rec, bookId: b?.id, bookTitle: b?.title }); };
+  const applyTopics = (p: TopicPick) => {
+    const trk = { u: p.us, r: p.roundId, ...(p.part ? { m: 'p' as const } : {}) };
+    persist({ ...rec, trk });
+    if (rec.link && rec.link.plannerItemId && rec.link.dateKey) patchPlannerItem(rec.link.dateKey, rec.link.plannerItemId, { trk }); // the card now ticks these topics when it is finished
   };
-  const setAuto = (v: boolean) => { const n = { ...prefs, autoNext: v }; setPrefs(n); try { localStorage.setItem(PREF_KEY, JSON.stringify(n)); } catch { /* ignore */ } };
+
+  /** attach this sheet to another planner card (or take it off): the card's topics ride along, and the finished result lands on that card */
+  const applyLink = (dateKey: string, it: PlannerItem) => {
+    persist({ ...rec, link: { dateKey, plannerItemId: it.id }, lesson: it.subject, source: it.source, detail: it.detail, trk: it.trk || rec.trk });
+    if (rec.trk && !it.trk) patchPlannerItem(dateKey, it.id, { trk: rec.trk });
+  };
+  const detach = () => persist({ ...rec, link: undefined });
+  const linkedItem = rec.link && rec.link.plannerItemId ? (loadPlannerData().items[rec.link.dateKey || ''] || []).find((x) => x.id === rec.link!.plannerItemId) : undefined;
+
+  /** finish: with an attached key the test is graded right here and the result is saved on the card's link */
+  const finish = async (mode: 'grade' | 'compare' | 'save') => {
+    const cur = recRef.current || rec;
+    const done = { ...withAnswers(cur, cur.sheet), state: 'done' as const, cursor: qRef.current };
+    recRef.current = done; dirty.current = true;
+    if (mode === 'save') { await saveSheet(done, { silent: false }); onClose(); return; }
+    if (mode === 'compare') { await saveSheet(done, { silent: false }); onCompare(done); return; }
+    setGrading(true);
+    const keys = await keysOf(done.bookId);
+    const ck = loadCkPrefs();
+    const settings: GradeSettings = { startQ: done.startQ || 1, from: 1, to: rows, penalty: ck.penalty, dblWrong: ck.dblWrong, step: done.step, off: done.off };
+    const read = unpackSheet(done.sheet);
+    const grade = gradeSheet(read, {}, keys, settings);
+    const bm = books.find((b) => b.id === done.bookId) || null;
+    const link = { ...(done.link || {}), lesson: done.lesson, label: done.title, sheetId: done.id };
+    const sec = timesToSeconds(done.times, rows);
+    const scan = makeRecord(read, {}, grade, settings, bm, link, sec, done.flags);
+    if (done.scanId) scan.id = done.scanId; // grading again overwrites the earlier result of this sheet
+    await saveScan(scan);
+    const saved = { ...done, scanId: scan.id, pct: grade.pct };
+    recRef.current = saved;
+    await saveSheet(saved, { silent: false });
+    if (bm) rememberChoice({ source: done.source, lesson: done.lesson }, bm.id, done.startQ);
+    setRec(saved); setOut({ grade, settings, meta: bm, times: sec, flags: (done.flags || []).map((x) => (done.startQ || 1) + x - 1) }); setPhase('result'); setGrading(false);
+  };
+  const backToTest = () => { const cur = recRef.current || rec; const r = { ...cur, state: 'open' as const }; persist(r, false); setPhase('doing'); setOut(null); };
 
   const rowsEls: React.ReactNode[] = [];
   for (let n = 1; n <= rows; n++) {
     const c = answers[n - 1] || '0';
-    const on = onStep(n, planNow.step, planNow.off);
+    const on = onStep(n, plan.step, plan.off);
     const ms = times[n - 1] || 0;
+    const slow = vp.slowWarn && slowLimit > 0 && ms > slowLimit && on;
+    const flagged = flagSet.has(n);
     rowsEls.push(
       <div
         key={n}
         id={'vsq' + n}
-        className={'ck-vs2-q' + (n === q ? ' cur' : '') + (c !== '0' ? ' done' : '') + (on ? '' : ' off') + (n % 5 === 0 ? ' sep' : '')}
+        className={'ck-vs2-q' + (n === q ? ' cur' : '') + (c !== '0' ? ' done' : '') + (on ? '' : ' off') + (n % 5 === 0 ? ' sep' : '') + (slow ? ' slow' : '') + (flagged ? ' flag' : '')}
         onClick={() => { setQ(n); setEndHint(false); }}
       >
         <span className="no">{P(startNo + n - 1)}</span>
         {[1, 2, 3, 4].map((o) => (
           <button key={o} type="button" tabIndex={-1} className={'o' + (c === String(o) ? ' on' : '')} aria-pressed={c === String(o)} aria-label={`سؤال ${startNo + n - 1} گزینه ${o}`} onClick={(e) => { e.stopPropagation(); pickMouse(n, o); }}>{P(o)}</button>
         ))}
-        <span className={'tm' + (n === q ? ' live' : '')}>{ms >= 1000 ? P(clock(ms)) : ''}</span>
+        <span className={'tm' + (n === q ? ' live' : '')}>{vp.showTimes && ms >= 1000 ? P(clock(ms)) : ''}</span>
+        <button type="button" tabIndex={-1} className={'ck-flagbtn' + (flagged ? ' on' : '')} aria-pressed={flagged} aria-label={`نشان‌دار کردن سؤال ${startNo + n - 1}`} title="نشان‌دار (F)" onClick={(e) => { e.stopPropagation(); persist({ ...recRef.current!, flags: toggleFlagQ(recRef.current!.flags, n) }); }}>⚑</button>
       </div>
     );
   }
 
+  const mm = (sec: number) => P(clock(Math.round(sec) * 1000));
+
+  const side_el = (
+    <aside className={'ck-ws-side' + (side ? ' open' : '')}>
+      {open && (
+        <section className="ck-ws-card pace">
+          <h4>سرعت و زمان</h4>
+          {budgetSec > 0 ? (
+            <>
+              <div className="row"><span>{planned > 0 ? 'زمان باقی‌مانده (از زمان پیش‌بینی پارت)' : 'زمان باقی‌مانده'}</span><b dir="ltr">{mm(leftSec)}</b></div>
+              <div className="row"><span>هدف هر سؤال</span><b dir="ltr">{mm(targetSec)}</b></div>
+            </>
+          ) : <p className="mut">برای هدف زمانی، موقع ساخت پاسخ‌برگ «زمان آزمون» بده یا پارت را با زمان پیش‌بینی‌شده بچین.</p>}
+          <div className="row"><span>میانگین تا حالا</span><b dir="ltr">{onPlan ? mm(avgSec) : '—'}</b></div>
+          {budgetSec > 0 && onPlan >= 3 && remainQ > 0 && (
+            <p className={'fc ' + (forecastSec > leftSec ? 'late' : 'ok')}>
+              {forecastSec > leftSec ? `با این سرعت حدود ${P(Math.ceil((forecastSec - leftSec) / 60))} دقیقه دیرتر تمام می‌شود.` : 'با این سرعت داخل زمان تمام می‌شود.'}
+            </p>
+          )}
+          {curSlow && <p className="fc late">روی سؤال {P(startNo + q - 1)} زیاد مانده‌ای؛ شاید بهتر است ردش کنی (۰) و برگردی.</p>}
+          <LiveBars plan={plan} sheet={answers} times={times} cur={q} />
+        </section>
+      )}
+      <section className="ck-ws-card">
+        <h4>⚑ نشان‌دارها {flagList.length > 0 && <small>({P(flagList.length)})</small>}</h4>
+        {flagList.length ? (
+          <div className="flagchips">{flagList.map((n) => <button key={n} type="button" onClick={() => { setQ(n); setEndHint(false); }}>{P(startNo + n - 1)}</button>)}</div>
+        ) : <p className="mut">سؤال مشکوک را با <kbd>F</kbd> (یا دکمه‌ی ⚑ کنار سؤال) نشان‌دار کن؛ با <kbd>G</kbd> به نشان‌دار بعدی می‌روی. بعد از تصحیح می‌بینی حدست درست بود یا نه.</p>}
+      </section>
+      <section className="ck-ws-card">
+        <h4>پیوست‌ها</h4>
+        <label className="att"><span>🔑 کلید</span>
+          <select value={rec.bookId || ''} onChange={(e) => setBook(e.target.value)} aria-label="کلید آزمون">
+            <option value="">بدون کلید</option>
+            {books.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
+          </select>
+        </label>
+        {meta && <p className={'mut' + (outOfKey ? ' warn' : '')}>{outOfKey ? `کلیدِ این کتاب فقط سؤال‌های ${P(meta.min)} تا ${P(meta.max)} را دارد؛ بقیه بدون کلید می‌مانند.` : `کلیدها: سؤال ${P(meta.min)} تا ${P(meta.max)}`}</p>}
+        <div className="att"><span>📚 مبحث</span>
+          <div className="topics">
+            {itemTrk ? (
+              <span className="chip" style={{ ['--c' as string]: trkRound ? trkRound.color : '#888' } as React.CSSProperties}>
+                {trkRound ? trkRound.name : 'دور'} · {labelForUnits(itemTrk.u).slice(0, 38)}{itemTrk.m === 'p' ? ' · پارت' : ''}
+              </span>
+            ) : <span className="mut">هنوز مشخص نشده</span>}
+            <button type="button" className="ck-btn sm" onClick={() => setPicker(true)}>{itemTrk ? 'تغییر' : 'انتخاب مبحث'}</button>
+          </div>
+        </div>
+        <label className="att col"><span>📝 یادداشت (به گزارش پارت می‌رود)</span>
+          <textarea rows={3} value={rec.note || ''} placeholder="نکته‌ها، تست‌های مشکل‌دار…" onChange={(e) => setNote(e.target.value)} />
+        </label>
+      </section>
+      <section className="ck-ws-card">
+        <h4>تنظیمات پاسخ‌برگ</h4>
+        <label className="sw"><input type="checkbox" checked={vp.autoNext} onChange={(e) => setVp({ autoNext: e.target.checked })} /> رفتن خودکار به سؤال بعد</label>
+        <label className="sw"><input type="checkbox" checked={vp.showTimes} onChange={(e) => setVp({ showTimes: e.target.checked })} /> نمایش زمان کنار هر سؤال</label>
+        <label className="sw"><input type="checkbox" checked={vp.slowWarn} onChange={(e) => setVp({ slowWarn: e.target.checked })} /> هشدار سؤال وقت‌گیر</label>
+        <label className="sw"><input type="checkbox" checked={vp.haptic} onChange={(e) => setVp({ haptic: e.target.checked })} /> لرزش کوتاه با هر کلید (گوشی)</label>
+      </section>
+    </aside>
+  );
+
   return (
-    <Modal wide onClose={onClose}
-      title={<>{isLive ? 'پاسخ‌برگ مجازی' : 'پاسخ‌برگ ذخیره‌شده'}<small className="ck-ctx"> — {rec.title}</small></>}
-      footer={<>
-        <button type="button" className="ck-btn primary" disabled={!countAnswered(answers.slice(0, rows))} onClick={() => finish(true)}><Scale size={16} /> {open ? 'پایان و مقایسه با کلید' : 'مقایسه با کلید'}</button>
-        <button type="button" className="ck-btn" onClick={() => finish(false)}>{open ? 'پایان آزمون، ذخیره برای بعد' : 'ذخیره و بستن'}</button>
-        {open && <span className="ck-apply-note">با بستن پنجره، آزمون «در حال انجام» می‌ماند و بعداً ادامه‌اش می‌دهی.</span>}
-      </>}>
-      <div className="ck-vs2-panel">
+    <div className="ck-ws" role="dialog" aria-modal="true" aria-label="اتاق حل تست">
+      <header className="ck-ws-head">
+        <button type="button" className="ck-x" aria-label="بستن" onClick={onClose}><X size={20} /></button>
+        <div className="ttl">
+          <small>{rec.mode === 'scan' ? 'پاسخ‌برگ اسکن‌شده' : 'اتاق حل تست'}{planNow(plan)}</small>
+          <input type="text" value={rec.title} aria-label="نام پاسخ‌برگ" onChange={(e) => rename(e.target.value)} />
+          <button type="button" className={'linkchip' + (linkedItem ? '' : ' none')} onClick={() => setPartPick(true)} title="انتخاب یا تغییر پارتی که این پاسخ‌برگ به آن وصل است">
+            <Link2 size={12} /><span>{linkedItem ? `پارت: ${linkedItem.subject}${linkedItem.detail ? ' — ' + linkedItem.detail : ''}` : rec.link && rec.link.plannerItemId ? 'پارتِ وصل‌شده پیدا نشد — تغییر' : 'به هیچ پارتی وصل نیست — وصل کن'}</span>
+          </button>
+          {liveOn && live && <span className="partclock">تایمر پارت (جدا): <b dir="ltr"><Clock sec={Math.floor(liveElapsedMs(live) / 1000)} running={!!live.running} /></b></span>}
+        </div>
         {isLive && (
-          <div className={'clock' + (runningNow && open ? ' run' : ' stop')}>
-            <b dir="ltr">{P(clock(mainClock))}</b>
-            <span>{liveOn ? `زمان پارت${planned ? ` از ${P(clock(planned * 1000))}` : ''}` : open ? 'زمان آزمون' : 'زمان کل'}</span>
+          <div className={'clock' + (runningNow && open ? ' run' : ' stop') + (curSlow ? ' slow' : '')} title="زمان پاسخ‌برگ (جدا از تایمر پارت)">
+            <b dir="ltr"><Clock sec={Math.floor(mainClock / 1000)} running={runningNow && open} /></b>
+            <span>{open ? (runningNow ? 'زمان پاسخ‌برگ' : waitStart.current ? 'با اولین پاسخ شروع می‌شود' : 'زمان متوقف است') : 'زمان کل'}</span>
           </div>
         )}
-        <div className="info">
-          <div className="line">
-            <span className="ck-pill ok">{P(onPlan)} از {P(totalOn)} پاسخ</span>
-            {extra > 0 && <span className="ck-pill">{P(extra)} خارج از برنامه</span>}
-            {planNow.step > 1 && <span className="ck-pill bad">{P(stepLabel(planNow.step, planNow.off))}</span>}
-            {liveOn && <span className="ck-pill"><Link2 size={12} /> وصل به تایمر پارت</span>}
-          </div>
-          <div className="line sub">
-            <span>سؤال <b>{P(startNo + q - 1)}</b> · زمان روی این سؤال <b dir="ltr">{P(clock(times[q - 1] || 0))}</b></span>
-          </div>
-          <span className="bar"><i style={{ width: totalOn ? Math.round((onPlan / totalOn) * 100) + '%' : '0%' }} /></span>
-        </div>
-        <div className="ctl">
+        <div className="acts">
           {open && <button type="button" className="ck-btn sm" aria-label={runningNow ? 'توقف زمان' : 'ادامه‌ی زمان'} onClick={togglePause}>{runningNow ? <Pause size={15} /> : <Play size={15} />} {runningNow ? 'توقف' : 'ادامه'}</button>}
-          <input className="ck-vs-title" type="text" value={rec.title} aria-label="نام پاسخ‌برگ" onChange={(e) => rename(e.target.value)} />
+          <button type="button" className="ck-btn sm ck-ws-tools" onClick={() => setSide((v) => !v)}>ابزارها</button>
         </div>
+      </header>
+
+      <div className="ck-ws-body">
+        <main className="ck-ws-main">
+          {phase === 'result' && out ? (
+            <>
+              <div className="ck-ws-resbar">
+                <b>{out.meta ? `تصحیح با «${out.meta.title}»` : 'تصحیح'}</b>
+                <span>نتیجه روی کارت این پارت ثبت می‌شود و در فرم پایان پارت خودکار پر است.</span>
+              </div>
+              <ResultView
+                grade={out.grade} penalty={out.settings.penalty} times={out.times} flags={out.flags} title={rec.lesson || out.meta?.title}
+                onVault={(x) => openVaultEditor({
+                  book: out.meta?.title || rec.bookTitle || rec.lesson || '', lesson: rec.lesson || '', units: itemTrk ? itemTrk.u : [],
+                  why: x.st === 'ok' ? 'guess' : x.st === 'blank' ? 'time' : 'wrong', choices: 4, ...(x.key ? { answer: x.key } : {}), etext: `سؤال ${x.bq} — ${rec.title}`
+                })}
+              />
+            </>
+          ) : (
+            <>
+              <div className="ck-vs2-panel solo">
+                <div className="info">
+                  <div className="line">
+                    <span className="ck-pill ok">{P(onPlan)} از {P(totalOn)} پاسخ</span>
+                    {extra > 0 && <span className="ck-pill">{P(extra)} خارج از برنامه</span>}
+                    {plan.step > 1 && <span className="ck-pill bad">{P(stepLabel(plan.step, plan.off))}</span>}
+                    {flagList.length > 0 && <span className="ck-pill" style={{ color: '#e0951b' }}>⚑ {P(flagList.length)} نشان‌دار</span>}
+                    {meta && <span className="ck-pill">🔑 {meta.title}</span>}
+                  </div>
+                  <div className="line sub"><span>سؤال <b>{P(startNo + q - 1)}</b> · زمان روی این سؤال <b dir="ltr" className={curSlow ? 'slow' : ''}>{P(clock(curMs))}</b></span></div>
+                  <span className="bar"><i style={{ width: totalOn ? Math.round((onPlan / totalOn) * 100) + '%' : '0%' }} /></span>
+                </div>
+              </div>
+              <div className="ck-vs2-keys" aria-label="راهنمای کیبورد">
+                <Keyboard size={14} />
+                <span><kbd>۱</kbd>–<kbd>۴</kbd> پاسخ و سؤال بعد</span>
+                <span><kbd>۰</kbd> نزده و سؤال بعد</span>
+                <span><kbd>↑</kbd><kbd>↓</kbd> حرکت</span>
+                <span><kbd>⌫</kbd> پاک کردن</span>
+                <span><kbd>F</kbd> نشان‌دار</span>
+                <span><kbd>G</kbd> نشان‌دارِ بعدی</span>
+                <span><kbd>Space</kbd> توقف ساعتِ پاسخ‌برگ</span>
+              </div>
+              {endHint && <p className="ck-note">به آخرین سؤال رسیدی. با «پایان آزمون» ادامه بده یا با فلش‌ها برگرد.</p>}
+              {rec.mode === 'scan' && <p className="ck-note">این پاسخ‌برگ از روی عکس خوانده شده؛ اگر جایی اشتباه خوانده شده، همین‌جا اصلاحش کن.</p>}
+              <div className="ck-vs2-grid" dir="ltr">
+                {Array.from({ length: Math.ceil(rowsEls.length / 10) }, (_, ci) => <div key={ci} className="ck-vs2-col">{rowsEls.slice(ci * 10, ci * 10 + 10)}</div>)}
+              </div>
+              {rows < SHEET_N && <div className="ck-row"><button type="button" className="ck-btn sm ghost" onClick={grow}><Plus size={14} /> ۲۵ سؤال دیگر</button></div>}
+            </>
+          )}
+        </main>
+        {side_el}
       </div>
-      <div className="ck-vs2-keys" aria-label="راهنمای کیبورد">
-        <Keyboard size={14} />
-        <span><kbd>۱</kbd>–<kbd>۴</kbd> پاسخ و سؤال بعد</span>
-        <span><kbd>۰</kbd> نزده و سؤال بعد</span>
-        <span><kbd>↑</kbd><kbd>↓</kbd> حرکت</span>
-        <span><kbd>⌫</kbd> پاک کردن</span>
-        <span><kbd>Space</kbd> توقف</span>
-        <label className="auto"><input type="checkbox" checked={prefs.autoNext} onChange={(e) => setAuto(e.target.checked)} /> رفتن خودکار به سؤال بعد</label>
-      </div>
-      {endHint && <p className="ck-note">به آخرین سؤال رسیدی. با «پایان و مقایسه با کلید» ادامه بده یا با فلش‌ها برگرد.</p>}
-      {rec.mode === 'scan' && <p className="ck-note">این پاسخ‌برگ از روی عکس خوانده شده؛ اگر جایی اشتباه خوانده شده، همین‌جا اصلاحش کن.</p>}
-      <div className="ck-vs2-grid" dir="ltr">{rowsEls}</div>
-      {rows < SHEET_N && <div className="ck-row"><button type="button" className="ck-btn sm ghost" onClick={grow}><Plus size={14} /> ۲۵ سؤال دیگر</button></div>}
-    </Modal>
+
+      <footer className="ck-ws-foot">
+        {phase === 'result' ? (
+          <>
+            <button type="button" className="ck-btn primary" onClick={onClose}>تأیید و بازگشت به پارت</button>
+            <button type="button" className="ck-btn" onClick={backToTest}>اصلاح پاسخ‌ها</button>
+            <button type="button" className="ck-btn ghost" onClick={() => rec && onCompare(rec)}>باز کردن در تصحیح کامل</button>
+          </>
+        ) : (
+          <>
+            {rec.bookId ? (
+              <button type="button" className="ck-btn primary" disabled={grading || !countAnswered(answers.slice(0, rows))} onClick={() => finish('grade')}><Scale size={16} /> {grading ? 'در حال تصحیح…' : 'پایان آزمون و تصحیح'}</button>
+            ) : (
+              <button type="button" className="ck-btn primary" disabled={!countAnswered(answers.slice(0, rows))} onClick={() => finish('compare')}><Scale size={16} /> پایان و مقایسه با کلید</button>
+            )}
+            <button type="button" className="ck-btn" onClick={() => finish('save')}>پایان، ذخیره برای بعد</button>
+            {open && <span className="ck-apply-note">با بستن پنجره، آزمون «در حال انجام» می‌ماند و بعداً ادامه‌اش می‌دهی.</span>}
+          </>
+        )}
+      </footer>
+      {partPick && <PartPicker current={rec.link} onPick={applyLink} onDetach={detach} onClose={() => setPartPick(false)} />}
+      {picker && <TopicPicker title="این آزمون از چه مبحثی است؟" confirmLabel="ثبت مبحث" initialRound={itemTrk?.r} initialUnits={itemTrk?.u} initialPart={itemTrk?.m === 'p'} onPick={applyTopics} onClose={() => setPicker(false)} />}
+    </div>
   );
 };
+
+const planNow = (plan: Plan): string => (plan.step > 1 ? ` · ${plan.step}x` : '');

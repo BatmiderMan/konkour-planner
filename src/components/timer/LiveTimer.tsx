@@ -37,8 +37,11 @@ import { useSwipeDown } from '../../useSwipeDown';
 import { useBackToClose } from '../../useBackToClose';
 import { OPEN_TIMER_EVENT, hapticTap } from '../../focusBus';
 import { LookPanel } from './LookPanel';
-import { ACCENTS, OVER_QUOTE, quoteFor, useLook } from './timerLook';
-import { dialModel, fmtClock } from './timerMath';
+import { ACCENTS, OVER_QUOTE, quoteFor, setLook, useLook } from './timerLook';
+import { dialModel } from './timerMath';
+import { Clock, WallClock } from '../../clock/Clock';
+import { useNow } from '../../clock/useNow';
+import { clockString } from '../../clock/clockFormat';
 
 interface LiveTimerProps {
   reportDateKey: string; // jalali day open in the report (used by the start picker)
@@ -52,18 +55,6 @@ interface LiveTimerProps {
 }
 
 const FULL_KEY = 'planex_timer_full';
-/** wall-clock time + Persian date for the top of the full view */
-function wallText(ms: number, en: boolean): { time: string; date: string } {
-  const d = new Date(ms);
-  try {
-    return {
-      time: new Intl.DateTimeFormat(en ? 'en-GB' : 'fa-IR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d),
-      date: new Intl.DateTimeFormat(en ? 'en-u-ca-persian' : 'fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long' }).format(d)
-    };
-  } catch {
-    return { time: `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`, date: '' };
-  }
-}
 const browserFsSupported = () => typeof document !== 'undefined' && !!document.fullscreenEnabled;
 
 export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLabel, pickerOpen, onClosePicker, onSaveToReport, onOpenMusic }) => {
@@ -82,8 +73,12 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
   const ownFs = React.useRef(false); // we asked for it (so we may leave it)
   const [lookOpen, setLookOpen] = React.useState(false); // the customize drawer
   const sheetSwipe = useSwipeDown(() => setExpanded(false));
-  const [wall, setWall] = React.useState(() => Date.now()); // real time, for the top clock
-  const [now, setNow] = React.useState(() => Date.now());
+  // other screens (the test room) ask the big timer panel to step aside
+  React.useEffect(() => {
+    const f = () => setExpanded(false);
+    window.addEventListener('planex:timer-collapse', f);
+    return () => window.removeEventListener('planex:timer-collapse', f);
+  }, []);
   const [result, setResult] = React.useState<LiveResult | null>(null);
   useBackToClose(isPhone && expanded && !result && !!live, () => setExpanded(false));
   const [offer, setOffer] = React.useState<{ dateKey: string; minutes: number } | null>(null);
@@ -149,13 +144,6 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
 
   // the customize drawer only exists in the full view
   React.useEffect(() => { if ((!skin || !expanded) && lookOpen) setLookOpen(false); }, [skin, expanded, lookOpen]);
-  // real-time clock at the top (minute resolution is enough)
-  React.useEffect(() => {
-    if (!(expanded && fsView && look.showClock)) return;
-    setWall(Date.now());
-    const id = setInterval(() => setWall(Date.now()), 10000);
-    return () => clearInterval(id);
-  }, [expanded, fsView, look.showClock]);
   // optional: go browser-full-screen as soon as the full view opens (the click that opened it is the permission)
   React.useEffect(() => {
     if (!(expanded && fsView && look.autoFs && browserFsSupported()) || document.fullscreenElement) return;
@@ -214,16 +202,10 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
     prevKey.current = sessionKey;
   }, [sessionKey]);
 
-  // ticker (timestamp based, so background throttling can't make it drift)
+  // the ticker: ONE update per displayed second, fired exactly when the seconds digit flips (timestamp based, so
+  // background throttling can't make it drift). It used to poll every 250 ms = 4 full re-renders per visible change.
   const running = !!live && live.running;
-  React.useEffect(() => {
-    if (!running) return;
-    setNow(Date.now());
-    const id = setInterval(() => setNow(Date.now()), 250);
-    const onVis = () => setNow(Date.now());
-    document.addEventListener('visibilitychange', onVis);
-    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
-  }, [running]);
+  const now = useNow(running, () => { const l = getLivePlan(); return l ? liveElapsedMs(l) % 1000 : 0; });
 
   // keep the screen awake while running
   React.useEffect(() => {
@@ -241,13 +223,22 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
   const totalSec = live ? liveTotalPlannedSeconds(live) : 0;
   const model = dialModel(elapsedSec, totalSec, tick.on && !isBreak, tick.seconds, isBreak);
 
+  // what the big number shows: time left (default) or time spent — a stopwatch is always "spent"
+  const stopwatch = totalSec === 0;
+  const showElapsed = stopwatch || (!result && !isBreak && look.mode === 'elapsed');
+  const bigSec = showElapsed ? model.elapsed : model.shown;
+  const bigOver = model.over && !showElapsed;
+  const bigRound: 'ceil' | 'floor' = showElapsed ? 'floor' : 'ceil';
+  const useSecs = result ? true : look.secs;
+
   // the browser tab shows the time too, so you can glance at it from another tab
+  const tabOn = look.tabTitle;
   React.useEffect(() => {
-    if (!live || !live.running) return;
+    if (!live || !live.running || !tabOn) return;
     const old = document.title;
-    document.title = `${model.over ? '+' : ''}${toPersianDigits(fmtClock(model.shown))} · ${live.item.subject}`;
+    document.title = `${clockString(bigSec, { secs: useSecs, round: bigRound, over: bigOver, en: look.digits === 'en' })} · ${live.item.subject}`;
     return () => { document.title = old; };
-  }, [live, model.shown, model.over]);
+  }, [live, bigSec, bigOver, useSecs, bigRound, tabOn, look.digits]);
 
   // planned time reached -> alert once, and pop the sheet open. One minute before: a gentle heads-up.
   React.useEffect(() => {
@@ -308,10 +299,8 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
   const ticksLeft = totalSec > 0 ? (model.over ? 0 : Math.floor((totalSec - elapsedSec) / tick.seconds)) : null;
   const en = skin && look.digits === 'en';
   const fd = (v: string | number) => (en ? String(v) : toPersianDigits(v));
-  const clockText = `${model.over ? '+' : ''}${fd(fmtClock(model.shown))}`;
+  const clockLen = clockString(bigSec, { secs: useSecs, round: bigRound, over: bigOver }).length;
   const pct = totalSec > 0 ? Math.min(100, Math.floor((elapsedSec / totalSec) * 100)) : null;
-  const wallNow = fsView && look.showClock ? wallText(wall, en) : null;
-  const stopwatch = totalSec === 0;
 
   const handleFinish = () => {
     if (isBreak) { cancelLivePlan(); setExpanded(false); return; }
@@ -355,7 +344,7 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
 
   const labelTop = isBreak
     ? model.over ? 'استراحت تمام شد' : 'استراحت'
-    : stopwatch ? 'مدت مطالعه' : model.over ? 'از زمان برنامه گذشته‌ای' : 'باقی‌مانده';
+    : stopwatch || showElapsed ? 'مدت مطالعه' : model.over ? 'از زمان برنامه گذشته‌ای' : 'باقی‌مانده';
   const subline = isBreak ? 'چشم‌ها را از صفحه بردار، آب بخور' : [kind === 'plan' ? item.grade : 'مطالعه‌ی آزاد', item.detail, item.source ? `📕 ${item.source}` : ''].filter(Boolean).join(' · ');
 
   // ---------- minimized pill ----------
@@ -371,7 +360,7 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
             </svg>
             <span className="tm-pill-name">{item.subject}</span>
             {tick.on && !isBreak && <i className="tm-pill-tick" title={`تیک هر ${secondsLabel(tick.seconds)}`}>♪{toPersianDigits(tickIdx)}</i>}
-            <span className="tm-pill-time">{model.over ? '+' : ''}{toPersianDigits(fmtClock(model.shown))}</span>
+            <span className="tm-pill-time"><Clock sec={bigSec} over={bigOver} running={live.running} secs={useSecs} round={bigRound} unit="دقیقه" /></span>
           </button>
           {!isBreak && <button type="button" className="tm-pill-btn" onClick={openSheet} aria-label="پاسخ‌برگ مجازی" title="پاسخ‌برگ مجازی این پارت"><ListChecks size={16} /></button>}
           <button type="button" className="tm-pill-btn" onClick={toggleRun} aria-label={live.running ? 'توقف موقت' : 'ادامه'}>
@@ -392,13 +381,11 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
       {pipNode}
       <div className={'tm-backdrop' + (fsView ? ' full' : '')} onClick={() => !result && !fsView && setExpanded(false)}>
         <div ref={sheetRef} className={`tm-sheet ph-${model.phase}` + (result ? ' is-form' : '') + (fsView ? ' full' : '') + (calm ? ' calm' : '') + (lookOpen ? ' look-open' : '')} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ ...(sheetVars as React.CSSProperties), ...(isPhone && !result ? sheetSwipe.style : {}) }}
-          {...(skin ? { 'data-theme': look.theme, 'data-accent': look.accent, 'data-font': look.font, 'data-glow': look.glow ? 'on' : 'off' } : {})}
+          {...(skin ? { 'data-theme': look.theme, 'data-accent': look.accent, 'data-font': look.font, 'data-glow': look.glow ? 'on' : 'off', 'data-labels': look.labels ? 'on' : 'off' } : {})}
           {...(fsView ? { 'data-layout': look.layout, 'data-style': look.style, 'data-dim': look.dimCalm ? 'on' : 'off' } : {})}>
           {isPhone && skin && <div className="tm-grab" {...sheetSwipe.bind} aria-hidden="true"><i /></div>}
           {skin && <FocusFx kind={look.fx} level={look.fxLevel} scope={fsView ? 'screen' : 'card'} />}
-          {wallNow && (
-            <div className="tm-topclock" aria-hidden="true"><b>{wallNow.time}</b>{wallNow.date && <span>{wallNow.date}</span>}</div>
-          )}
+          {fsView && look.showClock && <WallClock />}
           <div className={'tm-head' + (skin && !look.showHeader ? ' no-title' : '')}>
             <div className="tm-head-title">
               <i className={'tm-live-dot' + (live.running ? '' : ' off')} />
@@ -433,9 +420,20 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
           ) : (
             <div className="tm-body">
               <div className="tm-stage">
-                <TimerDial model={model} running={live.running} tickKey={tickIdx} tickOn={tick.on && !isBreak} variant={fsView ? look.style : look.style === 'ring' ? 'ring' : 'dial'}>
+                <TimerDial model={model} running={live.running} tickKey={tickIdx} tickOn={tick.on && !isBreak} marks={!skin || look.marks} inner={!skin || look.inner} motion={skin ? look.motion : 'smooth'}
+                  variant={fsView ? look.style : look.style === 'ring' || look.style === 'orbit' ? look.style : 'dial'}>
                   <span className="tm-dial-label">{labelTop}</span>
-                  <span className="tm-time" data-len={clockText.length}>{clockText}</span>
+                  <span
+                    className="tm-time" data-len={clockLen}
+                    {...(!stopwatch && skin && !isBreak ? {
+                      'data-tap': '1', role: 'button', tabIndex: 0,
+                      title: showElapsed ? 'نمایش زمان باقی‌مانده' : 'نمایش زمان مطالعه‌شده',
+                      onClick: () => setLook({ mode: look.mode === 'elapsed' ? 'remaining' : 'elapsed' }),
+                      onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); setLook({ mode: look.mode === 'elapsed' ? 'remaining' : 'elapsed' }); } }
+                    } : {})}
+                  >
+                    <Clock sec={bigSec} over={bigOver} running={live.running} secs={useSecs} round={bigRound} scope="timer" unit="دقیقه" />
+                  </span>
                   <span className={'tm-dial-state' + (live.running ? '' : ' paused')}>
                     <i />
                     {!live.running ? 'متوقف شده' : isBreak ? 'در حال استراحت' : model.over ? 'اضافه‌کار' : model.phase === 'warn' ? 'ته‌مانده‌ی وقت…' : 'در حال مطالعه'}

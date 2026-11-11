@@ -28,6 +28,9 @@ import { SleepDrawer, SleepInline, useIsPhone } from './components/SleepDrawer';
 import { PlannerView } from './components/planner/PlannerView';
 import { TrackerView } from './components/tracker/TrackerView';
 import { LinkPromptHost } from './components/tracker/LinkPromptHost';
+import { SubNav } from './components/nav/SubNav';
+import { SettingsHub } from './components/settings/SettingsHub';
+import { GOTO_EVENT, SPACES, entryOf, rememberSection } from './nav';
 import { LiveTimer } from './components/timer/LiveTimer';
 import './components/timer/timer.css';
 import { MusicSheet, MusicStrip } from './components/music/MusicPlayer';
@@ -51,6 +54,10 @@ import { plannerItemToBlockFields, loadPlannerData, savePlannerData, dateKeyOf, 
 import { toPersianDigits } from './utils';
 import { CheckerView } from './checker/CheckerView';
 import { BankView } from './bank/BankView';
+import { VaultView } from './vault/VaultView';
+import { VaultHost } from './vault/VaultHost';
+import type { ReviewSummary } from './vault/VaultReview';
+import { GOTO_VAULT_EVENT, VaultFocus } from './vault/launch';
 import { ScanHost } from './checker/ScanHost';
 import { GOTO_CHECKER_EVENT, CheckerFocus } from './checker/launch';
 
@@ -185,9 +192,10 @@ export const App: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
   const [isReportOpen, setIsReportOpen] = useState<boolean>(false);
   const [isTimerOpen, setIsTimerOpen] = useState<boolean>(false);
-  type SectionId = 'today' | 'report' | 'planner' | 'tracker' | 'exams' | 'schedule' | 'checker' | 'bank';
+  type SectionId = 'today' | 'report' | 'planner' | 'tracker' | 'exams' | 'schedule' | 'checker' | 'bank' | 'vault' | 'settings';
   const [section, setSection] = useState<SectionId>('today'); // the app always opens on Today
   const [checkerFocus, setCheckerFocus] = useState<CheckerFocus | null>(null);
+  const [vaultFocus, setVaultFocus] = useState<VaultFocus | null>(null);
   const [musicOpen, setMusicOpen] = useState(false);
   const isDockPhone = useMedia('(max-width: 820px)'); // bottom dock (the older isPhone above is the 768px sleep-tracker breakpoint)
 
@@ -198,10 +206,9 @@ export const App: React.FC = () => {
       const el = e.target as HTMLElement | null;
       const tag = el?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.isContentEditable) return;
-      if (document.querySelector('.tm-backdrop, .mp-backdrop, .dlg-overlay, .pn-back')) return; // a sheet / dialog is already open
-      const order = ['today', 'planner', 'tracker', 'schedule', 'exams', 'checker', 'bank', 'report'] as const;
-      const dm = /^Digit([1-8])$/.exec(e.code);
-      if (dm) { e.preventDefault(); setSection(order[Number(dm[1]) - 1]); return; }
+      if (document.querySelector('.tm-backdrop, .mp-backdrop, .dlg-overlay, .pn-back, .ui-scrim, .vt-lock')) return; // a sheet / dialog is already open
+      const dm = /^Digit([1-5])$/.exec(e.code); // 1-5 = the five spaces; the space opens on the section you used last
+      if (dm) { e.preventDefault(); setSection(entryOf(SPACES[Number(dm[1]) - 1])); return; }
       if (e.code === 'KeyT') { e.preventDefault(); if (getLivePlan()) openLiveTimer(); else setIsTimerOpen(true); }
       else if (e.code === 'KeyM') { e.preventDefault(); setMusicOpen(true); }
     };
@@ -228,10 +235,25 @@ export const App: React.FC = () => {
     return () => window.removeEventListener(GOTO_CHECKER_EVENT, go);
   }, []);
 
+  // other screens (tracker row, Today card, bank result …) can ask to open the question vault with a filter
+  useEffect(() => {
+    const go = (e: Event) => { setVaultFocus((e as CustomEvent).detail || {}); setSection('vault'); };
+    window.addEventListener(GOTO_VAULT_EVENT, go);
+    return () => window.removeEventListener(GOTO_VAULT_EVENT, go);
+  }, []);
+
   useEffect(() => {
     document.body.classList.toggle('is-planner', section === 'planner');
     window.scrollTo(0, 0);
+    rememberSection(section);
   }, [section]);
+
+  // other screens (settings hub, the test room ...) can ask to open a section
+  useEffect(() => {
+    const go = (e: Event) => { const d = (e as CustomEvent).detail; if (typeof d === 'string') setSection(d as SectionId); };
+    window.addEventListener(GOTO_EVENT, go);
+    return () => window.removeEventListener(GOTO_EVENT, go);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(KEY_SLEEP_ENABLED, sleepEnabled ? '1' : '0');
@@ -731,6 +753,21 @@ export const App: React.FC = () => {
     addBlockToReportDay(dateKeyStr, block, { jumpToReport: false, status: 'پلن زنده به گزارش روز اضافه شد ✓' });
   };
 
+  // A vault review session was finished and the student wants it in today's report (as a test + review part).
+  const handleVaultReviewLogged = (r: ReviewSummary) => {
+    const block: StudyBlock = {
+      ...createEmptyBlock(),
+      lesson: r.lesson,
+      desc: `مرور گنجینه‌ی سؤال: ${toPersianDigits(r.right)} درست از ${toPersianDigits(r.total)} سؤال. کتاب: گنجینه سؤال`,
+      review: true,
+      test: true,
+      totalTests: String(r.total),
+      wrong: String(r.wrong),
+      blank: '0'
+    };
+    addBlockToReportDay(dateKeyOf(todayGregorian()), block, { jumpToReport: false, status: 'مرور گنجینه به گزارش امروز اضافه شد ✓' });
+  };
+
   // Changes some fields of one part (block) of any report day — the open day goes through state, other days straight to storage.
   const patchBlockOfDay = (dayId: string, blockIndex: number, patch: Partial<StudyBlock>) => {
     if (dayId === currentId && state) { updateBlock(blockIndex, patch); return; }
@@ -865,6 +902,7 @@ export const App: React.FC = () => {
         onPatchBlock={patchBlockOfDay}
       />
       <ScanHost />
+      <VaultHost onLogReport={handleVaultReviewLogged} />
       <FocusLinkEffects />
       <WelcomeBack />
       <UndoHost />
@@ -917,8 +955,10 @@ export const App: React.FC = () => {
         />
       )}
 
+      <SubNav section={section} onGo={setSection} phone={isDockPhone} />
+
       {section === 'today' ? (
-        <TodayView refreshToken={planRefreshToken} onOpenPlanner={() => setSection('planner')} onOpenSchedule={() => setSection('schedule')} onSendToReport={handleSendFromPlanner} />
+        <TodayView refreshToken={planRefreshToken} onOpenPlanner={() => setSection('planner')} onOpenSchedule={() => setSection('schedule')} onOpenVault={() => setSection('vault')} onSendToReport={handleSendFromPlanner} />
       ) : section === 'planner' ? (
         <PlannerView onSendToReport={handleSendFromPlanner} onOpenTracker={() => setSection('tracker')} />
       ) : section === 'tracker' ? (
@@ -931,6 +971,10 @@ export const App: React.FC = () => {
         <CheckerView focus={checkerFocus} onFocusUsed={() => setCheckerFocus(null)} />
       ) : section === 'bank' ? (
         <BankView />
+      ) : section === 'settings' ? (
+        <SettingsHub themeMode={themeMode} onSetThemeMode={setThemeMode} />
+      ) : section === 'vault' ? (
+        <VaultView focus={vaultFocus} onFocusUsed={() => setVaultFocus(null)} onOpenTracker={() => setSection('tracker')} onPlanChanged={() => setPlanRefreshToken((x) => x + 1)} />
       ) : (
         <>
           <Toolbar

@@ -10,6 +10,7 @@ import { useCardGestures } from './useCardGestures';
 import { showUndo } from '../../undo';
 import { hapticSuccess, hapticTap } from '../../focusBus';
 import { useTracker } from '../../trackerStore';
+import { CardSheetBadge } from '../../checker/CardSheetBadge';
 
 /** small round tag on cards that were made from the topic tracker */
 const TrkBadge: React.FC<{ r: string }> = ({ r }) => {
@@ -210,6 +211,7 @@ export const PlannerItemRow: React.FC<PlannerItemRowProps> = ({
           <span className="pl-grade-tag">{item.grade}</span>
           <span className="pl-subj">{item.subject}</span>
           {item.trk && <TrkBadge r={item.trk.r} />}
+          {dateKey && <CardSheetBadge dateKey={dateKey} itemId={item.id} />}
           {item.detail && <span className="pl-detail">{item.detail}</span>}
           {item.source && (
             <span className="pl-src-tag">

@@ -195,6 +195,7 @@ export interface ScanRecord {
   link?: ScanLink;
   step?: number; off?: number;            // the person's 2x/3x plan this sheet was graded with
   times?: number[];                       // seconds spent on each sheet question (index q-1), from the virtual sheet
+  flags?: number[];                       // book question numbers that were marked while solving
 }
 
 export function packSheet(read: RawRead, manual: Manual): string {
@@ -208,7 +209,7 @@ export function unpackSheet(s: string): RawRead {
   return { ans, dbl };
 }
 
-export function makeRecord(read: RawRead, manual: Manual, g: Grade, s: GradeSettings, book: BookMeta | null, link?: ScanLink, times?: number[]): ScanRecord {
+export function makeRecord(read: RawRead, manual: Manual, g: Grade, s: GradeSettings, book: BookMeta | null, link?: ScanLink, times?: number[], flags?: number[]): ScanRecord {
   const miss: [number, number, number][] = [];
   g.rows.forEach((r) => { if (r.st === 'bad' || r.st === 'blank' || r.st === 'dbl') miss.push([r.bq, r.dbl ? 5 : r.mine, r.key || 0]); });
   return {
@@ -216,7 +217,8 @@ export function makeRecord(read: RawRead, manual: Manual, g: Grade, s: GradeSett
     startQ: s.startQ, from: s.from, to: s.to, sheet: packSheet(read, manual), penalty: s.penalty, dblWrong: s.dblWrong,
     total: g.graded, correct: g.correct, wrong: g.wrong, blank: g.blank, double: g.double, pct: g.pct, miss, link,
     ...(s.step && s.step > 1 ? { step: s.step, off: s.off || 0 } : {}),
-    ...(times && times.some((t) => t > 0) ? { times: times.slice(0, Math.max(s.to, 1)).map((t) => Math.round(t)) } : {})
+    ...(times && times.some((t) => t > 0) ? { times: times.slice(0, Math.max(s.to, 1)).map((t) => Math.round(t)) } : {}),
+    ...(flags && flags.length ? { flags: flags.filter((q) => q >= s.from && q <= s.to).map((q) => s.startQ + q - 1) } : {})
   };
 }
 /** grade the same sheet again, e.g. after a wrong key was corrected in the library */
@@ -224,7 +226,7 @@ export function regrade(rec: ScanRecord, keys: KeyMap): ScanRecord {
   const read = unpackSheet(rec.sheet);
   const s: GradeSettings = { startQ: rec.startQ, from: rec.from, to: rec.to, penalty: rec.penalty, dblWrong: rec.dblWrong, step: rec.step, off: rec.off };
   const g = gradeSheet(read, {}, keys, s);
-  const fresh = makeRecord(read, {}, g, s, rec.bookId ? { id: rec.bookId, title: rec.bookTitle || '' } as BookMeta : null, rec.link, rec.times);
+  const fresh = makeRecord(read, {}, g, s, rec.bookId ? { id: rec.bookId, title: rec.bookTitle || '' } as BookMeta : null, rec.link, rec.times, rec.flags ? rec.flags.map((b) => b - rec.startQ + 1) : undefined);
   return { ...fresh, id: rec.id, at: rec.at };
 }
 
@@ -259,9 +261,12 @@ export interface SavedSheet {
   lesson?: string; note?: string;
   step?: number; off?: number;     // 2x / 3x plan: only every `step`-th question (starting after `off` skipped ones) is part of this test
   times?: number[];                // milliseconds spent on each question (index q-1) - adds up when a question is visited again
+  flags?: number[];                // sheet questions the person marked («نشان‌دار»: doubtful / come back to it)
   cursor?: number;                 // the question the person was on last
   link?: ScanLink;                 // the planner card (dateKey + plannerItemId) this sheet was made for
   source?: string; detail?: string; // what the planner card said (used to pick the book when comparing)
+  trk?: { u: string[]; r: string; m?: 'p' }; // topics (from the topic tracker) this test covers
+  budgetMin?: number;              // time allowed for the whole test, minutes (the pace panel works against it)
 }
 
 export const emptySheetString = () => '0'.repeat(SHEET_N);
@@ -321,4 +326,12 @@ export function rowsFromRecord(rec: ScanRecord): GradedRow[] {
     } else if (answered) rows.push({ q, bq, key: read.ans[q], mine: read.ans[q], dbl: false, edited: false, st: 'ok' });
   }
   return rows;
+}
+
+/** a copy of the flag list with question q marked / unmarked */
+export function toggleFlagQ(flags: number[] | undefined, q: number): number[] {
+  const f = (flags || []).slice();
+  const i = f.indexOf(q);
+  if (i >= 0) f.splice(i, 1); else f.push(q);
+  return f.sort((a, b) => a - b);
 }

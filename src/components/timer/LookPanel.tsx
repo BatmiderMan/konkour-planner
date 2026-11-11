@@ -1,7 +1,7 @@
 import React from 'react';
 import { RotateCcw, X } from 'lucide-react';
 import {
-  ACCENTS, CALM_CHOICES, FONTS, FX, Look, PRESETS, STYLES, THEMES, activePreset, applyPreset, resetLook, setLook, useLook
+  ACCENTS, ANIMS, CALM_CHOICES, FILLS, FONTS, FX, Look, PRESETS, SEPS, STYLES, THEMES, activePreset, applyPreset, resetLook, setLook, useLook
 } from './timerLook';
 import { toPersianDigits } from '../../utils';
 import { BREAK_EVERY, BREAK_LEN, setDeepPrefs, useDeepPrefs } from './deepFocus';
@@ -38,6 +38,16 @@ const StyleArt: React.FC<{ id: string }> = ({ id }) => (
     {id === 'ring' && (<>
       <circle cx="32" cy="22" r="16" fill="none" strokeWidth="1.8" opacity=".25" />
       <path d="M32 6 A16 16 0 1 1 18 30" fill="none" strokeWidth="1.8" strokeLinecap="round" />
+    </>)}
+    {id === 'orbit' && (<>
+      <circle cx="32" cy="22" r="16" fill="none" strokeWidth="1" opacity=".3" />
+      <path d="M32 6 A16 16 0 0 1 46.9 27.5" fill="none" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="46.9" cy="27.5" r="3.2" stroke="none" />
+      <circle cx="21" cy="9.7" r="1.4" stroke="none" opacity=".7" />
+    </>)}
+    {id === 'minimal' && (<>
+      <text x="32" y="26" textAnchor="middle" fontSize="19" fontWeight="300" stroke="none">12:34</text>
+      <rect x="14" y="33" width="36" height="1.6" rx=".8" opacity=".3" stroke="none" /><rect x="14" y="33" width="21" height="1.6" rx=".8" stroke="none" />
     </>)}
     {id === 'digits' && (<>
       <text x="32" y="25" textAnchor="middle" fontSize="19" fontWeight="800" stroke="none">12:34</text>
@@ -79,8 +89,8 @@ export const LookPanel: React.FC<{ onClose: () => void; fsSupported: boolean; co
         </Section>
 
         <Section title="شکل ساعت">
-          <div className={'lk-cards' + (compact ? ' two' : '')}>
-            {STYLES.filter((s) => !compact || s.id !== 'digits').map((s) => (
+          <div className="lk-cards">
+            {STYLES.filter((s) => !compact || s.id === 'dial' || s.id === 'ring' || s.id === 'orbit').map((s) => (
               <button key={s.id} type="button" className={look.style === s.id ? 'on' : ''} aria-pressed={look.style === s.id} onClick={() => set('style', s.id)}>
                 <StyleArt id={s.id} /><b>{s.label}</b><em>{s.hint}</em>
               </button>
@@ -99,6 +109,30 @@ export const LookPanel: React.FC<{ onClose: () => void; fsSupported: boolean; co
           {!compact && <label className="lk-slider"><span>اندازه <b>{toPersianDigits(look.size)}٪</b></span>
             <input type="range" min={60} max={130} step={5} value={look.size} onChange={(e) => set('size', Number(e.target.value))} style={{ ['--p' as any]: ((look.size - 60) / 70) * 100 + '%' }} />
           </label>}
+        </Section>
+
+        <Section title="حرکت و جزئیات">
+          <div className="lk-line col"><span>تغییر رقم‌ها</span>
+            <Seg label="انیمیشن رقم" value={look.anim} onChange={(v) => set('anim', v)} options={ANIMS} />
+          </div>
+          <div className="lk-line col"><span>علامت بین عددها</span>
+            <Seg label="جداکننده" value={look.sep} onChange={(v) => set('sep', v)} options={SEPS} />
+          </div>
+          <div className="lk-line col"><span>رنگ عدد</span>
+            <Seg label="رنگ عدد" value={look.fill} onChange={(v) => set('fill', v)} options={FILLS} />
+          </div>
+          <div className="lk-line col"><span>عدد بزرگ نشان بدهد</span>
+            <Seg label="حالت عدد" value={look.mode} onChange={(v) => set('mode', v)} options={[{ v: 'remaining', label: 'باقی‌مانده' }, { v: 'elapsed', label: 'مطالعه‌شده' }]} />
+          </div>
+          <div className="lk-line"><span>حرکت پیشرفت</span>
+            <Seg label="حرکت پیشرفت" value={look.motion} onChange={(v) => set('motion', v)} options={[{ v: 'smooth', label: 'روان' }, { v: 'step', label: 'ثانیه‌ای' }]} />
+          </div>
+          <Row label="نمایش ثانیه" hint="خاموش: فقط دقیقه؛ آرام‌تر برای تمرکز" on={look.secs} onChange={(v) => set('secs', v)} />
+          {(compact || look.style === 'dial') && <Row label="نشانه‌های دور ساعت" on={look.marks} onChange={(v) => set('marks', v)} />}
+          {(compact || look.style === 'dial') && <Row label="حلقه‌ی داخلی تیک" on={look.inner} onChange={(v) => set('inner', v)} />}
+          <Row label="متن‌های کوچک دور عدد" hint="«باقی‌مانده»، «در حال مطالعه»" on={look.labels} onChange={(v) => set('labels', v)} />
+          <Row label="همین ظاهر روی همه‌ی ساعت‌ها" hint="نوار بالا، جزیره، دکمه‌ی گوشی، پنجره‌ی شناور، پاسخ‌برگ" on={look.everywhere} onChange={(v) => set('everywhere', v)} />
+          <Row label="زمان در عنوان تب مرورگر" on={look.tabTitle} onChange={(v) => set('tabTitle', v)} />
         </Section>
 
         <Section title="پس‌زمینه و رنگ">
@@ -140,6 +174,13 @@ export const LookPanel: React.FC<{ onClose: () => void; fsSupported: boolean; co
         <Section title="چه چیزهایی دیده شود">
           <Row label="عنوان درس" on={look.showHeader} onChange={(v) => set('showHeader', v)} />
           {!compact && <Row label="ساعت و تاریخ امروز" hint="بالای صفحه" on={look.showClock} onChange={(v) => set('showClock', v)} />}
+          {!compact && look.showClock && (<>
+            <div className="lk-line"><span>تاریخ</span>
+              <Seg label="تاریخ زیر ساعت" value={look.wallDate} onChange={(v) => set('wallDate', v)} options={[{ v: 'jalali', label: 'شمسی' }, { v: 'gregorian', label: 'میلادی' }, { v: 'off', label: 'بدون' }]} />
+            </div>
+            <Row label="ساعت ۱۲ ساعته" on={look.hour12} onChange={(v) => set('hour12', v)} />
+            <Row label="ثانیه‌ی ساعت امروز" on={look.wallSecs} onChange={(v) => set('wallSecs', v)} />
+          </>)}
           <Row label="درصد پیشرفت" on={look.showPercent} onChange={(v) => set('showPercent', v)} />
           <Row label="آمار جلسه" hint="شروع، برنامه، مطالعه" on={look.showStats} onChange={(v) => set('showStats', v)} />
           <Row label="ابزارها" hint="ریتم تیک و موسیقی" on={look.showTools} onChange={(v) => set('showTools', v)} />

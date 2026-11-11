@@ -1,13 +1,14 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
+import { lockScroll } from '../scrollLock';
 
 /** Full-screen sheet on phones, centred panel on desktop. Closes with Escape; page behind does not scroll. */
 export const Modal: React.FC<{ title: React.ReactNode; onClose: () => void; wide?: boolean; footer?: React.ReactNode; children: React.ReactNode }> = ({ title, onClose, wide, footer, children }) => {
+  useEffect(() => lockScroll(), []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow; document.body.style.overflow = 'hidden';
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+    return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (
     <div className="ck-overlay" role="dialog" aria-modal="true" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>

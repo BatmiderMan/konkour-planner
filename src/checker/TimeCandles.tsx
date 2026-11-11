@@ -11,8 +11,9 @@ const mmss = (sec: number) => P(clock(Math.round(sec) * 1000));
  * Height = time spent, colour = result (green right, red wrong, yellow left empty). Hover / tap a candle for the exact time.
  * Below the chart: what the time says about efficiency (where the minutes went, rushed mistakes, expensive hits).
  */
-export const TimeCandles: React.FC<{ rows: GradedRow[]; times: number[]; title?: string }> = ({ rows, times, title }) => {
+export const TimeCandles: React.FC<{ rows: GradedRow[]; times: number[]; title?: string; flags?: number[] }> = ({ rows, times, title, flags }) => {
   const [hot, setHot] = useState<number | null>(null);
+  const flagSet = useMemo(() => new Set(flags || []), [flags]);
   const data = useMemo(() => rows.map((r) => ({ r, t: Math.max(0, (times[r.q - 1] || 0)) })), [rows, times]);
   const stats = useMemo(() => {
     const total = data.reduce((a, d) => a + d.t, 0);
@@ -26,8 +27,10 @@ export const TimeCandles: React.FC<{ rows: GradedRow[]; times: number[]; title?:
     const sinks = data.filter((d) => d.r.st === 'bad' || d.r.st === 'blank' || d.r.st === 'dbl').sort((a, b) => b.t - a.t).slice(0, 3).filter((d) => d.t > 0);
     const rushed = data.filter((d) => d.r.st === 'bad' && d.t > 0 && d.t < avg * 0.5).length;
     const costly = data.filter((d) => d.r.st === 'ok' && d.t > avg * 2).length;
-    return { total, avg, max, okT, badT, blankT, okAvg: avgOf(okT, cntOf(['ok'])), badAvg: avgOf(badT, cntOf(['bad', 'dbl'])), blankAvg: avgOf(blankT, cntOf(['blank'])), sinks, rushed, costly };
-  }, [data]);
+    const fl = data.filter((d) => flagSet.has(d.r.bq));
+    const flat = { n: fl.length, ok: fl.filter((d) => d.r.st === 'ok').length, bad: fl.filter((d) => d.r.st === 'bad' || d.r.st === 'dbl').length, blank: fl.filter((d) => d.r.st === 'blank').length };
+    return { flat, total, avg, max, okT, badT, blankT, okAvg: avgOf(okT, cntOf(['ok'])), badAvg: avgOf(badT, cntOf(['bad', 'dbl'])), blankAvg: avgOf(blankT, cntOf(['blank'])), sinks, rushed, costly };
+  }, [data, flagSet]);
   if (!data.length || stats.max <= 0) return null;
 
   const n = data.length;
@@ -55,18 +58,19 @@ export const TimeCandles: React.FC<{ rows: GradedRow[]; times: number[]; title?:
             {data.map((d, i) => (
               <div
                 key={d.r.q}
-                className={'col st-' + d.r.st + (hot === i ? ' hot' : '') + (i < 3 ? ' edge-l' : n - i <= 3 ? ' edge-r' : '')}
+                className={'col st-' + d.r.st + (flagSet.has(d.r.bq) ? ' flag' : '') + (hot === i ? ' hot' : '') + (i < 3 ? ' edge-l' : n - i <= 3 ? ' edge-r' : '')}
                 onMouseEnter={() => setHot(i)}
                 onClick={() => setHot(hot === i ? null : i)}
                 role="img"
                 aria-label={`سؤال ${d.r.bq}، ${LBL[d.r.st]}، ${mmss(d.t)}`}
               >
+                {flagSet.has(d.r.bq) && <span className="fl" aria-hidden="true">⚑</span>}
                 <span className="bar" style={{ height: `${Math.max(d.t > 0 ? 5 : 2, (d.t / stats.max) * 100)}%` }} />
                 <span className="no">{i % labelEvery === 0 ? P(d.r.bq) : ''}</span>
                 {hot === i && h && (
                   <span className="tip" role="tooltip">
                     <b>سؤال {P(h.r.bq)}</b>
-                    <em className={'s-' + h.r.st}>{LBL[h.r.st]}</em>
+                    <em className={'s-' + h.r.st}>{LBL[h.r.st]}{flagSet.has(h.r.bq) ? ' · ⚑ نشان‌دار' : ''}</em>
                     <span><small>زمان شما</small><strong>{mmss(h.t)}</strong></span>
                     {h.r.key !== undefined && h.r.st !== 'ok' && <span><small>پاسخ تو / کلید</small><strong>{h.r.mine ? P(h.r.mine) : '—'} / {P(h.r.key)}</strong></span>}
                   </span>
@@ -86,6 +90,7 @@ export const TimeCandles: React.FC<{ rows: GradedRow[]; times: number[]; title?:
       <ul className="ck-cd-notes">
         <li>زمان روی <b>غلط‌ها</b> {P(pctOf(stats.badT))}٪ و روی <b>نزده‌ها</b> {P(pctOf(stats.blankT))}٪ از کل وقتت بود{pctOf(stats.badT + stats.blankT) >= 40 ? ' — تقریباً نیمی از وقت بدون نتیجه رفته.' : '.'}</li>
         {stats.sinks.length > 0 && <li>وقت‌گیرترین سؤال‌های بی‌نتیجه: {stats.sinks.map((d, i) => <span key={d.r.q}>{i ? '، ' : ''}<b>{P(d.r.bq)}</b> ({mmss(d.t)}، {LBL[d.r.st]})</span>)}</li>}
+        {stats.flat.n > 0 && <li>از <b>{P(stats.flat.n)}</b> سؤالِ نشان‌دار: {P(stats.flat.ok)} درست شد، {P(stats.flat.bad)} غلط و {P(stats.flat.blank)} نزده ماند{stats.flat.ok > 0 && stats.flat.ok >= stats.flat.n / 2 ? ' — حدست درباره‌ی سؤال‌های مشکوک خوب بود.' : '.'}</li>}
         {stats.rushed > 0 && <li><b>{P(stats.rushed)}</b> غلطِ عجله‌ای داشتی (کمتر از نصف میانگین زمان) — این‌ها معمولاً با کمی دقت درست می‌شدند.</li>}
         {stats.costly > 0 && <li><b>{P(stats.costly)}</b> سؤال درست بیش از دو برابر میانگین وقت گرفت؛ ببین می‌شد سریع‌تر حلشان کرد.</li>}
       </ul>

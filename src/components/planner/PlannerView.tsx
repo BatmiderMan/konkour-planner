@@ -61,7 +61,11 @@ type SubView = 'week' | 'month' | 'settings';
 
 export const PlannerView: React.FC<PlannerViewProps> = ({ onSendToReport, onOpenTracker }) => {
   const [data, setData] = React.useState<PlannerData>(() => loadPlannerData());
-  const [subView, setSubView] = React.useState<SubView>('week');
+  const [subView, setSubView] = React.useState<SubView>(() => {
+    // the settings hub can open the planner straight on its settings page
+    try { const v = sessionStorage.getItem('planex_planner_sub'); if (v === 'settings') { sessionStorage.removeItem('planex_planner_sub'); return 'settings'; } } catch { /* ignore */ }
+    return 'week';
+  });
   const [cursor, setCursor] = React.useState<Date>(() => startOfWeek(new Date()));
   const [monthAnchor, setMonthAnchor] = React.useState<Date>(() => anchorFromDate(new Date()));
   const [selectedDate, setSelectedDate] = React.useState<Date>(() => new Date(new Date().setHours(0, 0, 0, 0)));

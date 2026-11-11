@@ -1,11 +1,14 @@
 import { showUndo } from '../undo';
 import { SkeletonRows } from '../components/ui/Skeleton';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, Upload, Play, Trash2, X, ChevronLeft, ChevronRight, Check, History, RotateCcw, LayoutGrid, Library } from 'lucide-react';
+import { BookOpen, Upload, Play, Trash2, X, ChevronLeft, ChevronRight, Check, History, RotateCcw, LayoutGrid, Library, Gem } from 'lucide-react';
 import { parsePack } from './pack';
-import { Attempt, BANK_EVENT, BankBook, deleteAttempt, getBook, imageUrl, importPack, konkurPct, listAttempts, listBooks, removeBook, saveAttempt, weakTests } from './store';
+import { Attempt, BANK_EVENT, BankBook, deleteAttempt, getBook, imageBlob, imageUrl, importPack, konkurPct, listAttempts, listBooks, removeBook, saveAttempt, weakTests } from './store';
 import { alertDialog, confirmDialog } from '../dialog';
 import { toPersianDigits as P } from '../utils';
+import { openVaultEditor } from '../vault/launch';
+import { saveBankMistakes } from '../vault/bankLink';
+import { useVault } from '../vault/store';
 import './bank.css';
 
 /* ------------------------------------------------------------------ one question image */
@@ -28,6 +31,21 @@ const useBank = () => {
   return { books, attempts, ready };
 };
 
+/* ------------------------------------------------------------------ save into the question vault (گنجینه سؤال) */
+const VaultBtn: React.FC<{ book: BankBook; n: number; pick?: number; onBefore: () => void }> = ({ book, n, pick, onBefore }) => {
+  const { items } = useVault();
+  const saved = items.some((q) => q.src && q.src.b === book.id && q.src.n === n);
+  if (saved) return <span className="bk-pill ok">در گنجینه ذخیره شده ✓</span>;
+  return (
+    <button type="button" className="bk-btn" onClick={async () => {
+      const img = await imageBlob(book.id, n);
+      if (!img) { await alertDialog('تصویر این سؤال پیدا نشد.'); return; }
+      onBefore();
+      openVaultEditor({ book: book.title, answer: book.answers[n] || 0, choices: 4, why: pick === 0 ? 'time' : pick && pick === book.answers[n] ? 'good' : 'wrong', img, src: { k: 'bank', b: book.id, n } });
+    }}><Gem size={16} /> ذخیره در گنجینه</button>
+  );
+};
+
 /* ------------------------------------------------------------------ lightbox: a question with the answers */
 const Lightbox: React.FC<{ book: BankBook; n: number; pick?: number; onClose: () => void }> = ({ book, n, pick, onClose }) => {
   const right = book.answers[n];
@@ -40,6 +58,7 @@ const Lightbox: React.FC<{ book: BankBook; n: number; pick?: number; onClose: ()
         <footer>
           <span className="bk-pill ok">پاسخ درست: گزینهٔ {P(right)}</span>
           {pick !== undefined && (pick === 0 ? <span className="bk-pill">نزده بودید</span> : <span className={'bk-pill ' + (pick === right ? 'ok' : 'bad')}>پاسخ شما: گزینهٔ {P(pick)}</span>)}
+          <VaultBtn book={book} n={n} pick={pick} onBefore={onClose} />
         </footer>
       </div>
     </div>
@@ -138,6 +157,14 @@ const Result: React.FC<{ a: Attempt; book: BankBook; onBack: () => void; onRetry
         <div><b>{P(a.blank)}</b><span>نزده</span></div>
       </div>
       {bad.length > 0 && <button type="button" className="bk-btn primary wide" onClick={() => onRetry(bad)}><RotateCcw size={18} /> آزمون دوباره از {P(bad.length)} سؤال اشتباه/نزده</button>}
+      {bad.length > 0 && (
+        <button type="button" className="bk-btn wide" style={{ marginTop: 8 }} onClick={async () => {
+          try {
+            const r = await saveBankMistakes(book, a.items);
+            await alertDialog(r.added ? `${P(r.added)} سؤال به گنجینه اضافه شد${r.skipped ? ` (${P(r.skipped)} مورد قبلاً آنجا بود)` : ''}. از بخش «گنجینه سؤال» مرورشان کنید.` : 'همهٔ این سؤال‌ها قبلاً در گنجینه هستند.');
+          } catch { await alertDialog('ذخیره در گنجینه انجام نشد.'); }
+        }}><Gem size={18} /> ذخیرهٔ {P(bad.length)} اشتباه/نزده در گنجینه</button>
+      )}
       <div className="bk-tabs" role="tablist">
         {([['wrong', `غلط (${P(a.wrong)})`], ['blank', `نزده (${P(a.blank)})`], ['all', 'همه']] as const).map(([k, l]) => <button type="button" role="tab" aria-selected={tab === k} key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}
       </div>

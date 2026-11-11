@@ -1,9 +1,9 @@
 /* Answer checker — built on the planner tokens (lapis / turquoise / saffron) so light and dark follow the app. */
-.ck-view, .ck-overlay {
+.ck-view, .ck-overlay, .ck-ws {
   --ck-ok: #12795a; --ck-ok-bg: #dcf3e9; --ck-bad: #c2342a; --ck-bad-bg: #fbe2df;
   --ck-warn: #a96a0c; --ck-warn-bg: #f9ecd2; --ck-blank: #66728a; --ck-blank-bg: #e7ebf3;
 }
-:root[data-theme="dark"] .ck-view, :root[data-theme="dark"] .ck-overlay {
+:root[data-theme="dark"] .ck-view, :root[data-theme="dark"] .ck-overlay, :root[data-theme="dark"] .ck-ws {
   --ck-ok: #47c99d; --ck-ok-bg: #123329; --ck-bad: #ff8277; --ck-bad-bg: #3b1f26;
   --ck-warn: #e6b455; --ck-warn-bg: #3a2e14; --ck-blank: #9aa6c4; --ck-blank-bg: #1d2750;
 }
@@ -230,8 +230,9 @@
 .ck-vs2-keys .auto { margin-inline-start: auto; display: inline-flex; gap: 5px; align-items: center; cursor: pointer; }
 
 /* the sheet itself: left to right, like paper; columns fill top-to-bottom, then to the right */
-.ck-vs2-grid { column-width: 232px; column-gap: 20px; padding-top: 6px; }
-.ck-vs2-q { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 12px; break-inside: avoid; border: 2px solid transparent; cursor: pointer; transition: background .12s, border-color .12s, opacity .12s; }
+.ck-vs2-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 30px; padding-top: 6px; }
+.ck-vs2-col { flex: 0 0 auto; width: 312px; max-width: 100%; }
+.ck-vs2-q { display: flex; align-items: center; gap: 6px; padding: 4px 6px; box-sizing: border-box; width: 100%; min-width: 0; border-radius: 12px; break-inside: avoid; border: 2px solid transparent; cursor: pointer; transition: background .12s, border-color .12s, opacity .12s; }
 .ck-vs2-q.sep { margin-bottom: 7px; }
 .ck-vs2-q .no { width: 46px; text-align: right; font-weight: 800; font-size: 14px; color: var(--sub-ink); font-variant-numeric: tabular-nums; flex: none; }
 .ck-vs2-q .o { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--line); background: var(--field-bg); color: var(--sub-ink); font: inherit; font-weight: 800; font-size: 15px; cursor: pointer; padding: 0; transition: transform .1s, background .12s, border-color .12s, color .12s; flex: none; }
@@ -292,4 +293,124 @@
   .ck-vs2-panel .clock { flex-direction: row; justify-content: space-between; width: 100%; }
   .ck-vs2-panel .clock b { font-size: 28px; }
   .ck-vs2-q .o { width: 40px; height: 40px; }
+  .ck-vs2-col { width: 100%; }
+}
+
+/* ======================= v55: the test room (full-screen workspace) ======================= */
+.ck-ws { position: fixed; inset: 0; z-index: 640; display: flex; flex-direction: column; background: var(--paper); color: var(--ink); direction: rtl; }
+.ck-ws-head { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line-soft); background: var(--sheet-bg); }
+.ck-ws-head .ttl { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ck-ws-head .ttl small { font-size: 11.5px; color: var(--sub-ink); }
+.ck-ws-head .ttl input { border: 0; background: transparent; font: inherit; font-size: 16px; font-weight: 800; padding: 2px 0; min-width: 0; color: var(--ink); outline: none; text-overflow: ellipsis; }
+.ck-ws-head .ttl input:focus { box-shadow: 0 1px 0 var(--primary); }
+.ck-ws-head .clock { display: flex; flex-direction: column; align-items: center; min-width: 132px; padding: 4px 14px; border-radius: 14px; background: linear-gradient(160deg, color-mix(in srgb, var(--primary) 13%, var(--sheet-bg)), var(--sheet-bg)); border: 1px solid var(--line-soft); }
+.ck-ws-head .clock b { font-size: 30px; line-height: 1.15; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ck-ws-head .clock span { font-size: 11px; color: var(--sub-ink); }
+.ck-ws-head .clock.run b { color: var(--primary); }
+.ck-ws-head .clock.stop { opacity: .75; }
+.ck-ws-head .clock.slow { border-color: var(--ck-warn); animation: ck-pulse 1.2s ease-in-out infinite; }
+@keyframes ck-pulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--ck-warn) 28%, transparent); } }
+.ck-ws-head .acts { display: flex; gap: 6px; }
+.ck-ws-tools { display: none; }
+.ck-ws-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px; }
+.ck-ws-main { overflow-y: auto; padding: 14px 22px 28px; }
+.ck-ws-side { overflow-y: auto; padding: 14px 14px 28px; border-inline-start: 1px solid var(--line-soft); background: color-mix(in srgb, var(--sheet-bg) 60%, var(--paper)); display: flex; flex-direction: column; gap: 12px; }
+.ck-ws-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line-soft); background: var(--sheet-bg); }
+.ck-ws-card { background: var(--sheet-bg); border: 1px solid var(--line-soft); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.ck-ws-card h4 { margin: 0; font-size: 13.5px; font-weight: 800; }
+.ck-ws-card .row { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; color: var(--sub-ink); }
+.ck-ws-card .row b { color: var(--ink); font-size: 15px; font-variant-numeric: tabular-nums; }
+.ck-ws-card .mut { margin: 0; font-size: 12px; color: var(--sub-ink); line-height: 1.7; }
+.ck-ws-card .mut.warn { color: var(--ck-warn); }
+.ck-ws-card .fc { margin: 0; font-size: 12.5px; font-weight: 700; line-height: 1.7; }
+.ck-ws-card .fc.ok { color: var(--ck-ok); } .ck-ws-card .fc.late { color: var(--ck-bad); }
+.ck-ws-card .att { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.ck-ws-card .att > span:first-child { flex: none; min-width: 52px; font-weight: 700; }
+.ck-ws-card .att select, .ck-ws-card .att textarea { flex: 1; min-width: 0; background: var(--field-bg); border: 1px solid var(--line); border-radius: 10px; padding: 6px 9px; font: inherit; font-size: 12.5px; color: var(--ink); }
+.ck-ws-card .att.col { flex-direction: column; align-items: stretch; }
+.ck-ws-card .att textarea { resize: vertical; line-height: 1.7; }
+.ck-ws-card .topics { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex: 1; }
+.ck-ws-card .chip { font-size: 11.5px; font-weight: 700; padding: 3px 10px; border-radius: 99px; background: color-mix(in srgb, var(--c) 15%, transparent); color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 40%, transparent); }
+.ck-ws-card .sw { display: flex; align-items: center; gap: 8px; font-size: 12.5px; cursor: pointer; }
+.ck-ws-bars { display: flex; align-items: flex-end; gap: 2px; height: 56px; padding-top: 4px; }
+.ck-ws-bars i { flex: 1 1 0; min-width: 3px; border-radius: 3px 3px 1px 1px; background: var(--line); }
+.ck-ws-bars i.done { background: var(--primary); opacity: .8; }
+.ck-ws-bars i.skip { background: var(--ck-warn); }
+.ck-ws-bars i.cur { outline: 2px solid var(--primary); outline-offset: 1px; opacity: 1; }
+.ck-ws-resbar { display: flex; flex-direction: column; gap: 2px; padding: 8px 2px 4px; font-size: 13px; color: var(--sub-ink); }
+.ck-ws-resbar b { color: var(--ink); font-size: 15px; }
+.ck-vs2-panel.solo { position: static; display: block; margin: 0; padding: 0 0 8px; background: none; border: 0; }
+.ck-vs2-q.slow { background: color-mix(in srgb, var(--ck-warn) 13%, transparent); }
+.ck-vs2-q.slow .tm { color: var(--ck-warn); font-weight: 800; }
+.ck-vs2-panel .line.sub b.slow { color: var(--ck-warn); }
+
+@media (max-width: 900px) {
+  .ck-ws-body { grid-template-columns: minmax(0, 1fr); }
+  .ck-ws-main { padding: 12px 12px 24px; }
+  .ck-ws-tools { display: inline-flex; }
+  .ck-ws-side { display: none; position: fixed; inset-inline: 0; bottom: 112px; max-height: 58dvh; z-index: 5; border-inline-start: 0; border-top: 1px solid var(--line); box-shadow: 0 -14px 34px rgba(0, 0, 0, .3); border-radius: 18px 18px 0 0; background: var(--paper); }
+  .ck-ws-side.open { display: flex; }
+  .ck-ws-head { padding: 8px 10px; gap: 8px; }
+  .ck-ws-head .clock { min-width: 96px; padding: 3px 8px; }
+  .ck-ws-head .clock b { font-size: 22px; }
+  .ck-ws-head .clock span { display: none; }
+}
+
+/* ======================= v56: flags (نشان‌دار) ======================= */
+.ck-vs2-q .ck-flagbtn { flex: none; width: 28px; height: 28px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: var(--line); font-size: 15px; line-height: 1; cursor: pointer; padding: 0; transition: color .12s, background .12s; }
+.ck-vs2-q:hover .ck-flagbtn { color: var(--sub-ink); }
+.ck-vs2-q .ck-flagbtn.on { color: #e0951b; background: color-mix(in srgb, #e0951b 16%, transparent); border-color: color-mix(in srgb, #e0951b 45%, transparent); }
+.ck-vs2-q.flag { box-shadow: inset 4px 0 0 #e0951b; }
+.ck-ws-card .flagchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ck-ws-card .flagchips button { border: 1px solid color-mix(in srgb, #e0951b 50%, transparent); background: color-mix(in srgb, #e0951b 14%, transparent); color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 800; padding: 3px 11px; border-radius: 99px; cursor: pointer; font-variant-numeric: tabular-nums; }
+.ck-ws-head .linkchip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; margin-top: 2px; border: 0; background: transparent; color: var(--primary); font: inherit; font-size: 11.5px; font-weight: 700; padding: 0; cursor: pointer; text-align: right; }
+.ck-ws-head .linkchip.none { color: var(--sub-ink); }
+.ck-ws-head .linkchip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ck-ws-head .partclock { font-size: 11px; color: var(--sub-ink); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.ck-map i.flag { box-shadow: 0 0 0 2px #e0951b; }
+.ck-flags { gap: 8px; }
+.ck-flags b { font-size: 14px; }
+.ck-flags > span { font-size: 12.5px; color: var(--sub-ink); }
+.ck-q .ck-qid .flg { font-style: normal; color: #e0951b; margin-inline-end: 4px; }
+.ck-cd .col .fl { position: absolute; top: auto; bottom: calc(100% - 4px); font-size: 11px; color: #e0951b; line-height: 1; pointer-events: none; }
+.ck-cd .col.flag .no { color: #e0951b; }
+.pt-day { display: flex; gap: 6px; flex-wrap: wrap; }
+.pt-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; max-height: 44dvh; overflow-y: auto; }
+.pt-item { display: flex; align-items: center; gap: 10px; text-align: right; width: 100%; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line-soft); background: var(--sheet-bg); color: var(--ink); font: inherit; cursor: pointer; }
+.pt-item.on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--sheet-bg)); }
+.pt-item b { font-size: 14px; }
+.pt-item span { font-size: 12.5px; color: var(--sub-ink); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-item i { font-style: normal; font-size: 12px; }
+.ck-cardchip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent); background: color-mix(in srgb, var(--primary) 9%, transparent); color: var(--primary); font: inherit; font-size: 11.5px; font-weight: 800; padding: 3px 10px; border-radius: 99px; cursor: pointer; white-space: nowrap; vertical-align: middle; margin-inline-start: 6px; }
+.ck-cardchip.done { border-color: color-mix(in srgb, var(--ck-ok) 50%, transparent); background: color-mix(in srgb, var(--ck-ok) 12%, transparent); color: var(--ck-ok); }
+.ck-cardchip.big { font-size: 13px; padding: 8px 14px; border-radius: 14px; margin: 0; }
+.ck-ws-card kbd { display: inline-block; min-width: 18px; text-align: center; padding: 0 5px; font: inherit; font-size: 11px; font-weight: 700; color: var(--ink); background: var(--sheet-bg); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; }
+
+.ck-vtbtn { display: inline-flex; align-items: center; gap: 4px; margin-inline-start: 8px; border: 1px solid color-mix(in srgb, #7a5cf0 45%, transparent); background: color-mix(in srgb, #7a5cf0 11%, transparent); color: var(--ink); font: inherit; font-size: 11.5px; font-weight: 800; padding: 3px 10px; border-radius: 99px; cursor: pointer; }
+.ck-vtbtn:hover { background: color-mix(in srgb, #7a5cf0 22%, transparent); }
+
+/* ======================= v58: layout fixes in the test room ======================= */
+.ck-q .ck-qact { grid-column: 1 / -1; display: flex; justify-content: flex-end; margin-top: -2px; }
+.ck-vtbtn { margin-inline-start: 0; }
+@media (max-width: 700px) {
+  .ck-ws-head { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: 'x ttl ttl' 'clock clock acts'; align-items: center; gap: 6px 10px; padding: 8px 12px; }
+  .ck-ws-head .ck-x { grid-area: x; }
+  .ck-ws-head .ttl { grid-area: ttl; }
+  .ck-ws-head .ttl small { display: none; }
+  .ck-ws-head .ttl input { font-size: 15px; width: 100%; }
+  .ck-ws-head .clock { grid-area: clock; flex-direction: row; justify-content: center; gap: 8px; width: 100%; min-width: 0; padding: 2px 10px; }
+  .ck-ws-head .clock b { font-size: 24px; }
+  .ck-ws-head .clock span { display: inline; font-size: 11px; }
+  .ck-ws-head .acts { grid-area: acts; }
+  .ck-ws-head .partclock { display: none; }
+  .ck-ws-foot { gap: 6px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .ck-ws-foot .ck-btn { flex: 1 1 auto; justify-content: center; font-size: 13px; padding: 9px 10px; }
+  .ck-ws-foot .ck-apply-note { display: none; }
+  .ck-ws-side { bottom: 118px; }
+}
+
+@media (max-width: 420px) {
+  .ck-q .ck-opts { flex-wrap: nowrap; gap: 4px; }
+  .ck-q .ck-opt, .ck-q .ck-opt.sm { width: 28px; height: 28px; font-size: 12px; flex: none; }
+  .ck-q .ck-qst { min-width: 0; font-size: 11.5px; }
 }

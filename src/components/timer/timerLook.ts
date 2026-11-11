@@ -4,8 +4,14 @@ import { useSyncExternalStore } from 'react';
 // "Focus Studio": every option of the full-screen timer view. Stored on this device only.
 // ---------------------------------------------------------------------------
 
-export type ClockStyle = 'dial' | 'ring' | 'digits';
-export type ClockFont = 'bold' | 'medium' | 'light' | 'thin' | 'mono' | 'serif';
+export type ClockStyle = 'dial' | 'ring' | 'orbit' | 'digits' | 'minimal';
+export type ClockFont = 'bold' | 'medium' | 'light' | 'thin' | 'mono' | 'serif' | 'rounded' | 'wide';
+export type DigitAnim = 'roll' | 'flip' | 'fade' | 'none';
+export type SepStyle = 'colon' | 'dots' | 'blink' | 'pulse';
+export type FillStyle = 'gradient' | 'solid' | 'accent';
+export type ShowMode = 'remaining' | 'elapsed';
+export type MotionMode = 'smooth' | 'step';
+export type WallDate = 'jalali' | 'gregorian' | 'off';
 export type ThemeId = 'aurora' | 'midnight' | 'oled' | 'sunset' | 'forest' | 'ocean' | 'dusk' | 'graphite';
 export type AccentId = 'auto' | 'blue' | 'teal' | 'rose' | 'gold' | 'violet' | 'mint' | 'silver';
 export type FxKind = 'none' | 'stars' | 'particles' | 'fireflies' | 'rain' | 'snow';
@@ -31,6 +37,21 @@ export interface Look {
   calmAfter: number; // seconds of quiet before the controls fade (0 = never)
   dimCalm: boolean; // also dim the clock while calm (night use)
   autoFs: boolean; // enter browser full-screen when the full view opens
+  // ---- clock craft (v4)
+  anim: DigitAnim; // how a digit changes
+  sep: SepStyle; // the colon between the numbers
+  fill: FillStyle; // digits: soft gradient / plain white / accent colour
+  mode: ShowMode; // big number counts down (remaining) or up (elapsed)
+  secs: boolean; // show seconds (off: minutes only, calmer)
+  motion: MotionMode; // progress glides every frame ('smooth') or steps once per second
+  marks: boolean; // dial: the outer ring of notches
+  inner: boolean; // dial: the thin inner ring that fills until the next tick
+  labels: boolean; // the small texts around the number («باقی‌مانده», «در حال مطالعه»)
+  everywhere: boolean; // the same font / digits / animation on the small clocks (bar, island, floating window…)
+  tabTitle: boolean; // show the time in the browser tab title
+  hour12: boolean; // top wall clock: 12-hour
+  wallSecs: boolean; // top wall clock: show seconds
+  wallDate: WallDate; // top wall clock: date under it
 }
 
 export const DEFAULT_LOOK: Look = {
@@ -38,13 +59,17 @@ export const DEFAULT_LOOK: Look = {
   theme: 'aurora', accent: 'auto', glow: true,
   fx: 'none', fxLevel: 2, layout: 'auto',
   showHeader: true, showStats: true, showTools: true, showClock: false, showPercent: false, showQuote: false,
-  calmAfter: 7, dimCalm: false, autoFs: false
+  calmAfter: 7, dimCalm: false, autoFs: false,
+  anim: 'roll', sep: 'colon', fill: 'gradient', mode: 'remaining', secs: true, motion: 'smooth',
+  marks: true, inner: true, labels: true, everywhere: true, tabTitle: true, hour12: false, wallSecs: false, wallDate: 'jalali'
 };
 
 export const STYLES: Array<{ id: ClockStyle; label: string; hint: string }> = [
   { id: 'dial', label: 'کلاسیک', hint: 'حلقه با نشانه‌ها' },
   { id: 'ring', label: 'حلقه‌ی ساده', hint: 'یک خط باریک' },
-  { id: 'digits', label: 'اعداد بزرگ', hint: 'با نوار پیشرفت' }
+  { id: 'orbit', label: 'مدار', hint: 'نقطه‌ی در گردش' },
+  { id: 'digits', label: 'اعداد بزرگ', hint: 'با نوار پیشرفت' },
+  { id: 'minimal', label: 'مینیمال', hint: 'فقط عدد و یک خط' }
 ];
 export const FONTS: Array<{ id: ClockFont; label: string }> = [
   { id: 'bold', label: 'ضخیم' },
@@ -52,7 +77,18 @@ export const FONTS: Array<{ id: ClockFont; label: string }> = [
   { id: 'light', label: 'سبک' },
   { id: 'thin', label: 'باریک' },
   { id: 'mono', label: 'مونو' },
-  { id: 'serif', label: 'سریف' }
+  { id: 'serif', label: 'سریف' },
+  { id: 'rounded', label: 'گرد' },
+  { id: 'wide', label: 'کشیده' }
+];
+export const ANIMS: Array<{ v: DigitAnim; label: string }> = [
+  { v: 'roll', label: 'غلتان' }, { v: 'flip', label: 'ورق‌خور' }, { v: 'fade', label: 'محو' }, { v: 'none', label: 'بدون' }
+];
+export const SEPS: Array<{ v: SepStyle; label: string }> = [
+  { v: 'colon', label: ': ثابت' }, { v: 'dots', label: '• نقطه' }, { v: 'blink', label: 'چشمک' }, { v: 'pulse', label: 'تپش' }
+];
+export const FILLS: Array<{ v: FillStyle; label: string }> = [
+  { v: 'gradient', label: 'گرادیان' }, { v: 'solid', label: 'ساده' }, { v: 'accent', label: 'رنگی' }
 ];
 export const THEMES: Array<{ id: ThemeId; label: string; swatch: string }> = [
   { id: 'aurora', label: 'شفق', swatch: 'linear-gradient(160deg,#2a3d9c,#0d1442 60%,#0b6b66)' },
@@ -93,6 +129,8 @@ export const PRESETS: Preset[] = [
   { id: 'zen', label: 'ذن', emoji: '🍃', look: { style: 'ring', font: 'thin', theme: 'midnight', accent: 'mint', fx: 'fireflies', fxLevel: 2, showStats: false, showTools: false, showQuote: true, calmAfter: 3 } },
   { id: 'rain', label: 'بارانی', emoji: '🌧', look: { font: 'medium', theme: 'ocean', accent: 'teal', fx: 'rain', fxLevel: 2, showClock: true } },
   { id: 'sunrise', label: 'طلوع', emoji: '🌅', look: { font: 'serif', theme: 'sunset', accent: 'gold', fx: 'particles', fxLevel: 2, showQuote: true, showPercent: true } },
+  { id: 'minimal', label: 'مینیمال', emoji: '—', look: { style: 'minimal', font: 'light', fill: 'solid', sep: 'dots', anim: 'fade', glow: false, marks: false, inner: false, labels: false, showStats: false, showTools: false, theme: 'oled', accent: 'silver', calmAfter: 3 } },
+  { id: 'orbit', label: 'مدار', emoji: '◍', look: { style: 'orbit', font: 'light', fill: 'solid', sep: 'pulse', anim: 'roll', theme: 'midnight', accent: 'blue', labels: false, showStats: false } },
   { id: 'pro', label: 'حرفه‌ای', emoji: '⌘', look: { style: 'digits', font: 'mono', digits: 'en', theme: 'graphite', accent: 'blue', glow: false, showClock: true, showPercent: true, calmAfter: 15 } }
 ];
 
@@ -117,7 +155,12 @@ function sanitize(m: any): Look {
     showHeader: bool(m?.showHeader, d.showHeader), showStats: bool(m?.showStats, d.showStats), showTools: bool(m?.showTools, d.showTools),
     showClock: bool(m?.showClock, d.showClock), showPercent: bool(m?.showPercent, d.showPercent), showQuote: bool(m?.showQuote, d.showQuote),
     calmAfter: typeof m?.calmAfter === 'number' && CALM_CHOICES.some((c) => c.v === m.calmAfter) ? m.calmAfter : d.calmAfter,
-    dimCalm: bool(m?.dimCalm, d.dimCalm), autoFs: bool(m?.autoFs, d.autoFs)
+    dimCalm: bool(m?.dimCalm, d.dimCalm), autoFs: bool(m?.autoFs, d.autoFs),
+    anim: pick(m?.anim, ANIMS.map((x) => x.v), d.anim), sep: pick(m?.sep, SEPS.map((x) => x.v), d.sep), fill: pick(m?.fill, FILLS.map((x) => x.v), d.fill),
+    mode: pick(m?.mode, ['remaining', 'elapsed'] as const, d.mode), secs: bool(m?.secs, d.secs), motion: pick(m?.motion, ['smooth', 'step'] as const, d.motion),
+    marks: bool(m?.marks, d.marks), inner: bool(m?.inner, d.inner), labels: bool(m?.labels, d.labels), everywhere: bool(m?.everywhere, d.everywhere),
+    tabTitle: bool(m?.tabTitle, d.tabTitle), hour12: bool(m?.hour12, d.hour12), wallSecs: bool(m?.wallSecs, d.wallSecs),
+    wallDate: pick(m?.wallDate, ['jalali', 'gregorian', 'off'] as const, d.wallDate)
   };
 }
 function load(): Look {

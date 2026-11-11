@@ -1,0 +1,92 @@
+/* =====================================================================
+   Planex clock — the one clock every screen uses.
+   Digits live in fixed-width cells, so the number never jitters while it changes (no font needs tabular-nums).
+   All motion is transform + opacity only: composited on the GPU, nothing re-lays-out.
+   ===================================================================== */
+.ck {
+  --ck-w: .62em;
+  display: inline-flex; align-items: baseline; justify-content: center; direction: ltr; white-space: nowrap;
+  line-height: 1.05; font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1, 'lnum' 1;
+  font-weight: 700; letter-spacing: 0;
+}
+.ck-d { position: relative; display: inline-block; width: var(--ck-w); text-align: center; }
+.ck-d i { display: block; font-style: normal; will-change: transform, opacity; }
+.ck-d i.o { position: absolute; inset: 0; pointer-events: none; }
+.ck-p { margin-inline-end: .06em; opacity: .8; }
+.ck-u { align-self: flex-end; margin-inline-start: .32em; font-size: .3em; font-weight: 600; opacity: .6; letter-spacing: .02em; }
+
+/* ---- separators */
+.ck-s { position: relative; display: inline-block; width: .3em; text-align: center; }
+.ck-s i { font-style: normal; display: block; transform: translateY(-.045em); opacity: .72; }
+.ck-s[data-k='dots'], .ck-s[data-k='pulse'] { align-self: center; display: inline-flex; flex-direction: column; justify-content: center; align-items: center; gap: .17em; height: .62em; }
+.ck-s b { display: block; width: .085em; height: .085em; min-width: 2px; min-height: 2px; border-radius: 50%; background: currentColor; opacity: .7; }
+.ck.run .ck-s[data-k='blink'] i { animation: ckBlink 2s steps(1, end) infinite; }
+.ck.run .ck-s[data-k='pulse'] b { animation: ckPulse 2s ease-in-out infinite; }
+@keyframes ckBlink { 0%, 55% { opacity: .75; } 56%, 100% { opacity: .1; } }
+@keyframes ckPulse { 0%, 100% { opacity: .75; transform: scale(1); } 50% { opacity: .25; transform: scale(.7); } }
+
+/* ---- digit change: the new glyph comes in, the old one leaves. Durations are short so a clock never feels laggy */
+.ck-d[data-a='roll'] i.c.in { animation: ckRollIn .4s cubic-bezier(.2, .8, .2, 1) .05s both; }
+.ck-d[data-a='roll'] i.o { animation: ckRollOut .2s cubic-bezier(.4, 0, 1, 1) both; }
+.ck-d[data-a='flip'] { perspective: 480px; }
+.ck-d[data-a='flip'] i.c.in { animation: ckFlipIn .45s cubic-bezier(.2, .8, .2, 1) .06s both; transform-origin: 50% 60%; }
+.ck-d[data-a='flip'] i.o { animation: ckFlipOut .22s cubic-bezier(.4, 0, .6, 1) both; transform-origin: 50% 40%; }
+.ck-d[data-a='fade'] i.c.in { animation: ckFadeIn .4s ease-out .05s both; }
+.ck-d[data-a='fade'] i.o { animation: ckFadeOut .22s ease-out both; }
+@keyframes ckRollIn { from { transform: translateY(26%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes ckRollOut { from { transform: none; opacity: 1; } to { transform: translateY(-26%); opacity: 0; } }
+@keyframes ckFlipIn { from { transform: rotateX(-80deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes ckFlipOut { from { transform: none; opacity: 1; } to { transform: rotateX(80deg); opacity: 0; } }
+@keyframes ckFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ckFadeOut { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .ck-d i.c.in { animation: ckFadeIn .2s ease-out both !important; }
+  .ck-d i.o { display: none; }
+  .ck-s i, .ck-s b { animation: none !important; }
+}
+
+/* ---- fonts (digits only; the number's own size comes from the place it sits in) */
+.ck[data-font='bold'] { font-weight: 800; letter-spacing: -.02em; }
+.ck[data-font='medium'] { font-weight: 500; letter-spacing: -.01em; --ck-w: .6em; }
+.ck[data-font='light'] { font-weight: 300; letter-spacing: -.01em; --ck-w: .6em; }
+.ck[data-font='thin'] { font-weight: 100; --ck-w: .58em; }
+.ck[data-font='mono'] { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Vazirmatn', monospace; font-weight: 600; --ck-w: .6em; }
+.ck[data-font='serif'] { font-family: Georgia, 'Times New Roman', 'Vazirmatn', serif; font-weight: 600; --ck-w: .6em; }
+.ck[data-font='rounded'] { font-family: ui-rounded, 'SF Pro Rounded', 'Nunito', 'Varela Round', 'Vazirmatn', system-ui, sans-serif; font-weight: 700; --ck-w: .62em; }
+.ck[data-font='wide'] { font-weight: 200; letter-spacing: .06em; --ck-w: .72em; }
+.ck[data-en='0'] { --ck-w: .6em; }
+.ck[data-en='0'][data-font='bold'] { --ck-w: .64em; }
+.ck[data-en='0'][data-font='wide'] { --ck-w: .7em; }
+
+/* ---- fill: «gradient» takes colours from the surrounding timer (--ck-a); outside of it, it is plain text colour */
+.ck[data-fill='gradient'] .ck-d i {
+  background: linear-gradient(180deg, var(--ck-top, currentColor) 30%, var(--ck-bot, currentColor));
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.ck[data-fill='accent'] { color: var(--ck-accent, var(--tm-a, currentColor)); }
+
+/* =====================================================================
+   inside the timer
+   ===================================================================== */
+.tm-time { --ck-top: #fff; --ck-bot: color-mix(in srgb, var(--tm-a) 55%, #fff); }
+.tm-dial.ph-over .tm-time { --ck-bot: var(--tm-bad); }
+.tm-time .ck { font-size: inherit; }
+.tm-time { display: block; direction: ltr; white-space: nowrap; font-size: 18cqw; line-height: 1.05; }
+.tm-time .ck-u { font-size: .22em; }
+.tm-dial.idle .tm-time .ck { animation: tmBlink 1.8s ease-in-out infinite; }
+.tm-time[data-len='6'] { font-size: 16cqw; }
+.tm-time[data-len='7'] { font-size: 14cqw; }
+.tm-time[data-len='8'] { font-size: 12.6cqw; }
+.tm-time[data-len='9'], .tm-time[data-len='10'] { font-size: 11cqw; }
+.tm-time[data-tap] { cursor: pointer; pointer-events: auto; border-radius: 12px; }
+.tm-time[data-tap]:focus-visible { outline: 2px solid var(--tm-warn); outline-offset: 4px; }
+
+/* the wall clock at the top */
+.tm-topclock b.ck-wall { display: inline-flex; align-items: baseline; gap: .35em; font-size: 22px; font-weight: 300; }
+.tm-topclock b.ck-wall .ck { font-weight: 300; letter-spacing: .02em; }
+.tm-topclock b.ck-wall small { font-size: .5em; color: var(--tm-sub); font-weight: 600; }
+
+/* ---- small clocks around the app */
+.isl-time .ck, .pn-time .ck, .tm-pill-time .ck, .tm-pip-time .ck, .vt-clock .ck, .ck-mini .ck { font-size: inherit; }
+.pn-time .ck, .isl-time .ck { --ck-w: .58em; }
+.tm-pill-time .ck { --ck-w: .6em; }

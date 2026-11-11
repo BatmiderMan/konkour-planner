@@ -61,7 +61,7 @@ const HistoryRow: React.FC<{ s: ScanRecord }> = ({ s }) => {
       {open && (
         <div className="ck-hist-body">
           <p className="ck-hint">{P(s.total)} سؤال تصحیح شد: سؤال {P(s.startQ + s.from - 1)} تا {P(s.startQ + s.to - 1)} کتاب. زیر، فقط سؤال‌هایی است که درست نبود.</p>
-          {s.times && s.times.length > 0 && <TimeCandles rows={rowsFromRecord(s)} times={s.times} title={s.link?.lesson || s.bookTitle} />}
+          {s.times && s.times.length > 0 && <TimeCandles rows={rowsFromRecord(s)} times={s.times} title={s.link?.lesson || s.bookTitle} flags={s.flags} />}
           <MissList rec={s} />
           <div className="ck-row">
             {s.bookId && <button type="button" className="ck-btn sm" onClick={redo}><RefreshCw size={14} /> نمره‌گیری دوباره با کلید فعلی</button>}

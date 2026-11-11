@@ -1,5 +1,8 @@
 import React from 'react';
-import { DialModel, pointOnCircle } from './timerMath';
+import { DialModel } from './timerMath';
+import { MotionMode } from './timerLook';
+
+export type DialVariant = 'dial' | 'ring' | 'orbit' | 'digits' | 'minimal';
 
 interface TimerDialProps {
   model: DialModel;
@@ -7,37 +10,66 @@ interface TimerDialProps {
   tickKey: number; // changes with every tick -> restarts the flash
   tickOn: boolean;
   children?: React.ReactNode; // the centre of the dial
-  variant?: 'dial' | 'ring' | 'digits'; // full-screen look: classic dial, plain ring, or big digits with a bar
+  variant?: DialVariant; // classic dial · plain ring · orbit · big digits with segments · minimal (digits + hairline)
+  marks?: boolean; // dial: outer notches
+  inner?: boolean; // dial: inner "until the next tick" ring
+  motion?: MotionMode; // 'smooth' glides between seconds, 'step' jumps once per second
 }
 
 const R_MAIN = 128;
 const R_CYCLE = 108;
 
-export const TimerDial: React.FC<TimerDialProps> = ({ model, running, tickKey, tickOn, children, variant = 'dial' }) => {
+/** the outer notches only re-render when one lights up (not every second) */
+const Notches = React.memo(({ notches, lit, running }: { notches: number; lit: number; running: boolean }) => {
+  const w = notches > 60 ? 1.6 : notches > 30 ? 2.2 : 3;
+  return (
+    <g className="tm-notches">
+      {Array.from({ length: notches }, (_, i) => (
+        <line key={i} className={i < lit ? 'on' : i === lit && running ? 'now' : ''} x1="0" y1="-147" x2="0" y2="-158" strokeWidth={w} transform={`rotate(${(i / notches) * 360})`} />
+      ))}
+    </g>
+  );
+});
+Notches.displayName = 'Notches';
+
+/** the segment row of the big-digits style */
+const Segments = React.memo(({ notches, lit, running }: { notches: number; lit: number; running: boolean }) => (
+  <div className="tm-bar" aria-hidden="true">
+    {Array.from({ length: notches }, (_, i) => <i key={i} className={i < lit ? 'on' : i === lit && running ? 'now' : ''} />)}
+  </div>
+));
+Segments.displayName = 'Segments';
+
+export const TimerDial: React.FC<TimerDialProps> = ({ model, running, tickKey, tickOn, children, variant = 'dial', marks = true, inner = true, motion = 'smooth' }) => {
   const gid = React.useId().replace(/:/g, '');
   const { notches, lit, progress, cycle, phase } = model;
-  const head = pointOnCircle(R_MAIN, progress);
-  const notchW = notches > 60 ? 1.6 : notches > 30 ? 2.2 : 3;
 
-  if (variant === 'digits') {
-    // big digits: the progress is a row of segments (one segment = one tick) or a plain bar for long sessions
-    const seg = notches > 0 && notches <= 60;
+  // when the progress wraps (stopwatch passes an hour) the arc must jump back, not sweep backwards
+  const prev = React.useRef(progress);
+  const snap = progress < prev.current - 0.3;
+  React.useEffect(() => { prev.current = progress; });
+
+  // the second hand of the orbit style is a pure-CSS 60 s rotation, started at the right angle once
+  const sweep0 = React.useRef(-(model.elapsed % 60) * 1000);
+  const cls = `tm-dial v-${variant} ph-${phase} m-${motion}` + (running ? ' running' : ' idle') + (snap ? ' snap' : '');
+
+  if (variant === 'digits' || variant === 'minimal') {
+    const seg = variant === 'digits' && notches > 0 && notches <= 60;
     return (
-      <div className={`tm-dial v-digits ph-${phase}` + (running ? ' running' : ' idle')}>
+      <div className={cls + (variant === 'minimal' ? ' v-digits' : '')}>
         <div className="tm-dial-center">{children}</div>
-        {seg ? (
-          <div className="tm-bar" aria-hidden="true">
-            {Array.from({ length: notches }, (_, i) => <i key={i} className={i < lit ? 'on' : i === lit && running ? 'now' : ''} />)}
-          </div>
-        ) : (
-          <div className="tm-bar cont" aria-hidden="true"><i style={{ width: Math.min(100, progress * 100) + '%' }} /></div>
+        {seg ? <Segments notches={notches} lit={lit} running={running} /> : (
+          <div className={'tm-bar cont' + (variant === 'minimal' ? ' hair' : '')} aria-hidden="true"><i style={{ transform: `scaleX(${Math.min(1, progress)})` }} /></div>
         )}
       </div>
     );
   }
 
+  const full = variant === 'dial';
+  const orbit = variant === 'orbit';
+  const dash = { strokeDasharray: 100, strokeDashoffset: 100 - Math.min(1, progress) * 100 };
   return (
-    <div className={`tm-dial v-${variant} ph-${phase}` + (running ? ' running' : ' idle')}>
+    <div className={cls}>
       <svg viewBox="-170 -170 340 340" aria-hidden="true">
         <defs>
           <linearGradient id={`g${gid}`} x1="0" y1="0" x2="1" y2="1">
@@ -46,50 +78,35 @@ export const TimerDial: React.FC<TimerDialProps> = ({ model, running, tickKey, t
           </linearGradient>
         </defs>
 
-        {/* outer ring of notches: with the tick sound on, ONE NOTCH = ONE TICK */}
-        <g className="tm-notches">
-          {Array.from({ length: notches }, (_, i) => {
-            const a = (i / notches) * 360;
-            const cls = i < lit ? 'on' : i === lit && running ? 'now' : '';
-            return (
-              <line
-                key={i}
-                className={cls}
-                x1="0" y1="-147" x2="0" y2="-158"
-                strokeWidth={notchW}
-                transform={`rotate(${a})`}
-              />
-            );
-          })}
-        </g>
+        {full && marks && <Notches notches={notches} lit={lit} running={running} />}
+        {full && <circle className="tm-face" r={96} />}
 
-        <circle className="tm-face" r={96} />
         <circle className="tm-track" r={R_MAIN} />
-        <circle
-          className="tm-arc"
-          r={R_MAIN}
-          pathLength={100}
-          stroke={`url(#g${gid})`}
-          style={{ strokeDasharray: 100, strokeDashoffset: 100 - progress * 100 }}
-          transform="rotate(-90)"
-        />
+        {/* soft glow without any SVG filter: two wider, fainter copies of the arc (filters repaint every second) */}
+        {!orbit && <circle className="tm-arc-halo h2" r={R_MAIN} pathLength={100} style={dash} transform="rotate(-90)" stroke={`url(#g${gid})`} />}
+        {!orbit && <circle className="tm-arc-halo h1" r={R_MAIN} pathLength={100} style={dash} transform="rotate(-90)" stroke={`url(#g${gid})`} />}
+        <circle className="tm-arc" r={R_MAIN} pathLength={100} stroke={`url(#g${gid})`} style={dash} transform="rotate(-90)" />
+
+        {/* the head rides the arc on a real circle (a rotating group: composited, no per-frame JS) */}
         {progress > 0.004 && progress < 0.999 && (
-          <g className="tm-hd" transform={`translate(${head.x} ${head.y})`}>
-            <circle r="12" className="tm-hd-glow" />
-            <circle r="5" className="tm-hd-dot" />
+          <g className="tm-hd" style={{ transform: `rotate(${progress * 360}deg)` }}>
+            <circle cy={-R_MAIN} r={orbit ? 16 : 12} className="tm-hd-glow" />
+            <circle cy={-R_MAIN} r={orbit ? 6.5 : 5} className="tm-hd-dot" />
           </g>
         )}
 
-        {/* inner ring: fills up until the next tick */}
-        <circle className="tm-cycle-track" r={R_CYCLE} />
-        <circle
-          key={tickKey}
-          className={'tm-cycle' + (tickOn ? ' tick' : '')}
-          r={R_CYCLE}
-          pathLength={100}
-          style={{ strokeDasharray: 100, strokeDashoffset: 100 - cycle * 100 }}
-          transform="rotate(-90)"
-        />
+        {orbit && (
+          <g className="tm-sec" style={{ animationDelay: `${sweep0.current}ms` }}>
+            <circle cy={-R_MAIN - 17} r="2.6" />
+          </g>
+        )}
+
+        {full && inner && (
+          <>
+            <circle className="tm-cycle-track" r={R_CYCLE} />
+            <circle key={tickKey} className={'tm-cycle' + (tickOn ? ' tick' : '')} r={R_CYCLE} pathLength={100} style={{ strokeDasharray: 100, strokeDashoffset: 100 - cycle * 100 }} transform="rotate(-90)" />
+          </>
+        )}
       </svg>
       <div className="tm-dial-center">{children}</div>
     </div>

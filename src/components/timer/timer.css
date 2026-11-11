@@ -87,18 +87,21 @@
 .tm-notches line.on { stroke: color-mix(in srgb, var(--tm-a) 85%, transparent); }
 .tm-notches line.now { stroke: #fff; animation: tmNow 1.2s ease-in-out infinite; }
 .tm-track { fill: none; stroke: rgba(255, 255, 255, .07); stroke-width: 6; }
-.tm-arc {
-  fill: none; stroke-width: 6; stroke-linecap: round;
-  transition: stroke-dashoffset .35s linear, opacity .4s;
-  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--tm-a) 50%, transparent));
-}
+.tm-arc, .tm-arc-halo { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 1s linear, opacity .4s; }
+/* glow = two fainter, wider copies of the arc. No SVG filter: a filter would be repainted every second */
+.tm-arc-halo.h1 { stroke-width: 12; opacity: .13; }
+.tm-arc-halo.h2 { stroke-width: 20; opacity: .06; }
+.tm-dial.idle .tm-arc-halo { opacity: 0; }
+.m-step .tm-arc, .m-step .tm-arc-halo, .m-step .tm-hd, .m-step .tm-cycle { transition-duration: .28s; transition-timing-function: cubic-bezier(.3, 1.2, .5, 1); }
+.tm-dial.snap .tm-arc, .tm-dial.snap .tm-arc-halo, .tm-dial.snap .tm-hd, .tm-dial.snap .tm-cycle, .tm-dial.snap .tm-bar.cont i { transition: none !important; }
+.tm-hd { transition: transform 1s linear; transform-origin: 0 0; }
 .tm-hd-glow { fill: var(--tm-b); opacity: .26; }
-.tm-hd-dot { fill: #fff; filter: drop-shadow(0 0 4px rgba(255, 255, 255, .8)); }
+.tm-hd-dot { fill: #fff; }
 .tm-dial.running .tm-hd-glow { animation: tmGlow 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 .tm-dial.idle .tm-arc { opacity: .5; }
 .tm-dial.ph-over .tm-arc { animation: tmOver 1.6s ease-in-out infinite; }
 .tm-cycle-track { fill: none; stroke: rgba(255, 255, 255, .05); stroke-width: 1.5; }
-.tm-cycle { fill: none; stroke: var(--tm-b); stroke-width: 1.5; stroke-linecap: round; opacity: .55; transition: stroke-dashoffset .35s linear; }
+.tm-cycle { fill: none; stroke: var(--tm-b); stroke-width: 1.5; stroke-linecap: round; opacity: .55; transition: stroke-dashoffset 1s linear; }
 .tm-cycle.tick { opacity: .95; animation: tmFlash .7s ease-out; }
 
 .tm-dial-center {
@@ -106,20 +109,7 @@
   gap: 1.2cqw; text-align: center; pointer-events: none;
 }
 .tm-dial-label { font-size: clamp(12px, 4.2cqw, 22px); letter-spacing: .02em; color: var(--tm-sub); }
-.tm-time {
-  direction: ltr; white-space: nowrap; line-height: 1.05; font-weight: 800;
-  letter-spacing: -.02em; font-variant-numeric: tabular-nums; font-size: 18cqw;
-  background: linear-gradient(180deg, #fff 30%, color-mix(in srgb, var(--tm-a) 55%, #fff));
-  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-}
-/* the inner ring is ~62% of the dial: the font is sized from the dial width AND the text length,
-   so mm:ss, h:mm:ss and +h:mm:ss all stay inside the circle at any dial size */
-.tm-time[data-len='6'] { font-size: 16cqw; }
-.tm-time[data-len='7'] { font-size: 14cqw; }
-.tm-time[data-len='8'] { font-size: 12.6cqw; }
-.tm-time[data-len='9'], .tm-time[data-len='10'] { font-size: 11cqw; }
-.tm-dial.idle .tm-time { animation: tmBlink 1.8s ease-in-out infinite; }
-.tm-dial.ph-over .tm-time { background: linear-gradient(180deg, #fff 30%, var(--tm-bad)); -webkit-background-clip: text; background-clip: text; }
+/* the number itself (digits, fonts, animation) lives in src/clock/clock.css */
 .tm-dial-state {
   display: inline-flex; align-items: center; gap: 1.6cqw; margin-top: .6cqw; font-size: clamp(11.5px, 3.8cqw, 19px); font-weight: 600; color: var(--tm-sub);
 }
@@ -251,7 +241,7 @@
 .tm-pill-ring { width: 34px; height: 34px; flex: none; }
 .tm-pill-ring circle { fill: none; stroke-width: 3.6; }
 .tm-pill-ring .bg { stroke: rgba(255, 255, 255, .14); }
-.tm-pill-ring .fg { stroke: var(--tm-a); stroke-linecap: round; transition: stroke-dashoffset .4s linear; }
+.tm-pill-ring .fg { stroke: var(--tm-a); stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
 .tm-pill-name { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 700; }
 .tm-pill-time { direction: ltr; font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .tm-pill-tick { font-style: normal; font-size: 11.5px; font-weight: 800; padding: 1px 7px; border-radius: 99px; background: rgba(255, 255, 255, .1); color: var(--tm-b); }
@@ -281,7 +271,7 @@
 .tm-pip.paused .tm-pip-time { opacity: .55; }
 .tm-pip.ph-over .tm-pip-time { color: var(--tm-bad); }
 .tm-pip-bar { height: 6px; border-radius: 9px; background: rgba(255, 255, 255, .1); overflow: hidden; }
-.tm-pip-bar i { display: block; height: 100%; border-radius: 9px; background: linear-gradient(90deg, var(--tm-a), var(--tm-b)); transition: width .3s linear; }
+.tm-pip-bar i { display: block; height: 100%; border-radius: 9px; background: linear-gradient(90deg, var(--tm-a), var(--tm-b)); transition: width 1s linear; }
 .tm-pip-ticks { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; text-align: center; gap: 6px; font-size: 11px; color: var(--tm-sub); }
 .tm-pip-ticks span { display: flex; flex-direction: column; }
 .tm-pip-ticks b { font-size: 17px; color: var(--tm-ink); }
@@ -360,7 +350,8 @@
 @keyframes tmOver { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 @keyframes tmFlash { 0% { stroke-width: 9; opacity: 1; } 100% { stroke-width: 3; opacity: .95; } }
 @media (prefers-reduced-motion: reduce) {
-  .tm-sheet, .tm-backdrop, .tm-pill, .tm-offer, .tm-live-dot, .tm-notches line.now, .tm-hd-glow, .tm-time, .tm-arc, .tm-cycle { animation: none !important; }
+  .tm-sheet, .tm-backdrop, .tm-pill, .tm-offer, .tm-live-dot, .tm-notches line.now, .tm-hd-glow, .tm-sec, .tm-cycle { animation: none !important; }
+  .tm-arc, .tm-arc-halo, .tm-hd, .tm-cycle, .tm-bar.cont i { transition: none !important; }
 }
 
 
@@ -450,13 +441,6 @@
 /* accent colour (calm phases only: the warning / overtime colours are never replaced) */
 .tm-sheet[data-accent]:not([data-accent='auto']):is(.ph-calm, .ph-free) { --tm-a: var(--ac-a); --tm-b: var(--ac-b); }
 
-/* clock fonts — "bold" is the original look */
-.tm-sheet[data-font='medium'] .tm-time { font-weight: 500; letter-spacing: -.01em; }
-.tm-sheet[data-font='light'] .tm-time { font-weight: 300; letter-spacing: -.01em; }
-.tm-sheet[data-font='thin'] .tm-time { font-weight: 100; letter-spacing: 0; }
-.tm-sheet[data-font='mono'] .tm-time { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Vazirmatn', monospace; font-weight: 600; letter-spacing: -.04em; }
-.tm-sheet[data-font='serif'] .tm-time { font-family: Georgia, 'Times New Roman', 'Vazirmatn', serif; font-weight: 600; letter-spacing: -.01em; }
-
 /* ring style */
 .tm-dial.v-ring .tm-notches, .tm-dial.v-ring .tm-face, .tm-dial.v-ring .tm-cycle-track, .tm-dial.v-ring .tm-cycle { display: none; }
 .tm-dial.v-ring .tm-track, .tm-dial.v-ring .tm-arc { stroke-width: 3; }
@@ -481,7 +465,20 @@
 .tm-bar i.on { background: linear-gradient(90deg, var(--tm-a), var(--tm-b)); }
 .tm-bar i.now { background: #fff; animation: tmNow 1.2s ease-in-out infinite; }
 .tm-bar.cont { display: block; overflow: hidden; background: rgba(255, 255, 255, .1); border-radius: 99px; }
-.tm-bar.cont i { display: block; height: 100%; background: linear-gradient(90deg, var(--tm-a), var(--tm-b)); transition: width .35s linear; }
+.tm-bar.cont i { display: block; width: 100%; height: 100%; background: linear-gradient(90deg, var(--tm-a), var(--tm-b)); transform-origin: left center; transition: transform 1s linear; }
+[dir='rtl'] .tm-bar.cont i, .tm-sheet .tm-bar.cont i { transform-origin: left center; }
+.tm-bar.cont.hair { height: 2px; width: 62%; opacity: .9; }
+.v-minimal .tm-dial-center { gap: clamp(6px, 1.4cqw, 16px); }
+
+/* orbit: hairline ring, a fat travelling dot and a one-minute "second hand" planet */
+.v-orbit .tm-track { stroke-width: 1.2; stroke: rgba(255, 255, 255, .16); }
+.v-orbit .tm-arc { stroke-width: 2.4; }
+.v-orbit svg { transform: scale(1.1); }
+.tm-sec { transform-origin: 0 0; animation: tmSweep 60s linear infinite; animation-play-state: paused; }
+.tm-sec circle { fill: var(--tm-b); opacity: .9; }
+.v-orbit.running .tm-sec { animation-play-state: running; }
+@keyframes tmSweep { to { transform: rotate(360deg); } }
+[data-labels='off'] .tm-dial-label, [data-labels='off'] .tm-dial-state { display: none; }
 
 /* extras */
 .tm-pct { font-size: clamp(11.5px, 3.8cqw, 18px); color: var(--tm-sub); font-variant-numeric: tabular-nums; font-weight: 700; }
