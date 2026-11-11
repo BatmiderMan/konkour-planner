@@ -8,6 +8,7 @@
  *  - A key costs one character on disk («2343423…» per run of consecutive questions).
  */
 import { Book, BookMeta, KeyMap, SavedSheet, ScanRecord, metaOf, newId, makeBook } from './model';
+import { cloudHooks, safe } from '../sync/hooks';
 
 const DB_NAME = 'planex-checker', DB_VER = 2; // v2: added the «sheets» store (my own answer sheets)
 const META_KEY = 'planex_ck_meta_v1';
@@ -102,12 +103,12 @@ export async function saveBook(book: Book): Promise<Book> {
   const b = await backend(); await b.put('books', book);
   bookCache.set(book.id, book);
   setIndex([...booksIndex().filter((m) => m.id !== book.id), metaOf(book)]);
-  emit(); return book;
+  emit(); safe(cloudHooks.libPut, 'book', book.id); return book;
 }
 export async function deleteBook(id: string): Promise<void> {
   const b = await backend(); await b.del('books', id);
   bookCache.delete(id); setIndex(booksIndex().filter((m) => m.id !== id));
-  emit();
+  emit(); safe(cloudHooks.libDel, 'book', id);
 }
 export async function keysOf(id: string | undefined): Promise<KeyMap | null> {
   if (!id) return null; const bk = await getBook(id); return bk ? KeyMap.fromSegs(bk.segs) : null;
@@ -133,11 +134,11 @@ export async function saveScan(rec: ScanRecord): Promise<void> {
   const b = await backend(); await b.put('scans', rec);
   const cur = await listScans();
   scanCache = [rec, ...cur.filter((s) => s.id !== rec.id)].sort((x, y) => y.at - x.at);
-  emit();
+  emit(); safe(cloudHooks.libPut, 'scan', rec.id);
 }
 export async function deleteScan(id: string): Promise<void> {
   const b = await backend(); await b.del('scans', id);
-  scanCache = (await listScans()).filter((s) => s.id !== id); emit();
+  scanCache = (await listScans()).filter((s) => s.id !== id); emit(); safe(cloudHooks.libDel, 'scan', id);
 }
 /** scans attached to one report part */
 export async function scansFor(link: { dayId?: string; dateKey?: string; blockIndex?: number }): Promise<ScanRecord[]> {
@@ -159,11 +160,12 @@ export async function saveSheet(rec: SavedSheet, opts: { silent?: boolean } = {}
   sheetCache = [rec, ...cur.filter((s) => s.id !== rec.id)].sort(bySheetNewest);
   const b = await backend(); await b.put('sheets', rec);
   if (!opts.silent) emit();
+  safe(cloudHooks.libPut, 'sheet', rec.id);
   return rec;
 }
 export async function deleteSheet(id: string): Promise<void> {
   const b = await backend(); await b.del('sheets', id);
-  sheetCache = (await listSheets()).filter((s) => s.id !== id); emit();
+  sheetCache = (await listSheets()).filter((s) => s.id !== id); emit(); safe(cloudHooks.libDel, 'sheet', id);
 }
 /** the notification that was skipped by silent saves */
 export const notifyChanged = emit;
@@ -234,6 +236,42 @@ export async function migrateLegacy(): Promise<number> {
     for (const x of sets) if (x && x.name && x.keys) { await saveBook(makeBook(String(x.name), KeyMap.fromRecord(x.keys))); n++; }
     return n;
   } catch (e) { return 0; }
+}
+
+/* ---------------------------------------------------------------- cloud sync helpers (no hooks fired: the data came from the server) */
+export type LibKindName = 'book' | 'sheet' | 'scan';
+/** every local document of one kind with the time it was last changed */
+export async function listLocalDocs(kind: LibKindName): Promise<Array<{ id: string; t: number }>> {
+  if (kind === 'book') { await syncIndex(); return booksIndex().map((m) => ({ id: m.id, t: m.updatedAt })); }
+  if (kind === 'sheet') return (await listSheets()).map((x) => ({ id: x.id, t: x.updatedAt }));
+  return (await listScans()).map((x) => ({ id: x.id, t: x.at }));
+}
+export async function readLocalDoc(kind: LibKindName, id: string): Promise<{ doc: any; t: number } | null> {
+  if (kind === 'book') { const b = await getBook(id); return b ? { doc: b, t: b.updatedAt } : null; }
+  if (kind === 'sheet') { const x = await getSheet(id); return x ? { doc: x, t: x.updatedAt } : null; }
+  const sc = (await listScans()).find((x) => x.id === id); return sc ? { doc: sc, t: sc.at } : null;
+}
+export async function applyRemoteDoc(kind: LibKindName, doc: any): Promise<void> {
+  if (!doc || !doc.id) return;
+  const b = await backend();
+  if (kind === 'book') {
+    if (!Array.isArray(doc.segs)) return;
+    const bk = { ...doc, weak: doc.weak || [] } as Book; await b.put('books', bk); bookCache.set(bk.id, bk);
+    setIndex([...booksIndex().filter((m) => m.id !== bk.id), metaOf(bk)]);
+  } else if (kind === 'sheet') {
+    if (typeof doc.sheet !== 'string') return;
+    await b.put('sheets', doc); sheetCache = [doc as SavedSheet, ...(await listSheets()).filter((x) => x.id !== doc.id)].sort(bySheetNewest);
+  } else {
+    await b.put('scans', doc); scanCache = [doc as ScanRecord, ...(await listScans()).filter((x) => x.id !== doc.id)].sort((x, y) => y.at - x.at);
+  }
+  emit();
+}
+export async function eraseRemoteDoc(kind: LibKindName, id: string): Promise<void> {
+  const b = await backend();
+  if (kind === 'book') { await b.del('books', id); bookCache.delete(id); setIndex(booksIndex().filter((m) => m.id !== id)); }
+  else if (kind === 'sheet') { await b.del('sheets', id); sheetCache = (await listSheets()).filter((x) => x.id !== id); }
+  else { await b.del('scans', id); scanCache = (await listScans()).filter((x) => x.id !== id); }
+  emit();
 }
 
 export { newId };

@@ -7,9 +7,9 @@ interface AuthModalProps {
   onSuccess: (email: string) => void;
 }
 
+/** Login only. Accounts are created by the owner in the Supabase dashboard — there is deliberately no sign-up here. */
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,38 +21,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
     e.preventDefault();
     setError('');
     setMessage('');
-
-    if (!email || !password) {
-      setError('لطفاً ایمیل و رمز عبور را وارد کنید.');
+    if (!name.trim() || !password) {
+      setError('نام کاربری و رمز عبور را وارد کنید.');
       return;
     }
-
-    if (password.length < 6) {
-      setError('رمز عبور باید حداقل ۶ کاراکتر باشد.');
-      return;
-    }
-
     setLoading(true);
-
     try {
-      if (isSignUp) {
-        const res = await supabase.signUp(email, password);
-        if (res.error) {
-          setError(res.error);
-        } else {
-          setMessage('حساب کاربری با موفقیت ساخته شد!');
-          onSuccess(email);
-          setTimeout(onClose, 1000);
-        }
+      const res = await supabase.signIn(name, password);
+      if (res.error) {
+        setError(res.error);
       } else {
-        const res = await supabase.signIn(email, password);
-        if (res.error) {
-          setError(res.error);
-        } else {
-          setMessage('ورود موفقیت‌آمیز بود!');
-          onSuccess(email);
-          setTimeout(onClose, 800);
-        }
+        setMessage('ورود موفقیت‌آمیز بود! همگام‌سازی شروع شد…');
+        setPassword('');
+        onSuccess(res.user?.email || name);
+        setTimeout(onClose, 900);
       }
     } catch (err: any) {
       setError(err.message || 'خطا در ارتباط با سرور');
@@ -65,14 +47,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
     <div className="auth-backdrop" onClick={onClose}>
       <div className="auth-card" onClick={(e) => e.stopPropagation()}>
         <div className="auth-header">
-          <h2>{isSignUp ? '✨ ساخت حساب جدید' : '🔐 ورود به حساب'}</h2>
+          <h2>🔐 ورود به حساب</h2>
           <button type="button" className="auth-close-btn" onClick={onClose}>
             ✕
           </button>
         </div>
 
         <p className="auth-subtitle">
-          با ورود به حساب، تمام گزارش‌ها و برنامه‌ها به‌صورت خودکار بین گوشی و کامپیوتر همگام می‌شوند.
+          با ورود، برنامه‌ها، گزارش‌ها، آزمون‌ها و گنجینهٔ سؤال (با عکس‌ها) روی سرور ذخیره می‌شوند و بین دستگاه‌هایتان زنده همگام می‌مانند.
         </p>
 
         {error && <div className="auth-alert error">{error}</div>}
@@ -80,13 +62,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="auth-field">
-            <label>ایمیل</label>
+            <label>نام کاربری</label>
             <input
-              type="email"
+              type="text"
               dir="ltr"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoComplete="username"
+              spellCheck={false}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="username"
               required
             />
           </div>
@@ -96,48 +82,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             <input
               type="password"
               dir="ltr"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="حداقل ۶ کاراکتر"
+              placeholder="••••••"
               required
             />
           </div>
 
           <button type="submit" className="auth-submit-btn" disabled={loading}>
-            {loading ? 'در حال اتصال...' : isSignUp ? 'ثبت نام و شروع همگام‌سازی' : 'ورود به حساب'}
+            {loading ? 'در حال اتصال...' : 'ورود'}
           </button>
         </form>
 
         <div className="auth-footer">
-          {isSignUp ? (
-            <p>
-              قبلاً حساب کاربری داشته‌اید؟{' '}
-              <button
-                type="button"
-                className="auth-link-btn"
-                onClick={() => {
-                  setIsSignUp(false);
-                  setError('');
-                }}
-              >
-                ورود به حساب
-              </button>
-            </p>
-          ) : (
-            <p>
-              هنوز حساب کاربری ندارید؟{' '}
-              <button
-                type="button"
-                className="auth-link-btn"
-                onClick={() => {
-                  setIsSignUp(true);
-                  setError('');
-                }}
-              >
-                ثبت نام رایگان
-              </button>
-            </p>
-          )}
+          <p>
+            ساخت حساب جدید ممکن نیست؛ نام کاربری و رمز را مدیر برنامه به شما می‌دهد.
+            <br />
+            بدون حساب هم می‌توانید از برنامه استفاده کنید، فقط اطلاعات روی همین دستگاه می‌ماند.
+          </p>
         </div>
       </div>
     </div>

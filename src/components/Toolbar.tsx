@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { DayIndexEntry } from '../types';
+import { useSyncStatus } from '../sync';
 
 interface ToolbarProps {
   days: DayIndexEntry[];
@@ -47,6 +48,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onSyncCloud
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const sync = useSyncStatus();
 
   return (
     <>
@@ -101,10 +103,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 type="button"
                 className="cloud-sync-badge active"
                 onClick={onSyncCloud}
-                title={`همگام با حساب: ${userEmail}`}
+                title={`${userEmail}${sync.message ? ' — ' + sync.message : ''}`}
               >
                 <span className="btn-icon">☁️</span>
                 <span className="btn-text">همگام</span>
+                <span className={`sync-dot ${sync.state}`} />
               </button>
             ) : (
               <button

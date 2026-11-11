@@ -7,6 +7,7 @@ import React from 'react';
 import { BY_UNIT, getTracker, toggleFlag } from '../trackerStore';
 import { INTERVALS, DAY, SrsFields, isDue, isLeech, nextSrs } from './srs';
 import { blobToDataUrl, dataUrlToBlob } from './image';
+import { cloudHooks, safe } from '../sync/hooks';
 
 export type VaultWhy = 'wrong' | 'guess' | 'time' | 'tricky' | 'good' | 'formula';
 /** w = a mistake (red) · n = a note worth remembering (yellow) */
@@ -150,6 +151,12 @@ export function useVaultImage(id: string, k: VaultKind = 'q'): string | null {
 // ---------------------------------------------------------------- writes
 /** blobs: q = new question picture · e = new explanation picture, null = remove it, undefined = leave as it is */
 export async function putQuestion(q: VaultQ, blobs: { q?: Blob; e?: Blob | null } = {}): Promise<void> {
+  await writeQuestion(q, blobs);
+  safe(cloudHooks.vaultPut, q, blobs);
+}
+
+/** the same write, but without telling the cloud — used when the question itself came from the server */
+export async function writeQuestion(q: VaultQ, blobs: { q?: Blob; e?: Blob | null } = {}): Promise<void> {
   const d = await open();
   const t = d.transaction(['q', 'img'], 'readwrite');
   const imgs = t.objectStore('img');
@@ -170,19 +177,27 @@ export function patchQuestion(id: string, patch: Partial<VaultQ>): void {
   const next = { ...q, ...patch, updated: Date.now() };
   upsert(next);
   open().then((d) => { const t = d.transaction('q', 'readwrite'); t.objectStore('q').put(next); return done(t); }).catch(() => { /* kept in memory only */ });
+  safe(cloudHooks.vaultPut, next, {});
 }
 
 /** delete; the returned function puts the question back (for the undo toast) */
 export async function removeQuestion(id: string): Promise<() => Promise<void>> {
   const q = snap.items.find((x) => x.id === id);
   const bq = await getBlob(id, 'q'), be = await getBlob(id, 'e');
+  await eraseQuestion(id);
+  safe(cloudHooks.vaultDel, id);
+  // undo = a fresh save (newer `updated`, so it also beats the delete on the server)
+  return async () => { if (q && bq) await putQuestion({ ...q, updated: Date.now() }, { q: bq, ...(be ? { e: be } : {}) }); };
+}
+
+/** remove locally without telling the cloud (also used when the deletion came from the server) */
+export async function eraseQuestion(id: string): Promise<void> {
   const d = await open();
   const t = d.transaction(['q', 'img'], 'readwrite');
   t.objectStore('q').delete(id); t.objectStore('img').delete(imgKey(id, 'q')); t.objectStore('img').delete(imgKey(id, 'e'));
   await done(t);
   dropUrl(id, 'q'); dropUrl(id, 'e');
   emit({ items: snap.items.filter((x) => x.id !== id) });
-  return async () => { if (q && bq) await putQuestion(q, { q: bq, ...(be ? { e: be } : {}) }); };
 }
 
 // ---------------------------------------------------------------- practice log + results

@@ -17,12 +17,14 @@ import {
   getJalaliDayOfWeek
 } from './jalali';
 import { supabase } from './supabase';
+import { REMOTE_KV_EVENT, reloadForRemote, syncNow, useSyncStatus } from './sync';
 import { Toolbar } from './components/Toolbar';
 import { ReportHeader } from './components/ReportHeader';
 import { StudyBlockItem } from './components/StudyBlockItem';
 import { TasksRoutineCard } from './components/TasksRoutineCard';
 import { TotalCard } from './components/TotalCard';
 import { AuthModal } from './components/AuthModal';
+import { SyncBanner } from './components/SyncBanner';
 import { PeriodReportModal } from './components/PeriodReportModal';
 import { SleepDrawer, SleepInline, useIsPhone } from './components/SleepDrawer';
 import { PlannerView } from './components/planner/PlannerView';
@@ -272,88 +274,48 @@ export const App: React.FC = () => {
   const statusTimer = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Auth Listener
+  // Account state (the real syncing lives in ./sync — kv + vault + library, realtime)
+  const sync = useSyncStatus();
   useEffect(() => {
-    const unsub = supabase.onAuthStateChange((session) => {
-      setUserEmail(session?.user?.email || null);
-      if (session?.user?.id) {
-        syncFromCloud();
-      }
-    });
+    const unsub = supabase.onAuthStateChange((session) => setUserEmail(session?.user?.email || null));
     return () => unsub();
   }, []);
 
   const syncFromCloud = async () => {
-    try {
-      showStatus('همگام‌سازی ابری...');
-      const res = await supabase.fetchAllUserPlans();
-
-      // If user has local data but cloud is empty, upload local data to cloud
-      if (res.data && res.data.length === 0 && daysIndex.length > 0) {
-        showStatus('آپلود اطلاعات به ابر...');
-        for (const entry of daysIndex) {
-          const raw = localStorage.getItem(dayKey(entry.id));
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            await supabase.upsertUserPlan({
-              id: entry.id,
-              day: parsed.day || '',
-              date: parsed.date || '',
-              favorite: !!parsed.favorite,
-              blocks: parsed.blocks || [],
-              checklist: parsed.checklist || [],
-              routine: parsed.routine || [],
-              transfer: parsed.transfer || [],
-              updated_at: entry.updatedAt || Date.now()
-            });
-          }
-        }
-        showStatus('اطلاعات به ابر ارسال شد ✓');
-        return;
-      }
-
-      if (res.data && res.data.length > 0) {
-        const cloudIndex: DayIndexEntry[] = [];
-        res.data.forEach((p: any) => {
-          const id = p.id;
-          const planData: DayData = {
-            day: p.day || '',
-            date: p.date || '',
-            favorite: !!p.favorite,
-            blocks: p.blocks || [],
-            checklist: p.checklist || [],
-            routine: p.routine || [],
-            transfer: p.transfer || []
-          };
-          localStorage.setItem(dayKey(id), JSON.stringify(planData));
-          cloudIndex.push({
-            id,
-            day: p.day || '',
-            date: p.date || '',
-            updatedAt: p.updated_at || Date.now()
-          });
-        });
-
-        cloudIndex.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-        localStorage.setItem(KEY_INDEX, JSON.stringify(cloudIndex));
-        setDaysIndex(cloudIndex);
-
-        if (cloudIndex.length > 0) {
-          const firstId = cloudIndex[0].id;
-          const raw = localStorage.getItem(dayKey(firstId));
-          if (raw) {
-            setCurrentId(firstId);
-            setState(normalizeDayData(JSON.parse(raw)));
-            localStorage.setItem(KEY_CURRENT, firstId);
-          }
-        }
-        showStatus('همگام با ابر ✓');
-      }
-    } catch (e) {
-      console.error('Sync failed:', e);
-      showStatus('خطا در همگام‌سازی');
-    }
+    showStatus('همگام‌سازی با سرور...');
+    const ok = await syncNow();
+    showStatus(ok ? 'همگام با سرور ✓' : 'همگام‌سازی انجام نشد');
   };
+
+  // Another device changed a day (or the list of days): show it without a reload
+  const currentIdRef = useRef<string | null>(null);
+  const skipNextSave = useRef(false);
+  useEffect(() => { currentIdRef.current = currentId; }, [currentId]);
+  useEffect(() => {
+    const onRemote = (e: Event) => {
+      const keys: string[] = (e as CustomEvent).detail?.keys || [];
+      try {
+        let index: DayIndexEntry[] | null = null;
+        if (keys.includes(KEY_INDEX)) {
+          index = JSON.parse(localStorage.getItem(KEY_INDEX) || '[]');
+          if (Array.isArray(index)) setDaysIndex(index);
+        }
+        let cid = currentIdRef.current;
+        // the day that was open here no longer exists (fresh device / deleted elsewhere): open the newest one
+        if (index && index.length && (!cid || !index.some((x) => x.id === cid))) {
+          const first = [...index].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+          cid = first.id; setCurrentId(first.id); localStorage.setItem(KEY_CURRENT, first.id);
+          keys.push(dayKey(first.id));
+        }
+        if (cid && keys.includes(dayKey(cid))) {
+          const raw = localStorage.getItem(dayKey(cid));
+          if (raw) { skipNextSave.current = true; setState(normalizeDayData(JSON.parse(raw))); }
+        }
+      } catch (err) { console.warn('remote update failed', err); }
+    };
+    window.addEventListener(REMOTE_KV_EVENT, onRemote);
+    return () => window.removeEventListener(REMOTE_KV_EVENT, onRemote);
+  }, []);
 
   const handleSignOut = async () => {
     await supabase.signOut();
@@ -429,21 +391,6 @@ export const App: React.FC = () => {
       });
       localStorage.setItem(KEY_CURRENT, id);
       showStatus('ذخیره شد ✓');
-
-      // Sync to cloud if user is logged in
-      if (supabase.getUser()) {
-        supabase.upsertUserPlan({
-          id,
-          day: data.day,
-          date: data.date,
-          favorite: data.favorite,
-          blocks: data.blocks,
-          checklist: data.checklist,
-          routine: data.routine,
-          transfer: data.transfer,
-          updated_at: Date.now()
-        });
-      }
     } catch (e) {
       console.error('Failed to save data to localStorage:', e);
       showStatus('خطا در ذخیره!');
@@ -453,6 +400,7 @@ export const App: React.FC = () => {
   // Debounced auto-save whenever state changes
   useEffect(() => {
     if (!state || !currentId || loading) return;
+    if (skipNextSave.current) { skipNextSave.current = false; return; } // the state came from the server, it is already stored
 
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
@@ -629,9 +577,6 @@ export const App: React.FC = () => {
     const ok = await confirmDialog('این برگه برای همیشه حذف شود؟ این کار قابل بازگشت نیست.');
     if (ok) {
       localStorage.removeItem(dayKey(currentId));
-      if (supabase.getUser()) {
-        supabase.deleteUserPlan(currentId);
-      }
       const remaining = daysIndex.filter((x) => x.id !== currentId);
       setDaysIndex(remaining);
       localStorage.setItem(KEY_INDEX, JSON.stringify(remaining));
@@ -886,6 +831,7 @@ export const App: React.FC = () => {
         accept=".json"
         style={{ display: 'none' }}
       />
+      <SyncBanner />
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}

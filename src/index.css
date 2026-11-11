@@ -6950,3 +6950,49 @@ body.is-planner {
   color: var(--primary);
   font-weight: 700;
 }
+
+/* ==========================================================================
+   ☁️ Cloud sync chip
+   ========================================================================== */
+.sync-banner {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  z-index: 250;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 24px);
+  padding: 9px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--ink, #2f5a83);
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+}
+.sync-banner.bad { background: #b45309; }
+.sync-banner button {
+  border: 0;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  background: #fff;
+  color: #1f2a37;
+}
+.cloud-sync-badge .sync-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-inline-start: 6px;
+  background: #22c55e;
+  vertical-align: middle;
+}
+.cloud-sync-badge .sync-dot.syncing { background: #f59e0b; animation: syncPulse 1s ease-in-out infinite; }
+.cloud-sync-badge .sync-dot.offline,
+.cloud-sync-badge .sync-dot.error { background: #ef4444; }
+@keyframes syncPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }

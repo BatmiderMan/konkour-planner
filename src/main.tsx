@@ -3,6 +3,10 @@ import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import './index.css';
 import './theme-v4.css';
+import { initCloudSync } from './sync';
+
+// optional Supabase sync (only does anything after the person logs in with an account)
+initCloudSync();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
