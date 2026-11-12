@@ -44,7 +44,7 @@ function queue(id: string, patch: Pend, replace = false) {
   savePend();
   if (uid) scheduleFlush();
 }
-function scheduleFlush(delay = 1200) { clearTimeout(flushTimer); flushTimer = setTimeout(() => { void flushVault(); }, delay); }
+function scheduleFlush(delay = 350) { clearTimeout(flushTimer); flushTimer = setTimeout(() => { void flushVault(); }, delay); }
 
 export function installVaultHooks() {
   enabled = true;

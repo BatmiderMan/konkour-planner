@@ -13,7 +13,18 @@ const EXCLUDE = /session|token|auth|nav_last|live_plan|^planex_sync|ck_meta|ck_f
 export const isSynced = (k: string): boolean => KEEP.test(k) && !EXCLUDE.test(k);
 
 interface Meta { t: number; p?: 1; d?: 1 }
-interface Row { key: string; value: string | null; deleted: boolean; updated_at: number }
+interface Row { key: string; value: string | null; deleted: boolean; updated_at: number; device?: string | null }
+
+/** who wrote a row: lets a device recognise its own echoes and merge only with OTHER devices' edits */
+const DEVICE_KEY = 'planex_sync_device_v1';
+export const DEVICE: string = (() => {
+  try {
+    let d = localStorage.getItem(DEVICE_KEY);
+    if (!d) { d = 'd' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); localStorage.setItem(DEVICE_KEY, d); }
+    return d;
+  } catch { return 'd-unknown'; }
+})();
+let deviceColumn = true; // becomes false if the server table has not got the `device` column yet (older setup.sql)
 
 let meta: Record<string, Meta> = {};
 let uid: string | null = null;
@@ -36,12 +47,13 @@ let onStatus: (s: { saving?: boolean; error?: string | null; pending?: number })
 export const setKvStatusHandler = (f: typeof onStatus) => { onStatus = f; };
 
 function loadMeta() { try { meta = JSON.parse(lsGet(META) || '{}') || {}; } catch { meta = {}; } }
+function saveMetaNow() { clearTimeout(metaTimer); lsSet(META, JSON.stringify(meta)); }
 function saveMetaSoon() { clearTimeout(metaTimer); metaTimer = setTimeout(() => lsSet(META, JSON.stringify(meta)), 400); }
 export const pendingCount = () => Object.keys(meta).filter((k) => meta[k].p).length;
 
 function touch(k: string, deleted: boolean) {
   meta[k] = { t: Date.now(), p: 1, ...(deleted ? { d: 1 as const } : {}) };
-  saveMetaSoon();
+  saveMetaNow(); // synchronous: closing the tab a moment after an edit must not forget that the edit is unsent
   if (uid) schedulePush();
 }
 
@@ -64,6 +76,8 @@ export function installKvHook() {
   };
 }
 
+export const flushKvMeta = saveMetaNow;
+
 export function setKvUser(id: string | null) {
   uid = id;
   if (!id) { clearTimeout(pushTimer); }
@@ -71,7 +85,7 @@ export function setKvUser(id: string | null) {
 export function resetKvMeta() { meta = {}; lsSet(META, '{}'); }
 
 // ---------------------------------------------------------------- push
-function schedulePush(delay = 1500) {
+function schedulePush(delay = 300) {
   clearTimeout(pushTimer);
   pushTimer = setTimeout(() => { void pushKv(); }, delay);
 }
@@ -90,9 +104,13 @@ export async function pushKv(): Promise<boolean> {
       const rows: Row[] & { user_id?: string }[] = chunk.map((k) => {
         const m = meta[k]; const v = m.d ? null : lsGet(k);
         sent[k] = m.t;
-        return { user_id: uid, key: k, value: v, deleted: !!m.d || v === null, updated_at: m.t } as any;
+        return { user_id: uid, key: k, value: v, deleted: !!m.d || v === null, updated_at: m.t, ...(deviceColumn ? { device: DEVICE } : {}) } as any;
       });
-      const r = await supabase.upsert('user_data', rows, 'user_id,key');
+      let r = await supabase.upsert('user_data', rows, 'user_id,key');
+      if (r.error && deviceColumn && /device/i.test(r.error)) { // server not updated yet: carry on without the column
+        deviceColumn = false;
+        r = await supabase.upsert('user_data', rows.map((x: any) => { const { device, ...rest } = x; return rest; }), 'user_id,key');
+      }
       if (r.error) throw new Error(r.error);
       chunk.forEach((k) => { if (meta[k] && meta[k].t === sent[k]) delete meta[k].p; });
       saveMetaSoon();
@@ -122,20 +140,50 @@ function stash(k: string, value: string) {
 
 const INDEX_KEY = 'konkour_days_index_v2';
 const DAY_PREFIX = 'konkour_day_data_v2:';
+const PLANNER_KEY = 'konkour_planner_data_v1';
+const EXAMS_KEY = 'konkour_exams_v2';
 
-/** the list of days is a shared list: when two devices edited it, keep both devices' days instead of one list winning */
-function mergeIndex(a: string, b: string): string | null {
-  try {
-    const x = JSON.parse(a), y = JSON.parse(b);
-    if (!Array.isArray(x) || !Array.isArray(y)) return null;
-    const by = new Map<string, any>();
-    [...x, ...y].forEach((e: any) => {
-      if (!e || !e.id) return;
-      if (meta[DAY_PREFIX + e.id]?.d) return; // deleted on this device
-      const old = by.get(e.id);
-      if (!old || (e.updatedAt || 0) > (old.updatedAt || 0)) by.set(e.id, e);
+const idsOf = (x: any): Set<string> => new Set((Array.isArray(x) ? x : []).map((e: any) => e && e.id).filter(Boolean));
+
+/**
+ * Two devices changed the same big key while apart (e.g. one was offline). Instead of one copy replacing the other,
+ * both devices' additions are kept: start from the NEWER copy and add what only the other copy has.
+ * (Without a common ancestor a deletion on one side can't be told from an addition on the other, so a deleted item may come back — never lost.)
+ */
+const MERGE: Record<string, (win: any, lose: any) => any> = {
+  [INDEX_KEY]: (win, lose) => {
+    if (!Array.isArray(win) || !Array.isArray(lose)) return null;
+    const ids = idsOf(win);
+    const extra = lose.filter((e: any) => e && e.id && !ids.has(e.id) && !meta[DAY_PREFIX + e.id]?.d);
+    return [...win, ...extra].sort((p: any, q: any) => (q.updatedAt || 0) - (p.updatedAt || 0));
+  },
+  [EXAMS_KEY]: (win, lose) => {
+    if (!Array.isArray(win) || !Array.isArray(lose)) return null;
+    const ids = idsOf(win);
+    return [...win, ...lose.filter((e: any) => e && e.id && !ids.has(e.id))];
+  },
+  [PLANNER_KEY]: (win, lose) => {
+    if (!win || !lose || typeof win !== 'object' || typeof lose !== 'object') return null;
+    const out = JSON.parse(JSON.stringify(win));
+    out.items = out.items || {};
+    const have = new Set<string>();
+    Object.keys(out.items).forEach((d) => (out.items[d] || []).forEach((it: any) => it && it.id && have.add(it.id)));
+    Object.keys(lose.items || {}).forEach((d) => {
+      (lose.items[d] || []).forEach((it: any) => { if (it && it.id && !have.has(it.id)) { (out.items[d] = out.items[d] || []).push(it); have.add(it.id); } });
     });
-    return JSON.stringify([...by.values()].sort((p, q) => (q.updatedAt || 0) - (p.updatedAt || 0)));
+    ['sourceColors', 'sourceTypes', 'timeline', 'dayRests'].forEach((f) => {
+      if (lose[f] && typeof lose[f] === 'object') out[f] = { ...lose[f], ...(out[f] || {}) };
+    });
+    return out;
+  }
+};
+const isMergeable = (k: string) => Object.prototype.hasOwnProperty.call(MERGE, k);
+
+function tryMerge(k: string, local: string, remote: string, remoteWins: boolean): string | null {
+  try {
+    const l = JSON.parse(local), r = JSON.parse(remote);
+    const m = remoteWins ? MERGE[k](r, l) : MERGE[k](l, r);
+    return m == null ? null : JSON.stringify(m);
   } catch { return null; }
 }
 
@@ -144,13 +192,14 @@ export function applyRemoteKv(rec: Row): boolean {
   const k = rec.key;
   if (!isSynced(k)) return false;
   const m = meta[k];
-  if (k === INDEX_KEY && m?.p && !rec.deleted && typeof rec.value === 'string') {
+  if (m && rec.device === DEVICE && rec.updated_at <= m.t) return false; // echo of our own write
+  if (isMergeable(k) && m?.p && !m.d && !rec.deleted && typeof rec.value === 'string' && rec.device !== DEVICE) {
     const cur = lsGet(k);
-    const merged = cur !== null && cur !== rec.value ? mergeIndex(cur, rec.value) : null;
+    const merged = cur !== null && cur !== rec.value ? tryMerge(k, cur, rec.value, rec.updated_at > m.t) : null;
     if (merged !== null) {
       if (merged !== cur) { applying = true; try { rawSet.call(localStorage, k, merged); } catch { /* full */ } finally { applying = false; } }
-      meta[k] = { t: Math.max(Date.now(), rec.updated_at + 1), p: 1 }; saveMetaSoon();
-      if (uid) schedulePush();
+      meta[k] = { t: Math.max(Date.now(), rec.updated_at + 1), p: 1 }; saveMetaNow();
+      if (uid) schedulePush(0);
       return merged !== cur;
     }
   }
@@ -189,14 +238,18 @@ export async function handleRealtimeKv(rec: Partial<Row> & { key?: string }): Pr
 // ---------------------------------------------------------------- full reconcile (start-up, back online, every few minutes)
 export async function reconcileKv(): Promise<string[]> {
   if (!uid) return [];
-  const list = await supabase.selectAll<{ key: string; updated_at: number; deleted: boolean }>('user_data', 'select=key,updated_at,deleted&order=key.asc');
+  let list = await supabase.selectAll<{ key: string; updated_at: number; deleted: boolean; device?: string }>('user_data', 'select=key,updated_at,deleted,device&order=key.asc');
+  if (list.error && /device/i.test(list.error)) { // older table without the column
+    deviceColumn = false;
+    list = await supabase.selectAll<{ key: string; updated_at: number; deleted: boolean; device?: string }>('user_data', 'select=key,updated_at,deleted&order=key.asc');
+  }
   if (list.error || !list.data) throw new Error(list.error || 'list failed');
   const remote = new Map(list.data.map((r) => [r.key, r]));
   const need: string[] = [];
   for (const r of list.data) {
     if (!isSynced(r.key)) continue;
     const m = meta[r.key];
-    if (m && m.t >= r.updated_at && !(r.key === INDEX_KEY && m.p)) continue;
+    if (m && m.t >= r.updated_at && !(isMergeable(r.key) && m.p && r.device !== DEVICE)) continue;
     if (!m && lsGet(r.key) === null && r.deleted) { meta[r.key] = { t: r.updated_at }; continue; }
     need.push(r.key);
   }
@@ -213,7 +266,7 @@ export async function reconcileKv(): Promise<string[]> {
   for (let i = 0; i < need.length; i += 25) {
     const chunk = need.slice(i, i + 25);
     const q = chunk.map((k) => '"' + k.replace(/"/g, '\\"') + '"').join(',');
-    const r = await supabase.select<Row>('user_data', `select=key,value,deleted,updated_at&key=in.(${encodeURIComponent(q)})`);
+    const r = await supabase.select<Row>('user_data', `select=${deviceColumn ? 'key,value,deleted,updated_at,device' : 'key,value,deleted,updated_at'}&key=in.(${encodeURIComponent(q)})`);
     if (r.error || !r.data) throw new Error(r.error || 'fetch failed');
     r.data.forEach((row) => { if (applyRemoteKv(row)) changed.push(row.key); });
   }

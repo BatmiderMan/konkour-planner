@@ -1,6 +1,7 @@
 // Lightweight, zero-dependency Supabase client: login (no sign-up!), token refresh, REST tables and Storage.
 // No npm package is needed, so `npm ci` keeps working with the existing package-lock.json.
 
+
 export const SUPABASE_URL = 'https://eyspwfsqypcfpjghlluv.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable_p8JkFSGY84OuydpebtGAlw_NedAISOQ';
 

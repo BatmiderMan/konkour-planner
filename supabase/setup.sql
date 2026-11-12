@@ -15,6 +15,9 @@ create table if not exists public.user_data (
   primary key (user_id, key)
 );
 
+-- (added later) which device wrote the row: a device ignores its own echoes and merges with the OTHER devices' edits
+alter table public.user_data add column if not exists device text;
+
 -- answer-key library: kind = 'book' | 'sheet' | 'scan'
 create table if not exists public.lib_docs (
   user_id    uuid    not null references auth.users(id) on delete cascade,

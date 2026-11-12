@@ -6,6 +6,8 @@ The app already points at your project (`src/supabase.ts`). You only have to pre
 Supabase dashboard → **SQL Editor** → New query → paste the whole file `supabase/setup.sql` → **Run**.
 (It is safe to run twice.)
 
+> **Updating from an older version?** Run `supabase/setup.sql` once more (safe). It adds one column that lets devices recognise their own changes. Sync keeps working even if you forget, but merging after being offline is more precise with it.
+
 ## 2. Close registration  ← important
 Dashboard → **Authentication → Sign In / Providers** (older UI: *Settings*) → turn **OFF**
 **"Allow new users to sign up"** → Save.
@@ -32,8 +34,8 @@ To remove a friend: delete the user in the same page — their data goes with th
   The bucket refuses files over 1 MB.
 * **Conflicts:** per item the newest edit wins. A value that lost is kept in `localStorage["planex_sync_conflicts_v1"]`.
   The list of days is merged (both devices' days are kept).
-* **Realtime:** the vault, the answer-key library and the open day update live. Other settings (tracker, exams …)
-  show a small "تغییرات تازه … بارگذاری" chip, and reload by themselves the next time you come back to the app.
+* **Realtime:** changes appear on your other devices about a second later, with no question asked: planner, days, exams, schedule, tracker, vault and answer-key library all update on screen. If you are typing in a field at that moment, the update waits until you stop.
+* **Offline:** edits are kept (even if you close the app). When the connection returns, waiting changes are sent first, then everything missed is fetched. If both devices changed the planner/exams meanwhile, both devices' additions are kept (a task deleted on one side may come back, but nothing is lost). Failed attempts retry automatically (3 s, 6 s … 60 s).
 * **Not synced:** the music library (audio files stay on each device) and device-only UI state (theme, last tab, running timer).
 
 ## Good to know (free plan)

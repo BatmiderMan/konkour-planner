@@ -25,12 +25,12 @@ export function setLibUser(id: string | null) { uid = id; if (id) pend = read(PE
 export function resetLibMeta() { pend = {}; savePend(); }
 export const libPendingCount = () => Object.keys(pend).length;
 
-function scheduleFlush(delay = 2500) { clearTimeout(flushTimer); flushTimer = setTimeout(() => { void flushLib(); }, delay); } // sheets are saved on every tap → wait a little
+function scheduleFlush(delay = 900) { clearTimeout(flushTimer); flushTimer = setTimeout(() => { void flushLib(); }, delay); } // sheets are saved on every tap → wait a little
 
 export function installLibHooks() {
   enabled = true;
   cloudHooks.libPut = (kind, id) => { if (!enabled) return; pend[pk(kind, id)] = {}; savePend(); if (uid) scheduleFlush(); };
-  cloudHooks.libDel = (kind, id) => { if (!enabled) return; pend[pk(kind, id)] = { del: Date.now() }; savePend(); if (uid) scheduleFlush(800); };
+  cloudHooks.libDel = (kind, id) => { if (!enabled) return; pend[pk(kind, id)] = { del: Date.now() }; savePend(); if (uid) scheduleFlush(200); };
 }
 export function uninstallLibHooks() { enabled = false; delete cloudHooks.libPut; delete cloudHooks.libDel; }
 

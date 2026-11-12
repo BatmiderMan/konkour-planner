@@ -17,6 +17,9 @@ export class RealtimeLink {
   private backoff = 1000;
   private topic = 'realtime:planex-sync';
   private offToken: (() => void) | null = null;
+  private lastSeen = 0;      // last time ANY message arrived
+  private hbPending = false;   // a heartbeat was sent and not answered yet
+  private watchdog: any = null;
 
   constructor(private onEvent: (e: ChangeEvent) => void, private onLive: (live: boolean) => void) {}
 
@@ -29,7 +32,7 @@ export class RealtimeLink {
 
   stop() {
     this.running = false;
-    clearInterval(this.hb); clearTimeout(this.retry);
+    clearInterval(this.hb); clearTimeout(this.retry); clearTimeout(this.watchdog);
     this.offToken?.(); this.offToken = null;
     try { this.ws?.close(); } catch { /* ignore */ }
     this.ws = null; this.onLive(false);
@@ -61,9 +64,11 @@ export class RealtimeLink {
         access_token: token
       });
       clearInterval(this.hb);
-      this.hb = setInterval(() => this.send('heartbeat', {}, 'phoenix'), 25000);
+      this.lastSeen = Date.now(); this.hbPending = false;
+      this.hb = setInterval(() => this.beat(), 15000);
     };
     ws.onmessage = (m) => {
+      this.lastSeen = Date.now(); this.hbPending = false; clearTimeout(this.watchdog);
       let msg: any; try { msg = JSON.parse(String(m.data)); } catch { return; }
       if (msg.topic === this.topic && msg.event === 'phx_reply') {
         if (msg.payload?.status === 'ok') { this.backoff = 1000; this.onLive(true); }
@@ -86,6 +91,26 @@ export class RealtimeLink {
     this.backoff = Math.min(30000, this.backoff * 2);
   }
 
-  /** (re)connect right now, e.g. when the phone comes back online */
-  poke() { if (this.running && !this.ws) { clearTimeout(this.retry); this.backoff = 1000; void this.connect(); } }
+  /** a socket that silently died (sleeping laptop, changed Wi-Fi) never says so: ask it to answer, and replace it if it does not */
+  private beat() {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    if (this.hbPending) { this.kill(); return; } // the previous heartbeat got no answer
+    this.hbPending = true;
+    this.send('heartbeat', {}, 'phoenix');
+    clearTimeout(this.watchdog);
+    this.watchdog = setTimeout(() => { if (this.hbPending) this.kill(); }, 6000);
+  }
+  private kill() {
+    clearInterval(this.hb); clearTimeout(this.watchdog);
+    const w = this.ws; this.ws = null; this.onLive(false);
+    try { w?.close(); } catch { /* ignore */ }
+    this.schedule();
+  }
+
+  /** (re)connect right now, e.g. when the phone comes back online or the tab is shown again */
+  poke() {
+    if (!this.running) return;
+    if (!this.ws) { clearTimeout(this.retry); this.backoff = 1000; void this.connect(); return; }
+    if (Date.now() - this.lastSeen > 20000) this.beat(); // quiet for a while: make sure it is still alive
+  }
 }

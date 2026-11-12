@@ -1,23 +1,13 @@
 import React from 'react';
-import { reloadForRemote, useSyncStatus } from '../sync';
+import { useSyncStatus } from '../sync';
 
-/** small floating chip: shows sync problems, and offers a reload when another device changed settings that are read at start-up */
+/** small floating chip: only shows when syncing has a problem (offline / error). Changes from other devices appear by themselves. */
 export const SyncBanner: React.FC = () => {
   const s = useSyncStatus();
-  if (s.state === 'off') return null;
-  const reload = s.needsReload;
-  const bad = s.state === 'error' || s.state === 'offline';
-  if (!reload && !bad) return null;
+  if (s.state !== 'error' && s.state !== 'offline') return null;
   return (
-    <div className={`sync-banner${bad && !reload ? ' bad' : ''}`} role="status">
-      {reload ? (
-        <>
-          <span>تغییرات تازه‌ای از دستگاه دیگر رسید</span>
-          <button type="button" onClick={reloadForRemote}>بارگذاری</button>
-        </>
-      ) : (
-        <span>{s.message}</span>
-      )}
+    <div className="sync-banner bad" role="status">
+      <span>{s.message}</span>
     </div>
   );
 };

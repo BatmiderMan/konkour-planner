@@ -17,7 +17,7 @@ import {
   getJalaliDayOfWeek
 } from './jalali';
 import { supabase } from './supabase';
-import { REMOTE_KV_EVENT, reloadForRemote, syncNow, useSyncStatus } from './sync';
+import { REMOTE_KV_EVENT, syncNow, useSyncStatus } from './sync';
 import { Toolbar } from './components/Toolbar';
 import { ReportHeader } from './components/ReportHeader';
 import { StudyBlockItem } from './components/StudyBlockItem';
@@ -288,12 +288,24 @@ export const App: React.FC = () => {
   };
 
   // Another device changed a day (or the list of days): show it without a reload
+  // views that read their data when they open get a new `key` when another device changed that data → they reload it, live
+  const [ep, setEp] = useState({ planner: 0, exams: 0, schedule: 0 });
   const currentIdRef = useRef<string | null>(null);
   const skipNextSave = useRef(false);
   useEffect(() => { currentIdRef.current = currentId; }, [currentId]);
   useEffect(() => {
     const onRemote = (e: Event) => {
       const keys: string[] = (e as CustomEvent).detail?.keys || [];
+      // wait until the person is not typing in a field, so a live update never eats half a sentence
+      const whenIdle = (fn: () => void, tries = 0) => {
+        const a = document.activeElement as HTMLElement | null;
+        const typing = !!a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable);
+        if (typing && tries < 60) window.setTimeout(() => whenIdle(fn, tries + 1), 500); else fn();
+      };
+      const bump = (name: 'planner' | 'exams' | 'schedule') => whenIdle(() => setEp((x) => ({ ...x, [name]: x[name] + 1 })));
+      if (keys.includes('konkour_planner_data_v1')) { bump('planner'); whenIdle(() => setPlanRefreshToken((x) => x + 1)); }
+      if (keys.some((k) => k === 'konkour_exams_v2' || k === 'konkour_exam_settings_v2')) bump('exams');
+      if (keys.includes('konkour_schedule_v1')) bump('schedule');
       try {
         let index: DayIndexEntry[] | null = null;
         if (keys.includes(KEY_INDEX)) {
@@ -906,13 +918,13 @@ export const App: React.FC = () => {
       {section === 'today' ? (
         <TodayView refreshToken={planRefreshToken} onOpenPlanner={() => setSection('planner')} onOpenSchedule={() => setSection('schedule')} onOpenVault={() => setSection('vault')} onSendToReport={handleSendFromPlanner} />
       ) : section === 'planner' ? (
-        <PlannerView onSendToReport={handleSendFromPlanner} onOpenTracker={() => setSection('tracker')} />
+        <PlannerView key={'pl' + ep.planner} onSendToReport={handleSendFromPlanner} onOpenTracker={() => setSection('tracker')} />
       ) : section === 'tracker' ? (
         <TrackerView onPlanChanged={() => setPlanRefreshToken((x) => x + 1)} onOpenPlanner={() => setSection('planner')} />
       ) : section === 'schedule' ? (
-        <ScheduleView onOpenExams={() => setSection('exams')} onOpenPlanner={() => { setSection('planner'); setPlanRefreshToken((x) => x + 1); }} />
+        <ScheduleView key={'sc' + ep.schedule} onOpenExams={() => setSection('exams')} onOpenPlanner={() => { setSection('planner'); setPlanRefreshToken((x) => x + 1); }} />
       ) : section === 'exams' ? (
-        <ExamsView />
+        <ExamsView key={'ex' + ep.exams} />
       ) : section === 'checker' ? (
         <CheckerView focus={checkerFocus} onFocusUsed={() => setCheckerFocus(null)} />
       ) : section === 'bank' ? (
