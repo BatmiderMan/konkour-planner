@@ -17,10 +17,14 @@ export interface ReviewReq {
   title?: string;
 }
 
-interface Host { editor: (d: EditorDraft) => void; review: (r: ReviewReq) => void }
+/** what the bulk importer starts with */
+export interface BulkDraft { book?: string; lesson?: string; units?: string[]; files?: File[] }
+
+interface Host { editor: (d: EditorDraft) => void; review: (r: ReviewReq) => void; bulk: (d: BulkDraft) => void }
 let host: Host | null = null;
 export const registerVaultHost = (h: Host | null) => { host = h; };
 export const openVaultEditor = (d: EditorDraft = {}): void => { host?.editor(d); };
+export const openVaultBulk = (d: BulkDraft = {}): void => { host?.bulk(d); };
 export const openVaultReview = (r: ReviewReq = {}): void => { host?.review(r); };
 
 export const GOTO_VAULT_EVENT = 'planex:goto-vault';

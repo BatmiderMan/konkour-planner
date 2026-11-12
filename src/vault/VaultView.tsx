@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarPlus, Download, Flame, Gem, Link2, Pencil, Play, Plus, Search, Star, Upload } from 'lucide-react';
+import { CalendarPlus, Download, Flame, Gem, ImagePlus, Link2, Pencil, Play, Plus, Search, Star, Upload } from 'lucide-react';
 import { alertDialog } from '../dialog';
 import { showUndo } from '../undo';
 import { SkeletonRows } from '../components/ui/Skeleton';
@@ -11,7 +11,7 @@ import {
   CAUSE_LABEL, DIFF_LABEL, VaultQ, WHY, WeakArea, VaultWhy, dueOf, exportBackup, importBackup, isDue, isLeech, isOpenMistake, patchQuestion,
   practicedToday, recordResult, useVault, useVaultImage, vaultStreak, weakAreas
 } from './store';
-import { VaultFocus, openVaultEditor, openVaultReview } from './launch';
+import { VaultFocus, openVaultBulk, openVaultEditor, openVaultReview } from './launch';
 import './vault.css';
 
 type Status = '' | 'due' | 'open' | 'fresh' | 'star' | 'leech';
@@ -193,6 +193,7 @@ export const VaultView: React.FC<Props> = ({ focus, onFocusUsed, onOpenTracker, 
         <p>سؤال‌هایی که غلط زدی یا ارزش یادآوری دارند؛ با مرور فاصله‌دار تا ته‌ذهنت می‌مانند.</p>
         <div className="vt-actions">
           <button type="button" className="vt-btn p" onClick={() => openVaultEditor({ book: f.book, lesson: f.lesson, units: f.unit ? [f.unit] : [] })}><Plus size={17} /> ذخیرهٔ سؤال</button>
+          <button type="button" className="vt-btn vb-entry" onClick={() => openVaultBulk({ book: f.book, lesson: f.lesson, units: f.unit ? [f.unit] : [] })} title="چندین عکس را یکجا وارد کنید؛ هر دو عکس = یک سؤال"><ImagePlus size={17} /> ورود گروهی عکس‌ها</button>
           <button type="button" className="vt-btn go" disabled={!items.length} onClick={() => openVaultReview({ mode: 'smart', book: f.book || undefined, unit: f.unit || undefined })}><Play size={16} /> مرور هوشمند{cnt.due ? ` (${P(cnt.due)})` : ''}</button>
           <button type="button" className="vt-btn" disabled={!view.length} onClick={() => openVaultReview({ ids: view.map((q) => q.id), title: 'مرور ' + title })}>مرور این فهرست</button>
           <button type="button" className="vt-btn icon" aria-label="پشتیبان‌گیری" title="خروجی پشتیبان" disabled={!items.length} onClick={doExport}><Download size={17} /></button>
@@ -275,6 +276,7 @@ export const VaultView: React.FC<Props> = ({ focus, onFocusUsed, onOpenTracker, 
           <h2>{items.length ? 'موردی با این فیلترها پیدا نشد' : 'گنجینهٔ شما خالی است'}</h2>
           <p>{items.length ? 'فیلتر یا جستجوی دیگری امتحان کنید.' : 'از سؤالی که غلط زدید عکس بگیرید یا paste کنید، گزینهٔ درست را مشخص کنید و ذخیره کنید. سؤال‌های غلط «بانک تست» هم با یک دکمه به اینجا می‌آیند.'}</p>
           {!items.length && <button type="button" className="vt-btn p" onClick={() => openVaultEditor({})}><Plus size={17} /> اولین سؤال را ذخیره کنید</button>}
+          {!items.length && <button type="button" className="vt-btn go" onClick={() => openVaultBulk({})}><ImagePlus size={17} /> ورود گروهی از گالری</button>}
         </div>
       )}
 
