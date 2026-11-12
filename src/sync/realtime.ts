@@ -3,7 +3,7 @@
  * Row-level security still applies: each person only ever receives rows of their own account.
  * If the socket is down the app still works: a reconcile runs on focus / when back online / every few minutes.
  */
-import { SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from '../supabase';
+import { SUPABASE_ANON_KEY, supabase, supabaseUrl } from '../supabase';
 
 export interface ChangeEvent { table: string; type: 'INSERT' | 'UPDATE' | 'DELETE'; record: any }
 const TABLES = ['user_data', 'lib_docs', 'vault_items'];
@@ -46,7 +46,7 @@ export class RealtimeLink {
     const token = await supabase.getToken();
     if (!token) { this.schedule(); return; }
     let ws: WebSocket;
-    try { ws = new WebSocket(`${SUPABASE_URL.replace(/^http/, 'ws')}/realtime/v1/websocket?apikey=${encodeURIComponent(SUPABASE_ANON_KEY)}&vsn=1.0.0`); }
+    try { ws = new WebSocket(`${supabaseUrl().replace(/^http/, 'ws')}/realtime/v1/websocket?apikey=${encodeURIComponent(SUPABASE_ANON_KEY)}&vsn=1.0.0`); }
     catch { this.schedule(); return; }
     this.ws = ws;
 

@@ -42,7 +42,7 @@ function refreshStatus(extra: Partial<ReturnType<typeof getSyncStatus>> = {}) {
   let state = getSyncStatus().state;
   let message = '';
   if (typeof navigator !== 'undefined' && navigator.onLine === false) { state = 'offline'; message = 'آفلاین — تغییرات پس از اتصال ارسال می‌شود'; }
-  else if (err) { state = 'error'; message = 'خطا در همگام‌سازی — دوباره تلاش می‌شود'; }
+  else if (err) { state = 'error'; message = 'خطا در همگام‌سازی — دوباره تلاش می‌شود (' + String(err).slice(0, 90) + ')'; }
   else if (busy) { state = 'syncing'; message = 'در حال همگام‌سازی…'; }
   else if (state !== 'connecting' || extra.lastSync) { state = 'live'; message = pending() ? `${pending()} تغییر در انتظار ارسال` : 'همگام با سرور ✓'; }
   setSyncStatus({ state, message, ...extra });
