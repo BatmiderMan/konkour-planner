@@ -1,8 +1,8 @@
 // Lightweight, zero-dependency Supabase client: login (no sign-up!), token refresh, REST tables and Storage.
 // No npm package is needed, so `npm ci` keeps working with the existing package-lock.json.
 
-export const SUPABASE_URL = 'https://qjeimnjulbbxnkjjlpri.supabase.co';
-export const SUPABASE_ANON_KEY = 'sb_publishable_7r0LW4rHe7rBIiHroFr3jg_HDY0hIGG';
+export const SUPABASE_URL = 'https://eyspwfsqypcfpjghlluv.supabase.co';
+export const SUPABASE_ANON_KEY = 'sb_publishable_p8JkFSGY84OuydpebtGAlw_NedAISOQ';
 
 /** Accounts are created by you in the Supabase dashboard. A person may type just «ali» — it becomes ali@planex.app. */
 export const USER_DOMAIN = 'planex.app';
