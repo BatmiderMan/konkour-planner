@@ -48,6 +48,8 @@ import {
   SelectMode
 } from './plannerInteraction';
 import { PlannerWeekView } from './PlannerWeekView';
+import { WeekPresetsPanel } from './WeekPresets';
+import type { ApplyResult } from '../../weekPresets';
 import { PlannerMonthView } from './PlannerMonthView';
 import { PlannerSettingsView } from './PlannerSettingsView';
 import { alertDialog } from '../../dialog';
@@ -163,6 +165,7 @@ export const PlannerView: React.FC<PlannerViewProps> = ({ onSendToReport, onOpen
   React.useEffect(() => () => clearTimeout(toastTimer.current), []);
 
   const [showHelp, setShowHelp] = React.useState(false);
+  const [presetsOpen, setPresetsOpen] = React.useState(false);
 
   // ---------- topic tracker: auto plan + backlog (both go through persist, so undo works) ----------
   const applyAutoPlan = (days: AutoPlanDay[], round: TRound, minutes?: number): number => {
@@ -671,6 +674,15 @@ export const PlannerView: React.FC<PlannerViewProps> = ({ onSendToReport, onOpen
     };
   });
 
+  // a week preset was loaded: one history step, so «بازگردانی» takes the whole load back
+  const presetApplied = (r: ApplyResult, name: string) => {
+    persist(r.data);
+    setSelection([]);
+    setSubView('week');
+    setCursor(r.firstWeek);
+    showToast(`قالب «${name}» اعمال شد: ${n(r.added)} کارت${r.weeks > 1 ? ` در ${n(r.weeks)} هفته` : ''}${r.removed ? ` (${n(r.removed)} کارت قبلی جایگزین شد)` : ''}`, true);
+  };
+
   // copy the whole visible week onto the next week (weekly templates!)
   const repeatWeek = () => {
     const refs: ItemRef[] = [];
@@ -788,6 +800,7 @@ export const PlannerView: React.FC<PlannerViewProps> = ({ onSendToReport, onOpen
           <div className="pl-topbar-tools">
             <button type="button" className={weekAllTimeline ? 'on' : ''} onClick={() => setWeekTimeline(!weekAllTimeline)} title="نمایش / پنهان کردن ساعت‌بندی همه‌ی روزها">⏱<span>ساعت‌بندی</span></button>
             <button type="button" onClick={repeatWeek} title="همه‌ی پارت‌های این هفته را به هفته بعد کپی کن">⧉<span>تکرار هفته</span></button>
+            <button type="button" className={presetsOpen ? 'on' : ''} onClick={() => setPresetsOpen(true)} title="ذخیره، ویرایش و بارگذاری قالب‌های هفته">📑<span>قالب‌ها</span></button>
           </div>
         )}
       </div>
@@ -918,6 +931,10 @@ export const PlannerView: React.FC<PlannerViewProps> = ({ onSendToReport, onOpen
           <button type="button" className="danger" onClick={() => removeRefs(selection)} title="حذف (Delete)">× حذف</button>
           <button type="button" onClick={() => setSelection([])} title="لغو انتخاب (Esc)">✕</button>
         </div>
+      )}
+
+      {presetsOpen && (
+        <WeekPresetsPanel data={data} weekStart={cursor} onClose={() => setPresetsOpen(false)} onApplied={presetApplied} />
       )}
 
       {toast && (

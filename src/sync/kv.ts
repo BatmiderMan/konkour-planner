@@ -142,6 +142,7 @@ const INDEX_KEY = 'konkour_days_index_v2';
 const DAY_PREFIX = 'konkour_day_data_v2:';
 const PLANNER_KEY = 'konkour_planner_data_v1';
 const EXAMS_KEY = 'konkour_exams_v2';
+const PRESETS_KEY = 'konkour_week_presets_v1';
 
 const idsOf = (x: any): Set<string> => new Set((Array.isArray(x) ? x : []).map((e: any) => e && e.id).filter(Boolean));
 
@@ -156,6 +157,11 @@ const MERGE: Record<string, (win: any, lose: any) => any> = {
     const ids = idsOf(win);
     const extra = lose.filter((e: any) => e && e.id && !ids.has(e.id) && !meta[DAY_PREFIX + e.id]?.d);
     return [...win, ...extra].sort((p: any, q: any) => (q.updatedAt || 0) - (p.updatedAt || 0));
+  },
+  [PRESETS_KEY]: (win, lose) => {
+    if (!Array.isArray(win) || !Array.isArray(lose)) return null;
+    const ids = idsOf(win);
+    return [...win, ...lose.filter((e: any) => e && e.id && !ids.has(e.id))];
   },
   [EXAMS_KEY]: (win, lose) => {
     if (!Array.isArray(win) || !Array.isArray(lose)) return null;
