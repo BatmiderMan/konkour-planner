@@ -12,9 +12,9 @@
  */
 import { supabase } from '../supabase';
 import { RealtimeLink, ChangeEvent } from './realtime';
-import { announce, flushKvMeta, handleRealtimeKv, installKvHook, onRemoteKeys, pendingCount, pushKv, reconcileKv, resetKvMeta, setKvStatusHandler, setKvUser } from './kv';
-import { flushVault, handleRealtimeVault, installVaultHooks, reconcileVault, resetVaultMeta, setVaultStatusHandler, setVaultUser, vaultPendingCount } from './vaultSync';
-import { flushLib, handleRealtimeLib, installLibHooks, libPendingCount, reconcileLib, resetLibMeta, setLibStatusHandler, setLibUser } from './libSync';
+import { announce, flushKvMeta, handleRealtimeKv, installKvHook, kvDiagnostics, markAllPending, onRemoteKeys, pendingCount, pushKv, reconcileKv, resetKvMeta, setKvStatusHandler, setKvUser } from './kv';
+import { flushVault, handleRealtimeVault, installVaultHooks, markAllVaultPending, reconcileVault, resetVaultMeta, setVaultStatusHandler, setVaultUser, vaultPendingCount } from './vaultSync';
+import { flushLib, handleRealtimeLib, installLibHooks, libPendingCount, markAllLibPending, reconcileLib, resetLibMeta, setLibStatusHandler, setLibUser } from './libSync';
 import { getSyncStatus, setSyncStatus } from './status';
 
 export { useSyncStatus } from './status';
@@ -45,7 +45,7 @@ function refreshStatus(extra: Partial<ReturnType<typeof getSyncStatus>> = {}) {
   const busy = saving.kv || saving.vault || saving.lib || reconciling;
   let state = getSyncStatus().state;
   let message = '';
-  if (isOffline()) { state = 'offline'; message = pending() ? `آفلاین — ${pending()} تغییر پس از اتصال ارسال می‌شود` : 'آفلاین — پس از اتصال همگام می‌شود'; }
+  if (isOffline() && err) { state = 'offline'; message = pending() ? `آفلاین — ${pending()} تغییر پس از اتصال ارسال می‌شود` : 'آفلاین — پس از اتصال همگام می‌شود'; }
   else if (err) { state = 'error'; message = 'خطا در همگام‌سازی — دوباره تلاش می‌شود (' + String(err).slice(0, 90) + ')'; }
   else if (busy) { state = 'syncing'; message = 'در حال همگام‌سازی…'; }
   else if (state !== 'connecting' || extra.lastSync) { state = 'live'; message = pending() ? `${pending()} تغییر در انتظار ارسال` : 'همگام با سرور ✓'; }
@@ -61,7 +61,7 @@ function scheduleRetry() {
   if (retryTimer || !supabase.getUser()) return;
   const wait = Math.min(60000, 3000 * 2 ** Math.min(failures, 5));
   failures++;
-  retryTimer = setTimeout(() => { retryTimer = null; if (!isOffline()) void syncNow(); else scheduleRetry(); }, wait);
+  retryTimer = setTimeout(() => { retryTimer = null; void syncNow(); }, wait);
 }
 
 // ---------------------------------------------------------------- remote → local, shown at once
@@ -84,7 +84,6 @@ function onRealtime(e: ChangeEvent) {
 // ---------------------------------------------------------------- send what is waiting, fetch what was missed
 export async function syncNow(): Promise<boolean> {
   if (!supabase.getUser() || reconciling) return false;
-  if (isOffline()) { refreshStatus(); return false; }
   reconciling = true; refreshStatus();
   let ok = true;
   try {
@@ -146,6 +145,28 @@ function stopSync() {
   rt?.stop(); clearInterval(timer); clearTimeout(retryTimer); retryTimer = null; wasLive = false; failures = 0;
   setKvUser(null); setVaultUser(null); setLibUser(null);
   setSyncStatus({ state: 'off', live: false, message: '', needsReload: false, lastSync: 0 });
+}
+
+/** everything the «همگام‌سازی» panel shows (and what «کپی گزارش» copies) */
+export function getDiagnostics() {
+  const st = getSyncStatus();
+  return {
+    state: st.state, realtime: st.live, lastSync: st.lastSync, message: st.message,
+    pending: { settings: pendingCount(), vault: vaultPendingCount(), library: libPendingCount() },
+    errors: { settings: errors.kv, vault: errors.vault, library: errors.lib },
+    kv: kvDiagnostics(),
+    session: supabase.sessionInfo(),
+    browserOnline: typeof navigator !== 'undefined' ? navigator.onLine : null,
+    failures, time: new Date().toISOString()
+  };
+}
+
+/** «send everything»: queue every local item again and push, then compare with the server */
+export async function pushEverything(): Promise<{ ok: boolean; counts: { settings: number; vault: number; library: number } }> {
+  const counts = { settings: markAllPending(), vault: markAllVaultPending(), library: await markAllLibPending() };
+  failures = 0; clearTimeout(retryTimer); retryTimer = null;
+  const ok = await syncNow();
+  return { ok, counts };
 }
 
 export function initCloudSync() {

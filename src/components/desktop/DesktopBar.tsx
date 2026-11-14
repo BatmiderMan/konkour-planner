@@ -71,9 +71,11 @@ const Island: React.FC<{ onStartPicker: () => void; onOpenMusic: () => void }> =
           </svg>
           <span className="isl-tx"><b className="isl-time"><Clock sec={shown} running={live.running} round="ceil" /></b><em>{brk ? 'استراحت' : live.item.subject}{live.running ? '' : ' · متوقف'}</em></span>
         </button>
-        <button type="button" className="isl-btn" onClick={() => (live.running ? pauseLivePlan() : resumeLivePlan())} aria-label={live.running ? 'توقف' : 'ادامه'} title={live.running ? 'توقف' : 'ادامه'}>
-          {live.running ? <Pause size={16} /> : <Play size={16} />}
-        </button>
+        {!live.beast && (
+          <button type="button" className="isl-btn" onClick={() => (live.running ? pauseLivePlan() : resumeLivePlan())} aria-label={live.running ? 'توقف' : 'ادامه'} title={live.running ? 'توقف' : 'ادامه'}>
+            {live.running ? <Pause size={16} /> : <Play size={16} />}
+          </button>
+        )}
       </div>
     );
   } else {

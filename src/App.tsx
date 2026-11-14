@@ -25,6 +25,7 @@ import { TasksRoutineCard } from './components/TasksRoutineCard';
 import { TotalCard } from './components/TotalCard';
 import { AuthModal } from './components/AuthModal';
 import { SyncBanner } from './components/SyncBanner';
+import { SyncPanel } from './components/SyncPanel';
 import { PeriodReportModal } from './components/PeriodReportModal';
 import { SleepDrawer, SleepInline, useIsPhone } from './components/SleepDrawer';
 import { PlannerView } from './components/planner/PlannerView';
@@ -43,6 +44,7 @@ import { WelcomeBack } from './components/welcome/WelcomeBack';
 import { UndoHost } from './undo';
 import './components/ui/ui.css';
 import { FocusGuard } from './components/timer/FocusGuard';
+import { BeastHost } from './beast/BeastHost';
 import { CommandPalette } from './components/palette/CommandPalette';
 import { openLiveTimer } from './focusBus';
 import { getLivePlan } from './livePlan';
@@ -277,15 +279,20 @@ export const App: React.FC = () => {
   // Account state (the real syncing lives in ./sync — kv + vault + library, realtime)
   const sync = useSyncStatus();
   useEffect(() => {
-    const unsub = supabase.onAuthStateChange((session) => setUserEmail(session?.user?.email || null));
+    let had = !!supabase.getUser();
+    const unsub = supabase.onAuthStateChange((session) => {
+      setUserEmail(session?.user?.email || null);
+      if (had && !session && supabase.lastLogout?.reason === 'revoked') {
+        showStatus('نشست شما در سرور بسته شد؛ دوباره وارد شوید تا همگام‌سازی ادامه یابد');
+        setIsAuthOpen(true);
+      }
+      had = !!session;
+    });
     return () => unsub();
   }, []);
 
-  const syncFromCloud = async () => {
-    showStatus('همگام‌سازی با سرور...');
-    const ok = await syncNow();
-    showStatus(ok ? 'همگام با سرور ✓' : 'همگام‌سازی انجام نشد');
-  };
+  const [syncPanelOpen, setSyncPanelOpen] = useState(false);
+  const syncFromCloud = () => { setSyncPanelOpen(true); void syncNow(); };
 
   // Another device changed a day (or the list of days): show it without a reload
   // views that read their data when they open get a new `key` when another device changed that data → they reload it, live
@@ -844,6 +851,7 @@ export const App: React.FC = () => {
         style={{ display: 'none' }}
       />
       <SyncBanner />
+      {syncPanelOpen && <SyncPanel onClose={() => setSyncPanelOpen(false)} onSignOut={handleSignOut} />}
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
@@ -865,6 +873,7 @@ export const App: React.FC = () => {
       <WelcomeBack />
       <UndoHost />
       <FocusGuard />
+      <BeastHost onSaveToReport={handleLivePlanSaved} />
       <LinkPromptHost />
       <CommandPalette
         onGo={setSection}

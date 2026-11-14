@@ -62,9 +62,11 @@ export const PipTimer: React.FC<{ win: Window }> = ({ win }) => {
     <div className={`tm-pip ph-${m.phase}` + (live.running ? '' : ' paused')} style={{ ['--c' as any]: liveColor(live) }}>
       <div className="tm-pip-top">
         <span className="tm-pip-name">{live.item.subject}</span>
-        <button type="button" className="tm-pip-toggle" onClick={() => (live.running ? pauseLivePlan() : resumeLivePlan())} aria-label={live.running ? 'توقف موقت' : 'ادامه'}>
-          {live.running ? <Pause size={16} /> : <Play size={16} />}
-        </button>
+        {!live.beast && (
+          <button type="button" className="tm-pip-toggle" onClick={() => (live.running ? pauseLivePlan() : resumeLivePlan())} aria-label={live.running ? 'توقف موقت' : 'ادامه'}>
+            {live.running ? <Pause size={16} /> : <Play size={16} />}
+          </button>
+        )}
       </div>
       <div className="tm-pip-time"><Clock sec={look.mode === 'elapsed' || total <= 0 ? m.elapsed : m.shown} over={m.over && look.mode !== 'elapsed'} running={live.running} scope="timer" secs={look.secs} round={look.mode === 'elapsed' || total <= 0 ? 'floor' : 'ceil'} unit="دقیقه" /></div>
       <div className="tm-pip-bar"><i style={{ width: m.progress * 100 + '%' }} /></div>

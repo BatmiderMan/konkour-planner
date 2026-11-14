@@ -24,6 +24,12 @@ const pk = (kind: string, id: string) => kind + ':' + id;
 export function setLibUser(id: string | null) { uid = id; if (id) pend = read(PENDING, {}); }
 export function resetLibMeta() { pend = {}; savePend(); }
 export const libPendingCount = () => Object.keys(pend).length;
+export async function markAllLibPending(): Promise<number> {
+  let n = 0;
+  for (const kind of KINDS) { const docs = await listLocalDocs(kind); docs.forEach((d) => { pend[pk(kind, d.id)] = {}; n++; }); }
+  savePend();
+  return n;
+}
 
 function scheduleFlush(delay = 900) { clearTimeout(flushTimer); flushTimer = setTimeout(() => { void flushLib(); }, delay); } // sheets are saved on every tap → wait a little
 

@@ -53,6 +53,7 @@ export const FocusButton: React.FC<{ onStart: () => void; variant?: 'bar' | 'rai
     hold.current = setTimeout(() => {
       held.current = true;
       haptic(22);
+      if (live.beast) return; // a Beast part never pauses
       if (live.running) pauseLivePlan(); else resumeLivePlan();
     }, 520);
   };

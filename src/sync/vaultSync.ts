@@ -35,6 +35,13 @@ export function setVaultUser(id: string | null) {
 }
 export function resetVaultMeta() { pend = {}; vers = {}; savePend(); saveVers(); }
 export const vaultPendingCount = () => Object.keys(pend).length;
+/** «send everything»: queue every local question (data + both pictures) */
+export function markAllVaultPending(): number {
+  const items = getVault().items;
+  items.forEach((q) => { pend[q.id] = { meta: 1, q: 1, ...(q.hasEimg ? { e: 1 as const } : {}) }; });
+  savePend();
+  return items.length;
+}
 
 // ---------------------------------------------------------------- local change → queue
 function queue(id: string, patch: Pend, replace = false) {

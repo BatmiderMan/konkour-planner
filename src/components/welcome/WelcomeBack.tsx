@@ -39,9 +39,11 @@ export const WelcomeBack: React.FC = () => {
         <span>{what} هنوز باز است · {status}</span>
       </div>
       <button type="button" className="wb-go" onClick={() => { haptic(12); openLiveTimer(); close(); }}>باز کردن</button>
-      <button type="button" className="wb-ic" onClick={() => { haptic(10); if (live.running) pauseLivePlan(); else resumeLivePlan(); }} aria-label={live.running ? 'توقف' : 'ادامه'}>
-        {live.running ? <Pause size={16} /> : <Play size={16} />}
-      </button>
+      {!live.beast && (
+        <button type="button" className="wb-ic" onClick={() => { haptic(10); if (live.running) pauseLivePlan(); else resumeLivePlan(); }} aria-label={live.running ? 'توقف' : 'ادامه'}>
+          {live.running ? <Pause size={16} /> : <Play size={16} />}
+        </button>
+      )}
       <button type="button" className="wb-ic" onClick={close} aria-label="بستن"><X size={16} /></button>
     </div>
   );

@@ -25,16 +25,17 @@ export const FocusGuard: React.FC = () => {
   const [now, setNow] = React.useState(() => Date.now());
   const state = React.useRef<NudgeState | null>(null);
   const sessionKey = live ? `${live.dateKey}|${live.item.id}|${live.startedAtClock}|${liveKind(live)}` : '';
-  const isFocus = !!live && liveKind(live) !== 'break';
+  const beastPart = !!live?.beast; // Beast mode has its own rhythm: no break nudges, but leaving the page is always questioned
+  const isFocus = !!live && liveKind(live) !== 'break' && !beastPart;
   const running = !!live && live.running && isFocus;
 
   // 1) leaving the page while studying
   React.useEffect(() => {
-    if (!running || !prefs.guardExit) return;
+    if (!(running && prefs.guardExit) && !beastPart) return;
     const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
     window.addEventListener('beforeunload', h);
     return () => window.removeEventListener('beforeunload', h);
-  }, [running, prefs.guardExit]);
+  }, [running, prefs.guardExit, beastPart]);
 
   // a new session: re-arm the reminders; a finished one: clear the cards
   React.useEffect(() => {

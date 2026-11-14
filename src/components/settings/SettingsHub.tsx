@@ -12,6 +12,7 @@ import { toPersianDigits as P } from '../../utils';
 import { Clock } from '../../clock/Clock';
 import { useNow } from '../../clock/useNow';
 import { ANIMS, FILLS, FONTS, PRESETS, SEPS, activePreset, applyPreset, resetLook, setLook, useLook } from '../timer/timerLook';
+import { BeastSettings } from '../../beast/BeastSettings';
 import './settings.css';
 
 type ThemeMode = 'light' | 'dark' | 'auto';
@@ -117,6 +118,8 @@ export const SettingsHub: React.FC<{ themeMode: ThemeMode; onSetThemeMode: (m: T
         </div>
         <Switch on={hap} onChange={(v) => { setHaptics(v); setHap(v); }} label="لرزش لمسی" hint="روی گوشی، با لمس دکمه‌ها" />
       </section>
+
+      <BeastSettings />
 
       <ClockSettings />
 

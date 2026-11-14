@@ -86,6 +86,7 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
   const sheetRef = React.useRef<HTMLDivElement>(null);
 
   const sessionKey = live ? `${live.dateKey}|${live.item.id}|${live.startedAtClock}` : '';
+  const beast = !!live?.beast; // Beast mode part: wall-clock, no pause / extend / cancel / minimize
   const kind = live ? liveKind(live) : 'plan';
   const isBreak = kind === 'break';
 
@@ -195,6 +196,9 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
     return () => { window.clearInterval(id); timers.forEach((x) => window.clearTimeout(x)); };
   }, [tickRunning, tick.seconds, tick.style, tick.vibrate, sessionKey]);
 
+  // a Beast part keeps the timer in front: a reload or a stray tap can't hide it (the answer sheet button is the only way out, and the HUD stays)
+  React.useEffect(() => { if (beast && !result) setExpanded(true); }, [beast, sessionKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // a brand-new session opens the sheet (a session restored after a reload stays minimized)
   const prevKey = React.useRef(sessionKey);
   React.useEffect(() => {
@@ -267,6 +271,7 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && t.closest('input,textarea,select,button,[role=switch]')) return;
+      if (beast) { if (e.key === 'f' || e.key === 'F') toggleFull(); return; }
       if (e.key === ' ') { e.preventDefault(); live.running ? pauseLivePlan() : resumeLivePlan(); }
       else if (e.key === 'Escape') setExpanded(false);
       else if (e.key === 'f' || e.key === 'F') toggleFull();
@@ -274,7 +279,7 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [live, expanded, result, full]);
+  }, [live, expanded, result, full, beast]);
 
   const pickerNode = pickerOpen && !live ? <StartPicker dateKey={reportDateKey} dayLabel={reportDayLabel} onClose={onClosePicker} /> : null;
   const offerNode = offer && !live ? (
@@ -331,7 +336,7 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
 
   const pipNode = pipWin ? createPortal(<PipTimer win={pipWin} />, pipWin.document.body) : null;
   const pipActive = !!pipWin;
-  const toggleRun = () => { unlockAudio(); hapticTap(); live.running ? pauseLivePlan() : resumeLivePlan(); };
+  const toggleRun = () => { if (beast) return; unlockAudio(); hapticTap(); live.running ? pauseLivePlan() : resumeLivePlan(); };
   // the virtual answer sheet of this card: its clock follows this timer, per-question time is counted while the timer runs
   const openSheet = () => {
     openVirtual({
@@ -363,9 +368,11 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
             <span className="tm-pill-time"><Clock sec={bigSec} over={bigOver} running={live.running} secs={useSecs} round={bigRound} unit="دقیقه" /></span>
           </button>
           {!isBreak && <button type="button" className="tm-pill-btn" onClick={openSheet} aria-label="پاسخ‌برگ مجازی" title="پاسخ‌برگ مجازی این پارت"><ListChecks size={16} /></button>}
-          <button type="button" className="tm-pill-btn" onClick={toggleRun} aria-label={live.running ? 'توقف موقت' : 'ادامه'}>
-            {live.running ? <Pause size={16} /> : <Play size={16} />}
-          </button>
+          {!beast && (
+            <button type="button" className="tm-pill-btn" onClick={toggleRun} aria-label={live.running ? 'توقف موقت' : 'ادامه'}>
+              {live.running ? <Pause size={16} /> : <Play size={16} />}
+            </button>
+          )}
           <button type="button" className={'tm-pill-btn' + (pipActive ? ' on' : '')} onClick={togglePip} aria-label="پنجره‌ی شناور" title="پنجره‌ی شناور روی همه‌ی پنجره‌ها">
             <PictureInPicture2 size={16} />
           </button>
@@ -379,7 +386,7 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
   return (
     <>
       {pipNode}
-      <div className={'tm-backdrop' + (fsView ? ' full' : '')} onClick={() => !result && !fsView && setExpanded(false)}>
+      <div className={'tm-backdrop' + (fsView ? ' full' : '')} onClick={() => !result && !fsView && !beast && setExpanded(false)}>
         <div ref={sheetRef} className={`tm-sheet ph-${model.phase}` + (result ? ' is-form' : '') + (fsView ? ' full' : '') + (calm ? ' calm' : '') + (lookOpen ? ' look-open' : '')} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ ...(sheetVars as React.CSSProperties), ...(isPhone && !result ? sheetSwipe.style : {}) }}
           {...(skin ? { 'data-theme': look.theme, 'data-accent': look.accent, 'data-font': look.font, 'data-glow': look.glow ? 'on' : 'off', 'data-labels': look.labels ? 'on' : 'off' } : {})}
           {...(fsView ? { 'data-layout': look.layout, 'data-style': look.style, 'data-dim': look.dimCalm ? 'on' : 'off' } : {})}>
@@ -410,7 +417,7 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
                 <button type="button" className="tm-icon-btn" onClick={toggleFull} aria-label={full ? 'نمای کوچک‌تر' : 'نمای تمام‌صفحه'} title={full ? 'نمای کوچک‌تر (F)' : 'نمای تمام‌صفحه (F)'}>
                   {full ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                 </button>
-                <button type="button" className="tm-icon-btn" onClick={() => setExpanded(false)} aria-label="کوچک کردن" title="کوچک کردن (Esc)"><ChevronDown size={20} /></button>
+                {!beast && <button type="button" className="tm-icon-btn" onClick={() => setExpanded(false)} aria-label="کوچک کردن" title="کوچک کردن (Esc)"><ChevronDown size={20} /></button>}
               </div>
             )}
           </div>
@@ -454,6 +461,9 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
                   </div>
                 )}
 
+                {beast ? (
+                  <div className="tm-controls beast-lock" role="note">🔥 حالت بیست: ساعت متوقف نمی‌شود و تمدید ندارد؛ پارت سر وقتش تمام می‌شود.</div>
+                ) : (
                 <div className="tm-controls">
                   {!stopwatch ? (
                     <button type="button" className="tm-round" onClick={() => extendLivePlan(-SIDE)} aria-label="۵ دقیقه کمتر" title="۵ دقیقه کمتر"><Minus size={14} />{toPersianDigits(SIDE)}</button>
@@ -465,6 +475,7 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
                     <button type="button" className="tm-round" onClick={() => extendLivePlan(SIDE)} aria-label="۵ دقیقه بیشتر" title="۵ دقیقه بیشتر"><Plus size={14} />{toPersianDigits(SIDE)}</button>
                   ) : <span />}
                 </div>
+                )}
 
                 {(!skin || look.showTools) && (isPhone ? (
                   <PhoneTools
@@ -481,12 +492,14 @@ export const LiveTimer: React.FC<LiveTimerProps> = ({ reportDateKey, reportDayLa
                     <ListChecks size={16} /> پاسخ‌برگ مجازی (حل تست)
                   </button>
                 )}
-                <div className="tm-finish-row">
-                  <button type="button" className="tm-btn-main finish" onClick={handleFinish}>
-                    <Square size={16} /> {isBreak ? 'پایان استراحت' : 'اتمام و ثبت در گزارش'}
-                  </button>
-                  {!isBreak && <button type="button" className="tm-btn-ghost danger" onClick={handleCancel}>لغو</button>}
-                </div>
+                {!beast && (
+                  <div className="tm-finish-row">
+                    <button type="button" className="tm-btn-main finish" onClick={handleFinish}>
+                      <Square size={16} /> {isBreak ? 'پایان استراحت' : 'اتمام و ثبت در گزارش'}
+                    </button>
+                    {!isBreak && <button type="button" className="tm-btn-ghost danger" onClick={handleCancel}>لغو</button>}
+                  </div>
+                )}
               </div>
             </div>
           )}

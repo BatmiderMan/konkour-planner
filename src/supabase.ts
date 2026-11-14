@@ -3,7 +3,6 @@
 
 export const SUPABASE_URL = 'https://eyspwfsqypcfpjghlluv.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable_p8JkFSGY84OuydpebtGAlw_NedAISOQ';
-
 /** Accounts are created by you in the Supabase dashboard. A person may type just «ali» — it becomes ali@planex.app. */
 export const USER_DOMAIN = 'planex.app';
 
@@ -61,6 +60,9 @@ class SupabaseService {
   private session: UserSession | null = null;
   private authListeners: Array<(session: UserSession | null) => void> = [];
   private refreshing: Promise<boolean> | null = null;
+  /** why the person is logged out right now: they pressed «خروج», or the server closed the session */
+  public lastLogout: { reason: 'manual' | 'revoked'; at: number } | null = null;
+  public lastRefreshError = '';
   private tokenListeners: Array<(token: string) => void> = [];
 
   constructor() {
@@ -106,6 +108,8 @@ class SupabaseService {
 
   public getSession(): UserSession | null { return this.session; }
   public getUser() { return this.session ? this.session.user : null; }
+  /** for the diagnostics panel */
+  public sessionInfo() { return this.session ? { email: this.session.user.email, expiresInSec: Math.round((this.session.expires_at - Date.now()) / 1000), lastRefreshError: this.lastRefreshError } : null; }
 
   public onAuthStateChange(callback: (session: UserSession | null) => void) {
     this.authListeners.push(callback);
@@ -191,6 +195,7 @@ class SupabaseService {
 
   async signOut(): Promise<void> {
     const token = this.session?.access_token;
+    this.lastLogout = { reason: 'manual', at: Date.now() };
     this.setSession(null);
     if (token) {
       // scope=local: only THIS device is logged out (the default would log the account out on every device)
@@ -202,7 +207,7 @@ class SupabaseService {
   private refresh(): Promise<boolean> {
     if (this.refreshing) return this.refreshing;
     if (!this.session?.refresh_token) return Promise.resolve(false);
-    this.refreshing = (async () => {
+    const run = (async () => {
       try {
         if (this.adoptStored() && this.session && this.session.expires_at - Date.now() > 60_000) return true; // another tab just did it
         const rt = this.session?.refresh_token;
@@ -214,17 +219,22 @@ class SupabaseService {
         if (res.ok && data.access_token) {
           this.setSession(this.fromAuthResponse(data), false);
           this.tokenListeners.forEach((cb) => cb(data.access_token));
+          this.lastRefreshError = '';
           return true;
         }
+        this.lastRefreshError = `HTTP ${res.status}${data.error_code ? ' · ' + data.error_code : ''}`;
         if (res.status === 400 || res.status === 401 || res.status === 403) {
           if (this.adoptStored()) return true;           // the token was used by another tab a moment ago: its newer session is already stored
-          this.setSession(null);                          // really revoked: the account was removed
+          this.lastLogout = { reason: 'revoked', at: Date.now() };
+          this.setSession(null);                          // really revoked: the account was removed or logged out elsewhere
         }
         return false;
-      } catch { return false; } // offline / blocked: keep the session and try again later
-      finally { this.refreshing = null; }
+      } catch (e: any) { this.lastRefreshError = String(e?.detail || e?.message || e); return false; } // offline / blocked: keep the session and try again later
     })();
-    return this.refreshing;
+    this.refreshing = run;
+    // cleared AFTER the promise is stored (an early `return` inside would otherwise clear it too soon and leave a stale one cached)
+    void run.finally(() => { if (this.refreshing === run) this.refreshing = null; });
+    return run;
   }
 
   /** a valid access token (refreshed when it is about to expire), or null when logged out / offline for long */

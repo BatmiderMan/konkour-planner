@@ -572,3 +572,21 @@ html { scrollbar-gutter: stable; }
 .pip-ticks b { font-size: 1.15rem; color: var(--ink, #111); font-variant-numeric: tabular-nums; }
 .pip-ticks.off { display: block; font-size: .72rem; }
 .pip-paused { font-size: .74rem; font-weight: 700; color: var(--warn-solid, #f59e0b); }
+
+/* ================= Week summary: parts per lesson / book ================= */
+.pl-wsum { margin-top: 14px; padding: 12px 14px; background: var(--sheet-bg); border: 1px solid var(--line-soft); border-radius: var(--card-radius); box-shadow: 0 6px 24px rgba(var(--shadow-rgb), .07); }
+.pl-wsum-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; font-size: 13px; }
+.pl-wsum-total { color: var(--sub-ink); font-size: 12px; }
+.pl-wsum-toggle { margin-inline-start: auto; height: 30px; padding: 0 12px; border-radius: 9px; font-size: 12px; border: 1px solid var(--line-soft); background: var(--field-bg); color: var(--ink); cursor: pointer; }
+.pl-wsum-list, .pl-wsum-books { list-style: none; margin: 0; padding: 0; }
+.pl-wsum-row { width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 4px; background: none; border: 0; border-bottom: 1px dashed var(--line-soft); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; text-align: start; }
+.pl-wsum-caret { width: 12px; color: var(--sub-ink); font-size: 11px; }
+.pl-wsum-name { font-weight: 700; min-width: 70px; }
+.pl-wsum-bar { flex: 1; height: 6px; border-radius: 99px; background: var(--tint-2); overflow: hidden; min-width: 40px; }
+.pl-wsum-bar i { display: block; height: 100%; background: var(--primary); border-radius: 99px; }
+.pl-wsum-num { white-space: nowrap; font-size: 12px; color: var(--sub-ink); }
+.pl-wsum-num b { color: var(--ink); font-size: 14px; }
+.pl-wsum-num em { font-style: normal; color: var(--success); }
+.pl-wsum-books { padding: 4px 22px 6px; background: var(--tint-1); border-radius: 0 0 10px 10px; }
+.pl-wsum-books li { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 12.5px; }
+.pl-wsum-bname { flex: 1; }

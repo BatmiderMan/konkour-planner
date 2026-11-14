@@ -12,7 +12,7 @@ export interface AllData {
 }
 
 const KEEP = /^(konkour|planex)_/;
-const SKIP = /session|token|auth|nav_last|live_plan|^planex_sync/i; // login data and other things that should never travel in a file
+const SKIP = /session|token|auth|nav_last|live_plan|beast_run|beast_cal|^planex_sync/i; // login data and other things that should never travel in a file
 
 export const backupKeys = (): string[] => {
   const out: string[] = [];

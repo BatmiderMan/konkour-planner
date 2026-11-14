@@ -6996,3 +6996,24 @@ body.is-planner {
 .cloud-sync-badge .sync-dot.offline,
 .cloud-sync-badge .sync-dot.error { background: #ef4444; }
 @keyframes syncPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* ☁️ sync panel */
+.sp { display: grid; gap: 12px; direction: rtl; padding-bottom: 6px; }
+.sp-state { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; background: var(--tint-1, rgba(0,0,0,.05)); }
+.sp-state i { width: 14px; height: 14px; border-radius: 50%; background: #22c55e; flex: none; }
+.sp-state.wait i { background: #f59e0b; animation: syncPulse 1s ease-in-out infinite; }
+.sp-state.bad i { background: #ef4444; }
+.sp-state div { display: grid; min-width: 0; }
+.sp-state b { overflow: hidden; text-overflow: ellipsis; direction: ltr; text-align: right; }
+.sp-state span { color: var(--sub-ink, #666); font-size: .88rem; }
+.sp-grid { display: grid; gap: 8px; margin: 0; }
+.sp-grid > div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 2px; border-bottom: 1px solid var(--line-soft, rgba(0,0,0,.08)); }
+.sp-grid dt { color: var(--sub-ink, #666); }
+.sp-grid dd { margin: 0; font-weight: 700; text-align: left; }
+.sp-err { padding: 10px 12px; border-radius: 12px; background: rgba(239, 68, 68, .12); color: #b91c1c; font-size: .85rem; word-break: break-word; user-select: text; }
+.sp-act { display: flex; flex-wrap: wrap; gap: 8px; }
+.sp-btn { flex: 1 1 150px; min-height: 44px; padding: 8px 12px; border-radius: 12px; border: 1.5px solid var(--line, rgba(0,0,0,.2)); background: var(--field-bg, #fff); color: var(--ink, #222); font: inherit; font-weight: 700; cursor: pointer; }
+.sp-btn.p { background: var(--primary, #2f5a83); border-color: var(--primary, #2f5a83); color: #fff; }
+.sp-btn:disabled { opacity: .55; cursor: default; }
+.sp-note { padding: 10px 12px; border-radius: 12px; background: var(--tint-1, rgba(0,0,0,.05)); font-weight: 700; }
+.sp-out { border: 0; background: none; color: var(--sub-ink, #666); text-decoration: underline; font: inherit; cursor: pointer; justify-self: center; }

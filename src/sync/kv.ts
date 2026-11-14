@@ -9,7 +9,7 @@ const META = 'planex_sync_meta_v1';
 const BACKUP = 'planex_sync_conflicts_v1';
 const KEEP = /^(konkour|planex)_/;
 // never synced: login data, this-device-only state, things rebuilt from IndexedDB, and the music library (audio files live on the device)
-const EXCLUDE = /session|token|auth|nav_last|live_plan|^planex_sync|ck_meta|ck_fallback|^planex_music_v1$|haptics|print_saver|vault_last|tracker_ui|planner_sub|_full$|current_day_id|konkour_theme|sleep_enabled/i;
+const EXCLUDE = /session|token|auth|nav_last|live_plan|^planex_sync|ck_meta|ck_fallback|^planex_music_v1$|haptics|print_saver|vault_last|tracker_ui|planner_sub|_full$|current_day_id|konkour_theme|sleep_enabled|beast_run|beast_cal/i;
 export const isSynced = (k: string): boolean => KEEP.test(k) && !EXCLUDE.test(k);
 
 interface Meta { t: number; p?: 1; d?: 1 }
@@ -77,6 +77,19 @@ export function installKvHook() {
 }
 
 export const flushKvMeta = saveMetaNow;
+export const kvDiagnostics = () => ({ pending: pendingCount(), tracked: Object.keys(meta).length, deviceColumn, device: DEVICE });
+/** «send everything»: treat every synced key of this device as changed, then push */
+export function markAllPending(): number {
+  let n = 0;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && isSynced(k)) { meta[k] = { t: Date.now(), p: 1 }; n++; }
+    }
+  } catch { /* ignore */ }
+  saveMetaNow();
+  return n;
+}
 
 export function setKvUser(id: string | null) {
   uid = id;

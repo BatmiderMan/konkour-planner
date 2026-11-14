@@ -10,6 +10,7 @@ import { DayTimelineBar } from './DayTimelineBar';
 import { computeDayPlan } from '../../plannerSchedule';
 import { DayRestRow, breakLabel } from './DayRestRow';
 import { DayPrintSheet } from './DayPrintSheet';
+import { WeekPartsSummary } from './WeekPartsSummary';
 
 interface PlannerWeekViewProps {
   data: PlannerData;
@@ -247,6 +248,7 @@ export const PlannerWeekView: React.FC<PlannerWeekViewProps> = ({
           );
         })}
       </div>
+      <WeekPartsSummary data={data} days={days} />
       {printKey && <DayPrintSheet data={data} dateKey={printKey} onClose={() => setPrintKey(null)} />}
     </div>
   );

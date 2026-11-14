@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { PlannerItem } from './types';
 import { gradeColor, loadPlannerData } from './plannerStore';
 import { itemMinutes } from './plannerSchedule';
-import { confirmDialog } from './dialog';
+import { alertDialog, confirmDialog } from './dialog';
 import { unlockAudio } from './tickSound';
 
 // A "live" session = a planner card that is being studied right now, with its own
@@ -27,6 +27,9 @@ export interface LivePlanSession {
   accumulatedMs: number; // active time of the finished stretches (pauses excluded)
   alerted: boolean; // planned time reached notification already fired
   pauses: number;
+  // Beast mode: a part that runs on the wall clock. It can't be paused, extended or cancelled by the usual
+  // buttons; it ends by itself at `endsAt` (ms timestamp) and the Beast engine does the accounting.
+  beast?: { partId: string; endsAt: number };
 }
 
 type Listener = () => void;
@@ -132,6 +135,16 @@ export function startFreeLive(dateKey: string, o: FreeStartOptions = {}): void {
   write(baseSession(dateKey, item, 'free', Math.max(0, Math.round((o.minutes || 0) * 60)), { color: '#35e0c4' }));
 }
 
+/** Beast mode part: `elapsedMs` = how long the part has already been running (it never waits for the student). */
+export function startBeastLive(dateKey: string, item: PlannerItem, startClock: string, plannedSeconds: number, endsAt: number, partId: string, elapsedMs: number): void {
+  write(baseSession(dateKey, { ...item }, 'plan', Math.max(1, Math.round(plannedSeconds)), {
+    color: gradeColor(item.grade),
+    startedAtClock: startClock,
+    accumulatedMs: Math.max(0, elapsedMs),
+    beast: { partId, endsAt }
+  }));
+}
+
 export function startBreakLive(dateKey: string, minutes: number): void {
   const item: PlannerItem = { id: 'break-' + Date.now().toString(36), subject: 'استراحت', detail: '', grade: 'دوازدهم', done: false };
   write(baseSession(dateKey, item, 'break', Math.max(1, Math.round(minutes)) * 60, { color: '#7ee8a8' }));
@@ -139,20 +152,20 @@ export function startBreakLive(dateKey: string, minutes: number): void {
 
 export function pauseLivePlan(): void {
   const s = getSnapshot();
-  if (!s || !s.running) return;
+  if (!s || !s.running || s.beast) return; // a Beast part never pauses
   write({ ...s, running: false, accumulatedMs: liveElapsedMs(s), runStartedAt: null, pauses: s.pauses + 1 });
 }
 
 export function resumeLivePlan(): void {
   const s = getSnapshot();
-  if (!s || s.running) return;
+  if (!s || s.running || s.beast) return;
   write({ ...s, running: true, runStartedAt: Date.now() });
 }
 
 /** +/- minutes on the planned time (never below one minute; a free stopwatch has no planned time) */
 export function extendLivePlan(minutes: number): void {
   const s = getSnapshot();
-  if (!s || !s.plannedSeconds) return;
+  if (!s || !s.plannedSeconds || s.beast) return; // no «+5 min» in Beast mode
   const extra = Math.max(60 - s.plannedSeconds, s.extraSeconds + minutes * 60);
   const total = s.plannedSeconds + extra;
   const el = liveElapsedMs(s) / 1000;
@@ -209,6 +222,10 @@ export function freezeLivePlan(): LiveResult | null {
 async function confirmReplace(sameKey?: boolean): Promise<boolean> {
   const cur = getSnapshot();
   if (!cur) return true;
+  if (cur.beast) {
+    await alertDialog('حالت بیست روشن است و پارتِ «' + cur.item.subject + '» در جریان است؛ تا پایان آن نمی‌شود جلسه‌ی دیگری شروع کرد.');
+    return false;
+  }
   if (sameKey) return false;
   const name = liveKind(cur) === 'break' ? 'استراحت' : `«${cur.item.subject}»`;
   return confirmDialog(`یک پلن زنده (${name}) در حال اجراست. آن را لغو و این پارت را شروع کنیم؟`);
