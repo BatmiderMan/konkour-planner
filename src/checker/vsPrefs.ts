@@ -7,9 +7,10 @@ export interface VsPrefs {
   slowWarn: boolean;   // warn when a question takes much longer than its share of the time
   slowFactor: number;  // «much longer» = this many times the target time per question
   haptic: boolean;     // a tiny vibration on every key press (phones)
+  hideDigital: boolean; // hide the digital clock in the header: read the analog watch instead
   autoStart: boolean;  // the sheet's own clock starts when the test room opens (off: it starts with the first answer)
 }
-export const DEFAULT_VS: VsPrefs = { autoNext: true, showTimes: true, slowWarn: true, slowFactor: 2, haptic: true, autoStart: true };
+export const DEFAULT_VS: VsPrefs = { autoNext: true, showTimes: true, slowWarn: true, slowFactor: 2, haptic: true, hideDigital: false, autoStart: true };
 const KEY = 'planex_vs_prefs';
 const EVT = 'planex:vs-prefs';
 

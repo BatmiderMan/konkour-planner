@@ -23,6 +23,8 @@ import { labelForUnits } from '../trackerPlan';
 import { useTracker } from '../trackerStore';
 import { toPersianDigits as P } from '../utils';
 import { Clock } from '../clock/Clock';
+import { ExamWatch } from './ExamWatch';
+import { getTickPrefs, playRampTick, setTickPrefs, TICK_STYLES, unlockAudio, useTickPrefs } from '../tickSound';
 import './checker.css';
 
 const PRESETS = [20, 30, 45, 50, 75, 100];
@@ -65,6 +67,7 @@ export const VirtualSheet: React.FC<{
   const { books } = useLibrary();
   const tracker = useTracker();
   const [vp, setVp] = useVsPrefs();
+  const tickPrefs = useTickPrefs();
   const [rec, setRec] = useState<SavedSheet | null>(initial || null);
   const recRef = useRef<SavedSheet | null>(initial || null);
   const [title, setTitle] = useState(() => ctx?.title || defaultTitle('آزمون'));
@@ -120,6 +123,14 @@ export const VirtualSheet: React.FC<{
     saveSheet(next, { silent });
   }, []);
 
+  /* ---------- per-question tick: every second on the current question, rising towards its target time; restarts when it is passed ---------- */
+  const cycleRef = useRef(0); // seconds of one rising cycle (the question's target time), set below once it is known
+  const qBase = useRef({ q: 0, base: 0, sec: 0 }); // time already on the question when it was entered, last second ticked
+  const resetQTick = useCallback(() => {
+    qBase.current = { q: qRef.current, base: (recRef.current?.times || [])[qRef.current - 1] || 0, sec: 0 };
+  }, []);
+  useEffect(() => { resetQTick(); }, [q, resetQTick]);
+
   /* ---------- the clock: every 200 ms the elapsed slice goes to the selected question ---------- */
   useEffect(() => {
     let last = performance.now(), n = 0, sec = -1;
@@ -132,6 +143,16 @@ export const VirtualSheet: React.FC<{
       const spent = totalTime(times);
       recRef.current = { ...cur, times, spentMs: spent, cursor: qRef.current };
       dirty.current = true;
+      const tp = getTickPrefs();
+      if (tp.qTick) {
+        if (qBase.current.q !== qRef.current) resetQTick();
+        const s1 = Math.floor((times[qRef.current - 1] - qBase.current.base) / 1000);
+        if (s1 > qBase.current.sec) {
+          qBase.current.sec = s1;
+          const cyc = Math.max(3, Math.round(cycleRef.current || tp.seconds));
+          playRampTick(tp.style, (s1 % cyc) / cyc);
+        }
+      }
       if (Math.floor(spent / 1000) !== sec) { sec = Math.floor(spent / 1000); setRec(recRef.current); force((x) => x + 1); }
       if (++n % 25 === 0) saveSheet({ ...recRef.current, updatedAt: Date.now() }, { silent: true }); // every ~5 s
     }, 200);
@@ -285,11 +306,14 @@ export const VirtualSheet: React.FC<{
   const runningNow = !paused;
   const budgetSec = planned > 0 ? planned : rec.budgetMin ? rec.budgetMin * 60 : 0;
   const targetSec = budgetSec && totalOn ? budgetSec / totalOn : 0;
+  cycleRef.current = targetSec; // without a target time the cycle falls back to the tick interval of the timer's tick settings
   const spentSec = spent / 1000;
   const avgSec = onPlan ? spentSec / onPlan : 0;
   const remainQ = Math.max(0, totalOn - onPlan);
   const leftSec = budgetSec ? Math.max(0, budgetSec - spentSec) : 0;
   const forecastSec = avgSec * remainQ;
+  const reachable = avgSec > 0 ? Math.floor(leftSec / avgSec) : remainQ; // questions the time left still pays for at the current pace
+  const unreached = Math.max(0, remainQ - reachable);
   const curMs = times[q - 1] || 0;
   const slowLimit = (targetSec || (onPlan >= 5 ? avgSec : 0)) * vp.slowFactor * 1000;
   const curSlow = vp.slowWarn && open && slowLimit > 0 && curMs > slowLimit && onStep(q, plan.step, plan.off);
@@ -384,6 +408,12 @@ export const VirtualSheet: React.FC<{
   const side_el = (
     <aside className={'ck-ws-side' + (side ? ' open' : '')}>
       {open && (
+        <section className="ck-ws-card">
+          <h4>ساعت و ایستگاه‌ها</h4>
+          <ExamWatch budgetSec={budgetSec} leftSec={leftSec} spentSec={spentSec} totalOn={totalOn} done={onPlan} targetSec={targetSec} running={runningNow} />
+        </section>
+      )}
+      {open && (
         <section className="ck-ws-card pace">
           <h4>سرعت و زمان</h4>
           {budgetSec > 0 ? (
@@ -394,8 +424,8 @@ export const VirtualSheet: React.FC<{
           ) : <p className="mut">برای هدف زمانی، موقع ساخت پاسخ‌برگ «زمان آزمون» بده یا پارت را با زمان پیش‌بینی‌شده بچین.</p>}
           <div className="row"><span>میانگین تا حالا</span><b dir="ltr">{onPlan ? mm(avgSec) : '—'}</b></div>
           {budgetSec > 0 && onPlan >= 3 && remainQ > 0 && (
-            <p className={'fc ' + (forecastSec > leftSec ? 'late' : 'ok')}>
-              {forecastSec > leftSec ? `با این سرعت حدود ${P(Math.ceil((forecastSec - leftSec) / 60))} دقیقه دیرتر تمام می‌شود.` : 'با این سرعت داخل زمان تمام می‌شود.'}
+            <p className={'fc ' + (unreached > 0 ? 'late' : 'ok')}>
+              {unreached > 0 ? `با این سرعت به ${P(unreached)} سؤال از ${P(remainQ)} سؤال باقی‌مانده نمی‌رسی.` : 'با این سرعت به همه‌ی سؤال‌ها می‌رسی.'}
             </p>
           )}
           {curSlow && <p className="fc late">روی سؤال {P(startNo + q - 1)} زیاد مانده‌ای؛ شاید بهتر است ردش کنی (۰) و برگردی.</p>}
@@ -436,6 +466,16 @@ export const VirtualSheet: React.FC<{
         <label className="sw"><input type="checkbox" checked={vp.autoNext} onChange={(e) => setVp({ autoNext: e.target.checked })} /> رفتن خودکار به سؤال بعد</label>
         <label className="sw"><input type="checkbox" checked={vp.showTimes} onChange={(e) => setVp({ showTimes: e.target.checked })} /> نمایش زمان کنار هر سؤال</label>
         <label className="sw"><input type="checkbox" checked={vp.slowWarn} onChange={(e) => setVp({ slowWarn: e.target.checked })} /> هشدار سؤال وقت‌گیر</label>
+        <label className="sw"><input type="checkbox" checked={tickPrefs.qTick} onChange={(e) => { unlockAudio(); setTickPrefs({ qTick: e.target.checked }); }} /> تیک ثانیه‌ای برای هر سؤال (بالا رفتن صدا تا پایان وقت سؤال)</label>
+        {tickPrefs.qTick && (
+          <div className="att col">
+            <span className="mut">{targetSec > 0 ? `هر سؤال ${P(Math.round(targetSec))} ثانیه؛ بعد از آن دوباره از اول.` : `بدون زمان آزمون، هر ${P(tickPrefs.seconds)} ثانیه (از «ریتم تیک» تایمر) دوباره از اول می‌شود.`}</span>
+            <select value={tickPrefs.style} aria-label="مدل صدای تیک" onChange={(e) => { setTickPrefs({ style: e.target.value as typeof tickPrefs.style }); unlockAudio(); playRampTick(e.target.value as typeof tickPrefs.style, 0.6); }}>
+              {TICK_STYLES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </select>
+          </div>
+        )}
+        <label className="sw"><input type="checkbox" checked={vp.hideDigital} onChange={(e) => setVp({ hideDigital: e.target.checked })} /> پنهان کردن ساعت دیجیتال بالا (تمرین با ساعت عقربه‌ای)</label>
         <label className="sw"><input type="checkbox" checked={vp.haptic} onChange={(e) => setVp({ haptic: e.target.checked })} /> لرزش کوتاه با هر کلید (گوشی)</label>
       </section>
     </aside>
@@ -453,7 +493,7 @@ export const VirtualSheet: React.FC<{
           </button>
           {liveOn && live && <span className="partclock">تایمر پارت (جدا): <b dir="ltr"><Clock sec={Math.floor(liveElapsedMs(live) / 1000)} running={!!live.running} /></b></span>}
         </div>
-        {isLive && (
+        {isLive && !(vp.hideDigital && open) && (
           <div className={'clock' + (runningNow && open ? ' run' : ' stop') + (curSlow ? ' slow' : '')} title="زمان پاسخ‌برگ (جدا از تایمر پارت)">
             <b dir="ltr"><Clock sec={Math.floor(mainClock / 1000)} running={runningNow && open} /></b>
             <span>{open ? (runningNow ? 'زمان پاسخ‌برگ' : waitStart.current ? 'با اولین پاسخ شروع می‌شود' : 'زمان متوقف است') : 'زمان کل'}</span>

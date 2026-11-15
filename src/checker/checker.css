@@ -414,3 +414,10 @@
   .ck-q .ck-opt, .ck-q .ck-opt.sm { width: 28px; height: 28px; font-size: 12px; flex: none; }
   .ck-q .ck-qst { min-width: 0; font-size: 11.5px; }
 }
+
+/* analog watch + checkpoints */
+.ck-watch { display: flex; flex-direction: column; gap: 8px; align-items: center; color: var(--ink); }
+.ck-watch svg { width: min(180px, 70%); height: auto; }
+.ck-watch .info { width: 100%; }
+.ck-watch .row.cp span { font-size: 12.5px; }
+.ck-watch .row.cp.ok { color: var(--ck-ok); }

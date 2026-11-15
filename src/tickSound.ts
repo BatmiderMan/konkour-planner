@@ -10,13 +10,14 @@ export const TICK_STYLES: { id: TickStyle; label: string }[] = [
   { id: 'wood', label: 'چوبی' },
   { id: 'bell', label: 'زنگ' }
 ];
-export interface TickPrefs { on: boolean; seconds: number; style: TickStyle; vibrate: boolean; volume: number }
+// qTick: in the virtual answer sheet, tick every second on the current question, rising towards that question's target time
+export interface TickPrefs { on: boolean; seconds: number; style: TickStyle; vibrate: boolean; volume: number; qTick: boolean }
 
 export const TICK_KEY = 'konkour_tick_pref_v1';
 export const TICK_MIN = 5;
 export const TICK_MAX = 3600;
 export const TICK_PRESETS = [30, 60, 90, 120, 180];
-export const defaultTickPrefs = (): TickPrefs => ({ on: false, seconds: 60, style: 'tick', vibrate: false, volume: 0.8 });
+export const defaultTickPrefs = (): TickPrefs => ({ on: false, seconds: 60, style: 'tick', vibrate: false, volume: 0.8, qTick: false });
 const clampVolume = (v: number): number => (Number.isFinite(v) ? Math.min(1, Math.max(0.1, v)) : 0.8);
 
 export function clampSeconds(n: number): number {
@@ -36,7 +37,7 @@ function read(): TickPrefs {
     if (raw) {
       const o = JSON.parse(raw);
       const style: TickStyle = TICK_STYLES.some((x) => x.id === o.style) ? o.style : 'tick';
-      return { on: !!o.on, seconds: clampSeconds(+o.seconds || d.seconds), style, vibrate: !!o.vibrate, volume: clampVolume(o.volume ?? d.volume) };
+      return { on: !!o.on, seconds: clampSeconds(+o.seconds || d.seconds), style, vibrate: !!o.vibrate, volume: clampVolume(o.volume ?? d.volume), qTick: !!o.qTick };
     }
   } catch { /* ignore */ }
   return d;
@@ -112,6 +113,22 @@ export function playTick(style: TickStyle, inSeconds = 0): void {
   else if (style === 'soft') { blip(c, at, 660, 0.22, 0.38); blip(c, at, 990, 0.16, 0.12); }
   else if (style === 'wood') { blip(c, at, 420, 0.05, 0.5, 'square'); blip(c, at, 210, 0.11, 0.42); blip(c, at + 0.045, 840, 0.04, 0.12, 'triangle'); }
   else { blip(c, at, 1800, 0.07, 0.5, 'triangle'); blip(c, at, 900, 0.09, 0.3); }
+}
+/**
+ * One per-second tick of the answer sheet. `progress` (0..1) is how far the current question is through its target time:
+ * the pitch climbs and the tick gets louder as the end of the time gets near.
+ */
+export function playRampTick(style: TickStyle, progress: number): void {
+  const c = getAudio();
+  if (!c) return;
+  const p = Math.min(1, Math.max(0, progress));
+  const at = c.currentTime;
+  const peak = 0.12 + 0.5 * p * p;
+  if (style === 'bell') blip(c, at, 880 + p * 1100, 0.18 + 0.2 * p, peak, 'sine');
+  else if (style === 'soft') blip(c, at, 440 + p * 700, 0.14, peak, 'sine');
+  else if (style === 'wood') { blip(c, at, 260 + p * 520, 0.07, peak, 'square'); blip(c, at, 130 + p * 260, 0.1, peak * 0.8); }
+  else { blip(c, at, 1000 + p * 1400, 0.05, peak, 'triangle'); blip(c, at, 500 + p * 700, 0.07, peak * 0.6); }
+  if (p >= 0.8) blip(c, at + 0.07, 1200 + p * 1600, 0.04, peak * 0.7, 'triangle'); // the last stretch gets a double click
 }
 /** the «planned time is over» alarm (three beeps) */
 export function playAlarm(): void {
