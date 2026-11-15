@@ -96,7 +96,7 @@ export async function flushVault(): Promise<boolean> {
       if (!item) { delete pend[id]; continue; }
       const v = vers[id] || [0, 0];
       let qv = v[0], ev = v[1];
-      if (p.q || !qv) {
+      if (!item.src && (p.q || !qv)) { // a question linked to the test bank has no picture of its own: nothing to upload
         const b = await getBlob(id, 'q');
         if (b) {
           const small = await compressForCloud(b);
@@ -154,7 +154,8 @@ async function applyRow(r: Row, localQ?: VaultQ): Promise<boolean> {
     const b = await supabase.downloadFile(BUCKET, r.q_path as string);
     if (!b) return false; // try again at the next reconcile
     blobs.q = b;
-  } else if (!localQ && !r.q_path) return false; // a question without a picture is not usable
+  } else if (!localQ && !r.q_path && !q.src) return false; // a question without a picture is not usable (unless it is linked to a bank book)
+  if (q.src && !r.e_path) { /* linked: the solution comes from the book */ }
   if (r.e_path) {
     if (known[1] !== r.e_ver || !localQ || !(await getBlob(r.id, 'e'))) {
       const b = await supabase.downloadFile(BUCKET, r.e_path);

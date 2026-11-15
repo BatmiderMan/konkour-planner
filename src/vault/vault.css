@@ -196,3 +196,5 @@ textarea.vt-in { resize: vertical; margin-top: 8px; }
 @media print { .vt-fab, .vt-exam { display: none !important; } }
 .vt-exam:focus{outline:none}
 @media (max-width:600px){.vt-foot .vt-hint.grow{flex:1 1 100%;order:-1}}
+
+.vt-miss{display:grid;place-items:center;text-align:center;padding:22px 16px;color:var(--sub-ink);font-size:.9rem;line-height:1.8;animation:none}

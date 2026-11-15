@@ -4,7 +4,7 @@ import { confirmDialog } from '../dialog';
 import { useBackToClose } from '../useBackToClose';
 import { labelForUnits } from '../trackerPlan';
 import { toPersianDigits as P } from '../utils';
-import { CAUSE_LABEL, DIFF_LABEL, VaultQ, WHY, dueOf, isLeech, isOpenMistake, recordResult, useVaultImage } from './store';
+import { CAUSE_LABEL, DIFF_LABEL, VaultQ, WHY, dueOf, isLeech, isOpenMistake, recordResult, getVault, useVaultPic, hasExplain, linkedBookTitle } from './store';
 import type { ReviewReq } from './launch';
 import { Clock } from '../clock/Clock';
 import './vault.css';
@@ -31,7 +31,9 @@ export function buildReview(all: VaultQ[], r: ReviewReq): VaultQ[] {
 
 type Res = 'ok' | 'bad';
 const Pic: React.FC<{ id: string; kind: 'q' | 'e'; alt: string }> = ({ id, kind, alt }) => {
-  const src = useVaultImage(id, kind);
+  const { src, missing } = useVaultPic(id, kind);
+  const q = getVault().items.find((x) => x.id === id);
+  if (!src && missing && q?.src) return <div className="vt-img ph vt-miss">این سؤال از کتاب «{linkedBookTitle(q)}» است؛ آن کتاب را در «بانک تست» وارد کنید.</div>;
   return src ? <img className="vt-img" src={src} alt={alt} draggable={false} /> : <div className="vt-img ph" aria-busy="true" />;
 };
 
@@ -151,9 +153,9 @@ export const VaultReview: React.FC<{ list: VaultQ[]; title: string; onClose: () 
           {sh && (
             <div className="vt-qa">
               <div className={'vt-verdict ' + (pk ? (pk === q.answer ? 'ok' : 'bad') : '')}>{pk ? (pk === q.answer ? 'درست است. ' : `نادرست؛ گزینهٔ ${P(pk)} را انتخاب کردید. `) : ''}پاسخ درست: گزینهٔ {P(q.answer)}</div>
-              {q.hasEimg && <Pic id={q.id} kind="e" alt="پاسخ تشریحی" />}
+              {hasExplain(q) && <Pic id={q.id} kind="e" alt="پاسخ تشریحی" />}
               {q.etext && <div className="vt-expl">{q.etext}</div>}
-              {!q.hasEimg && !q.etext && <div className="vt-sub">توضیحی ذخیره نشده است.</div>}
+              {!hasExplain(q) && !q.etext && <div className="vt-sub">توضیحی ذخیره نشده است.</div>}
               {!pk && !res[q.id] && (
                 <div className="vt-self"><span>نتیجهٔ خودت چه بود؟</span>
                   <button type="button" className="vt-btn ok" onClick={() => selfGrade(true)}>بلد بودم</button>

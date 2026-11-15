@@ -53,7 +53,7 @@ export const VaultEditor: React.FC<{ draft: EditorDraft; onClose: () => void }> 
   // pictures: what is already saved, or the image the draft brings along
   React.useEffect(() => {
     let live = true;
-    if (draft.img) { const u = URL.createObjectURL(draft.img); setPics((p) => ({ ...p, q: { blob: draft.img, url: u, own: true } })); }
+    if (draft.img) { const u = URL.createObjectURL(draft.img); setPics((p) => ({ ...p, q: { ...(draft.src ? {} : { blob: draft.img }), url: u, own: true } })); } // a bank question is only linked, never copied
     else if (existing) imageUrl(existing.id, 'q').then((u) => { if (live && u) setPics((p) => (p.q.blob ? p : { ...p, q: { url: u, own: false } })); }).catch(() => { /* ignore */ });
     if (existing?.hasEimg) imageUrl(existing.id, 'e').then((u) => { if (live && u) setPics((p) => (p.e.blob !== undefined ? p : { ...p, e: { url: u, own: false } })); }).catch(() => { /* ignore */ });
     return () => { live = false; };

@@ -9,7 +9,7 @@ import { createPlannerItem, dateKeyOf, insertByPin, loadPlannerData, savePlanner
 import { toPersianDigits as P } from '../utils';
 import {
   CAUSE_LABEL, DIFF_LABEL, VaultQ, WHY, WeakArea, VaultWhy, dueOf, exportBackup, importBackup, isDue, isLeech, isOpenMistake, patchQuestion,
-  practicedToday, recordResult, useVault, useVaultImage, vaultStreak, weakAreas
+  practicedToday, recordResult, useVault, useVaultImage, useVaultPic, hasExplain, linkedBookTitle, vaultStreak, weakAreas
 } from './store';
 import { VaultFocus, openVaultBulk, openVaultEditor, openVaultReview } from './launch';
 import './vault.css';
@@ -30,8 +30,8 @@ const PAGE = 12;
 interface CardProps { q: VaultQ; n: number; s: Sess; set: (id: string, s: Sess | null) => void; zoom: (src: string) => void; onOpenTracker: () => void }
 const NO_SESS: Sess = {};
 const Card = React.memo(({ q, n, s, set, zoom, onOpenTracker }: CardProps) => {
-  const img = useVaultImage(q.id, 'q');
-  const eimg = useVaultImage(q.hasEimg && s.shown ? q.id : '', 'e');
+  const { src: img, missing } = useVaultPic(q.id, 'q');
+  const eimg = useVaultImage(hasExplain(q) && s.shown ? q.id : '', 'e');
   const sh = !!s.shown, pk = s.pick || 0;
   const cls = sh && pk ? (pk === q.answer ? 'win' : 'lose') : WHY[q.why].g === 'w' ? 'w' : 'n';
   const leech = isLeech(q);
@@ -58,7 +58,7 @@ const Card = React.memo(({ q, n, s, set, zoom, onOpenTracker }: CardProps) => {
           {q.src && <span className="vt-linked plain">بانک تست · سؤال {P(q.src.n)}</span>}
         </div>
       )}
-      <div className="vt-qb">{img ? <img className="vt-img zoomable" src={img} alt={'سؤال ' + n} loading="lazy" decoding="async" onClick={() => zoom(img)} /> : <div className="vt-img ph" aria-busy="true" />}</div>
+      <div className="vt-qb">{img ? <img className="vt-img zoomable" src={img} alt={'سؤال ' + n} loading="lazy" decoding="async" onClick={() => zoom(img)} /> : missing && q.src ? <div className="vt-img ph vt-miss">این سؤال از کتاب «{linkedBookTitle(q)}» است؛ فایل آن کتاب را در «بانک تست» وارد کنید تا اینجا نمایش داده شود.</div> : <div className="vt-img ph" aria-busy="true" />}</div>
       <div className="vt-copts" role="group" aria-label="گزینه‌ها">
         {Array.from({ length: q.choices }, (_, i) => {
           const k = i + 1;
@@ -72,7 +72,7 @@ const Card = React.memo(({ q, n, s, set, zoom, onOpenTracker }: CardProps) => {
           <div className={'vt-verdict ' + (pk ? (pk === q.answer ? 'ok' : 'bad') : '')}>{pk ? (pk === q.answer ? 'درست است. ' : `نادرست؛ گزینهٔ ${P(pk)} را زدید. `) : ''}پاسخ درست: گزینهٔ {P(q.answer)}</div>
           {eimg && <img className="vt-img zoomable" src={eimg} alt="پاسخ تشریحی" onClick={() => zoom(eimg)} />}
           {q.etext && <div className="vt-expl">{q.etext}</div>}
-          {!q.hasEimg && !q.etext && <div className="vt-sub">توضیحی ذخیره نشده است.</div>}
+          {!hasExplain(q) && !q.etext && <div className="vt-sub">توضیحی ذخیره نشده است.</div>}
         </div>
       )}
       <div className="vt-qf">

@@ -8,6 +8,8 @@ import { BY_UNIT, getTracker, toggleFlag } from '../trackerStore';
 import { INTERVALS, DAY, SrsFields, isDue, isLeech, nextSrs } from './srs';
 import { blobToDataUrl, dataUrlToBlob } from './image';
 import { cloudHooks, safe } from '../sync/hooks';
+import { imageBlob as bankImageBlob, explBlob as bankExplBlob } from '../bank/store';
+import { bankHasExplanation, bankBookTitle, useBankIndex } from '../bank/index';
 
 export type VaultWhy = 'wrong' | 'guess' | 'time' | 'tricky' | 'good' | 'formula';
 /** w = a mistake (red) · n = a note worth remembering (yellow) */
@@ -123,8 +125,18 @@ const dropUrl = (id: string, k: VaultKind) => { const u = urls.get(imgKey(id, k)
 export async function getBlob(id: string, k: VaultKind): Promise<Blob | undefined> {
   const d = await open();
   const rec: any = await rq(d.transaction('img').objectStore('img').get(imgKey(id, k)));
-  return rec ? (rec.blob as Blob) : undefined;
+  if (rec) return rec.blob as Blob;
+  // a question linked to the test bank has no copy of its own: the picture lives in the imported book
+  const q = snap.items.find((x) => x.id === id);
+  if (q?.src && q.src.k === 'bank') {
+    try { const b = k === 'q' ? await bankImageBlob(q.src.b, q.src.n) : await bankExplBlob(q.src.b, q.src.n); if (b) return b; } catch { /* bank unavailable */ }
+  }
+  return undefined;
 }
+/** does this question have a worked solution to show — its own picture, or the one that comes with the linked book */
+export const hasExplain = (q: VaultQ): boolean => q.hasEimg || (!!q.src && bankHasExplanation(q.src.b, q.src.n));
+/** the title of the book a linked question comes from (to tell the user which file to import) */
+export const linkedBookTitle = (q: VaultQ): string => (q.src ? bankBookTitle(q.src.b) || q.book : q.book);
 /** object URL of one picture (cached while the app is open) */
 export async function imageUrl(id: string, k: VaultKind): Promise<string | null> {
   const hit = urls.get(imgKey(id, k));
@@ -135,18 +147,21 @@ export async function imageUrl(id: string, k: VaultKind): Promise<string | null>
   urls.set(imgKey(id, k), u);
   return u;
 }
-export function useVaultImage(id: string, k: VaultKind = 'q'): string | null {
-  const [src, setSrc] = React.useState<string | null>(() => urls.get(imgKey(id, k)) || null);
+export function useVaultPic(id: string, k: VaultKind = 'q'): { src: string | null; missing: boolean } {
+  const bank = useBankIndex(); // pictures of linked questions appear as soon as their book is imported
+  const [st, setSt] = React.useState<{ src: string | null; missing: boolean }>(() => ({ src: urls.get(imgKey(id, k)) || null, missing: false }));
   React.useEffect(() => {
     let live = true;
     const hit = urls.get(imgKey(id, k));
-    if (hit) { setSrc(hit); return; }
-    setSrc(null);
-    imageUrl(id, k).then((u) => { if (live) setSrc(u); }).catch(() => { /* storage unavailable */ });
+    if (hit) { setSt({ src: hit, missing: false }); return; }
+    if (!id) { setSt({ src: null, missing: false }); return; }
+    setSt({ src: null, missing: false });
+    imageUrl(id, k).then((u) => { if (live) setSt({ src: u, missing: !u }); }).catch(() => { if (live) setSt({ src: null, missing: true }); });
     return () => { live = false; };
-  }, [id, k]);
-  return src;
+  }, [id, k, bank.books]);
+  return st;
 }
+export function useVaultImage(id: string, k: VaultKind = 'q'): string | null { return useVaultPic(id, k).src; }
 
 // ---------------------------------------------------------------- writes
 /** blobs: q = new question picture · e = new explanation picture, null = remove it, undefined = leave as it is */
