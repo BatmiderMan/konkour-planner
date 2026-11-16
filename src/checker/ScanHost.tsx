@@ -34,8 +34,8 @@ export const ScanHost: React.FC = () => {
           key={vs.k}
           sheet={vs.sheet}
           ctx={vs.c}
-          onClose={() => setVs(null)}
-          onCompare={(s) => { setVs(null); openScan({ sheet: s, lesson: s.lesson || vs.c.lesson, source: s.source || vs.c.source, detail: s.detail || vs.c.detail, link: s.link }); }}
+          onClose={() => { const c = vs.c; setVs(null); c.onClose?.(); }}
+          onCompare={(s) => { const c = vs.c; setVs(null); c.onClose?.(); openScan({ sheet: s, lesson: s.lesson || vs.c.lesson, source: s.source || vs.c.source, detail: s.detail || vs.c.detail, link: s.link }); }}
         />
       )}
     </>

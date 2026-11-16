@@ -157,7 +157,8 @@ export async function buildPdf(o: PdfOpts): Promise<Blob> {
           if (!headDone) { c.fillStyle = '#e4ebfa'; c.fillRect(xx, ey, cwid, 40); d.txt(headTxt + (it.shared ? ' (همراه پاسخ مجاور)' : ''), xx + cwid - 14, ey + 28, 22, BLUE, true); ey += 46; headDone = true; }
           const room = d.bottom - ey; let ex = Math.min(ih, sy + room);
           if (ex < ih) { ex = whiteRowNear(oc, off.width, ex, sy + 60); }
-          if (ex <= sy + 20) { await nextCol(); continue; }
+          if (ih - sy <= 12) { ey += 26; break; }
+          if (ex <= sy + 20 && ex < ih) { if (ey <= ecTop + 4 || ey <= M + 4) ex = Math.min(ih, sy + Math.max(room, 60)); else { await nextCol(); continue; } }
           c.drawImage(off, 0, sy, off.width, ex - sy, xx, ey, cwid, ex - sy);
           ey += ex - sy; sy = ex;
           if (sy < ih) { await nextCol(); } else ey += 26;

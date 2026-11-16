@@ -21,6 +21,7 @@ export interface VirtualContext {
   link?: ScanLink;                 // the planner card this test belongs to: its timer runs the sheet's clock
   size?: number; startQ?: number; step?: number; off?: number;
   sheet?: SavedSheet;              // open this saved sheet instead of making a new one
+  onClose?: () => void;            // called when the sheet is closed (the caller can read the saved sheet back)
   openLast?: boolean;              // with a link: when no test is in progress, reopen the latest finished sheet of the card instead of starting a new one
 }
 let vOpener: ((c: VirtualContext) => void) | null = null;

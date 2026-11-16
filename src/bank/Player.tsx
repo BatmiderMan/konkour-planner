@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X, Check, ListChecks, PenTool, Eye, EyeOff } from 'lucide-react';
 import { Lab, MarkBar, QImg } from './parts';
-import { Attempt, MIX, QMeta, Ref, keyOf, recordAttemptMeta, saveAttempt } from './store';
+import { Attempt, LiveExam, MIX, QMeta, Ref, clearLive, keyOf, recordAttemptMeta, saveAttempt, saveLive } from './store';
 import { fmtDur } from './lab';
 import { DrawBar, DrawProvider, DrawStage, SpaceButtons, useDraw, useDrawDoc } from './draw';
 import { Sheet, SheetState, applyCross, applyFlag, applyPick } from './Sheet';
@@ -60,15 +60,16 @@ const Card = React.memo(({ i, r, lab, meta, pick, mask, flagged, practice, sessi
   );
 });
 
-const Inner: React.FC<{ run: Run; lab: Lab; onFinish: (a: Attempt) => void; onCancel: () => void }> = ({ run, lab, onFinish, onCancel }) => {
+const Inner: React.FC<{ run: Run; resume?: LiveExam; lab: Lab; onFinish: (a: Attempt) => void; onCancel: () => void }> = ({ run, resume, lab, onFinish, onCancel }) => {
   const { refs, practice, minutes } = run;
   const dr = useDraw()!;
-  const session = useRef('a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)).current;
-  const [st, setSt] = useState<SheetState>({ picks: {}, crossed: {}, flags: {} });
-  const [sheet, setSheet] = useState(false);
+  const session = useRef(resume?.id || 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)).current;
+  const [st, setSt] = useState<SheetState>(resume ? resume.st : { picks: {}, crossed: {}, flags: {} });
+  const [sheet, setSheet] = useState(!!resume?.sheet);
   const [activeI, setActiveI] = useState(0);
-  const t0 = useRef(Date.now()), secs = useRef<Record<string, number>>({}), done = useRef(false), activeRef = useRef(0);
-  const [sec, setSec] = useState(0);
+  const t0 = useRef(Date.now()), base = useRef(resume?.elapsed || 0), started = useRef(resume?.started || Date.now()), secs = useRef<Record<string, number>>(resume ? { ...resume.secs } : {}), done = useRef(false), activeRef = useRef(0);
+  const [sec, setSec] = useState(resume?.elapsed || 0);
+  const elapsed = () => Math.floor(base.current + (Date.now() - t0.current) / 1000);
   const multi = useMemo(() => new Set(refs.map((r) => r.b)).size > 1, [refs]);
   const left = minutes > 0 ? Math.max(0, minutes * 60 - sec) : 0;
   const answered = refs.filter((_, i) => st.picks[i]).length;
@@ -89,10 +90,24 @@ const Inner: React.FC<{ run: Run; lab: Lab; onFinish: (a: Attempt) => void; onCa
   }, []);
   useEffect(() => {
     const id = setInterval(() => {
-      setSec(Math.floor((Date.now() - t0.current) / 1000));
+      setSec(elapsed());
       if (document.visibilityState === 'visible') { const r = refs[activeRef.current]; if (r) secs.current[keyOf(r.b, r.n)] = (secs.current[keyOf(r.b, r.n)] || 0) + 1; }
     }, 1000); return () => clearInterval(id);
   }, [refs]);
+
+  /* continuous saving: answers, clock, position — so leaving (another Planex tab, reload, phone lock) never loses the exam */
+  const cur = useRef({ st, sheet }); cur.current = { st, sheet };
+  const persist = useCallback(() => {
+    if (done.current) return;
+    saveLive({ id: session, run: { refs, practice, minutes, title: run.title }, st: cur.current.st, secs: secs.current, elapsed: elapsed(), started: started.current, at: Date.now(), active: activeRef.current, sheet: cur.current.sheet }).catch(() => { /* ignore */ });
+  }, [session, refs, practice, minutes, run.title]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { const t = setTimeout(persist, 400); return () => clearTimeout(t); }, [st, sheet, persist]);
+  useEffect(() => {
+    const id = setInterval(persist, 4000), vis = () => { if (document.visibilityState === 'hidden') persist(); };
+    document.addEventListener('visibilitychange', vis); window.addEventListener('pagehide', persist);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', vis); window.removeEventListener('pagehide', persist); persist(); };
+  }, [persist]);
+  useEffect(() => { if (resume && resume.active > 0) { const t = setTimeout(() => jump(resume.active), 600); return () => clearTimeout(t); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const finish = useCallback(async (force = false) => {
     if (done.current) return;
@@ -101,10 +116,10 @@ const Inner: React.FC<{ run: Run; lab: Lab; onFinish: (a: Attempt) => void; onCa
     done.current = true; let c = 0, w = 0;
     const items = refs.map((x, i) => ({ n: x.n, pick: st.picks[i] || 0, b: x.b, sec: secs.current[keyOf(x.b, x.n)] || 0 }));
     items.forEach((it) => { if (!it.pick) return; if (it.pick === lab.bookMap.get(it.b)?.answers[it.n]) c++; else w++; });
-    const a: Attempt = { id: session, bookId: multi ? MIX : refs[0].b, at: Date.now(), seconds: Math.floor((Date.now() - t0.current) / 1000), items, correct: c, wrong: w, blank: refs.length - c - w,
+    const a: Attempt = { id: session, bookId: multi ? MIX : refs[0].b, at: Date.now(), seconds: elapsed(), items, correct: c, wrong: w, blank: refs.length - c - w,
       pct: Math.round(((3 * c - w) / (3 * refs.length)) * 1000) / 10, mode: practice ? 'تمرین' : 'آزمون', title: run.title };
     try { await saveAttempt(a); await recordAttemptMeta(a, (b, n) => lab.bookMap.get(b)?.answers[n] || 0); } catch { /* still show the result */ }
-    dr.setOn(false); onFinish(a);
+    await clearLive(session).catch(() => { /* ignore */ }); dr.setOn(false); onFinish(a);
   }, [refs, st, lab, practice, run.title, onFinish, session, multi, dr]);
   useEffect(() => { if (minutes > 0 && left === 0 && sec > 0) finish(true); }, [left, sec, minutes]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -113,10 +128,10 @@ const Inner: React.FC<{ run: Run; lab: Lab; onFinish: (a: Attempt) => void; onCa
   }, [pick, st.picks, dr.on]);
 
   return (
-    <section className="bk-scroll">
+    <section className={"bk-scroll" + (sheet ? " with-sheet" : "")}>
       <div className="bk-topbar">
         <header className="bk-ph">
-          <button type="button" className="bk-btn ghost" onClick={async () => { if (await confirmDialog('آزمون رها شود؟ پاسخ‌ها و نوشته‌ها ذخیره نمی‌شوند.')) { dr.setOn(false); onCancel(); } }}><X size={18} /> خروج</button>
+          <button type="button" className="bk-btn ghost" onClick={async () => { if (await confirmDialog('از آزمون بیرون می‌روید؟ پیشرفت (پاسخ‌ها، نوشته‌ها و زمان) ذخیره می‌شود و بعداً از «بانک تست» ادامه می‌دهید.')) { persist(); dr.setOn(false); onCancel(); } }}><X size={18} /> خروج</button>
           <div className="bk-prog"><span className={'bk-time' + (minutes > 0 && left < 60 ? ' low' : '')}>{P(fmtDur(minutes > 0 ? left : sec))}</span> <b>{P(answered)}</b>/{P(refs.length)}</div>
           <button type="button" className={'bk-btn' + (sheet ? ' primary' : '')} aria-pressed={sheet} onClick={() => setSheet((v) => !v)}><ListChecks size={18} /> پاسخ‌برگ</button>
           <button type="button" className={'bk-btn' + (dr.on ? ' primary' : '')} aria-pressed={dr.on} onClick={() => dr.setOn(!dr.on)}><PenTool size={18} /> رسم</button>
@@ -132,7 +147,7 @@ const Inner: React.FC<{ run: Run; lab: Lab; onFinish: (a: Attempt) => void; onCa
       <div className="bk-endrow"><button type="button" className="bk-btn primary wide" onClick={() => finish()}><Check size={18} /> پایان آزمون ({P(answered)} از {P(refs.length)})</button></div>
       {sheet && (
         <aside className="bk-drawer" aria-label="پاسخ‌برگ">
-          <header><b>پاسخ‌برگ</b><button type="button" className="bk-x" onClick={() => setSheet(false)} aria-label="بستن"><X size={20} /></button></header>
+          <header><b>پاسخ‌برگ</b><button type="button" className="bk-btn bk-close" onClick={() => setSheet(false)} aria-label="بستن"><X size={18} /> بستن</button></header>
           <Sheet labels={labels} sub={sub} picks={st.picks} crossed={st.crossed} flags={st.flags} active={activeI} onJump={jump}
             onPick={pick} onCross={cross} onFlag={flag} />
         </aside>
@@ -141,4 +156,4 @@ const Inner: React.FC<{ run: Run; lab: Lab; onFinish: (a: Attempt) => void; onCa
   );
 };
 
-export const Player: React.FC<{ run: Run; lab: Lab; onFinish: (a: Attempt) => void; onCancel: () => void }> = (p) => <DrawProvider><Inner {...p} /></DrawProvider>;
+export const Player: React.FC<{ run: Run; resume?: LiveExam; lab: Lab; onFinish: (a: Attempt) => void; onCancel: () => void }> = (p) => <DrawProvider><Inner {...p} /></DrawProvider>;

@@ -245,6 +245,7 @@ export interface SavedExam {
   crossed: Record<string, number>;    // position → bit mask of struck-out options
   flags: Record<string, boolean>;     // position → «review later»
   seconds: number; status: 'new' | 'filled' | 'graded'; attemptId?: string; pct?: number; pdfSize: number;
+  sheetId?: string; scanId?: string;   // the Planex virtual sheet this PDF exam is filled on
 }
 export const newExamId = () => 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 export async function saveExam(e: SavedExam, pdf?: Blob, silent = false): Promise<void> {
@@ -258,3 +259,16 @@ export async function examPdf(id: string): Promise<Blob | undefined> { const d =
 export async function deleteExam(id: string): Promise<void> {
   const d = await open(); const t = d.transaction(['prefs', 'images'], 'readwrite'); t.objectStore('prefs').delete('exam:' + id); t.objectStore('images').delete('pdf:' + id); await done(t); changed();
 }
+
+/* ---------------------------------------------------------------- exams in progress: saved continuously, resumable from the bank */
+export interface LiveExam {
+  id: string; run: { refs: Ref[]; practice: boolean; minutes: number; title: string };
+  st: { picks: Record<string, number>; crossed: Record<string, number>; flags: Record<string, boolean> };
+  secs: Record<string, number>;      // seconds spent per question key
+  elapsed: number;                   // seconds of the exam clock (it pauses while you are away)
+  started: number; at: number; active: number; sheet: boolean;
+}
+export const saveLive = (l: LiveExam) => kvSet('live:' + l.id, l);
+export const listLive = async (): Promise<LiveExam[]> => (await kvList<LiveExam>('live:')).sort((a, b) => b.at - a.at);
+export async function discardLive(id: string, drawings = true): Promise<void> { await kvDel('live:' + id); if (drawings) await kvDelPrefix('draw:' + id + ':').catch(() => { /* ignore */ }); changed(); }
+export const clearLive = (id: string) => kvDel('live:' + id);

@@ -15,7 +15,7 @@ export const download = (blob: Blob, name: string) => {
 };
 export const getPdf = async (e: SavedExam) => { const b = await examPdf(e.id); if (!b) { await alertDialog('فایل PDF این آزمون پیدا نشد.'); return; } download(b, e.title); };
 
-export const SheetList: React.FC<{ exams: SavedExam[]; ready: boolean; onOpen: (e: SavedExam) => void }> = ({ exams, ready, onOpen }) => (
+export const SheetList: React.FC<{ exams: SavedExam[]; ready: boolean; onOpen: (e: SavedExam) => void; onAgain: (e: SavedExam) => void }> = ({ exams, ready, onOpen, onAgain }) => (
   <section className="bk-lib">
     <header className="bk-hh"><div><p>PDFهایی که در برنامه می‌سازید اینجا می‌مانند. آزمون را روی کاغذ (یا هر جا) حل کنید، بعد پاسخ‌برگ مجازی را پر کنید تا خودکار تصحیح شود.</p></div></header>
     {ready && !exams.length && <div className="bk-emptybox"><FileText size={36} /><b>هنوز PDF ذخیره‌شده‌ای نیست</b><span>در «آزمون‌ساز» دکمهٔ PDF را بزنید؛ فایل اینجا هم ذخیره می‌شود.</span></div>}
@@ -25,7 +25,8 @@ export const SheetList: React.FC<{ exams: SavedExam[]; ready: boolean; onOpen: (
           <div className="bk-bookrow"><div><b>{e.title}</b><span>{P(e.refs.length)} سؤال · {new Date(e.at).toLocaleDateString('fa-IR')} · {P(Math.round(e.pdfSize / 1024 / 1024 * 10) / 10)} مگابایت</span>
             <span className={'bk-pill ' + (e.status === 'graded' ? 'ok' : '')}>{e.status === 'graded' ? `تصحیح شد · ${P(e.pct ?? 0)}٪` : e.status === 'filled' ? 'در حال پر کردن' : 'پاسخ‌برگ خالی'}</span></div>
             <button type="button" className="bk-del" aria-label="حذف" onClick={async () => { if (await confirmDialog(`«${e.title}» و فایل PDF آن حذف شود؟`)) { const pdf = await examPdf(e.id); await deleteExam(e.id); showUndo('آزمون حذف شد', () => saveExam(e, pdf)); } }}><Trash2 size={18} /></button></div>
-          <div className="bk-acts"><button type="button" className="bk-btn primary" onClick={() => onOpen(e)}><Award size={16} /> {e.status === 'graded' ? 'مشاهدهٔ پاسخ‌برگ' : 'پر کردن پاسخ‌برگ'}</button>
+          <div className="bk-acts"><button type="button" className="bk-btn primary" onClick={() => onOpen(e)}><Award size={16} /> {e.status === 'graded' ? 'کارنامه و پاسخ تشریحی' : e.status === 'filled' ? 'ادامهٔ پاسخ‌برگ' : 'پر کردن پاسخ‌برگ'}</button>
+            {e.status === 'graded' && <button type="button" className="bk-btn" onClick={() => onAgain(e)}><RotateCcw size={16} /> پر کردن دوباره</button>}
             <button type="button" className="bk-btn" onClick={() => getPdf(e)}><Download size={16} /> دانلود PDF</button></div>
         </div>))}
     </div>

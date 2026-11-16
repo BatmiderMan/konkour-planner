@@ -128,7 +128,7 @@ export function rangeHint(text: string | undefined, keys: KeyMap | null): { from
 }
 
 /* ================================================================ sheet answers + grading */
-export const SHEET_N = 300;
+export const SHEET_N = 1000;
 export interface RawRead { ans: number[]; dbl: boolean[] } // from the scanner, 1-based
 export type Manual = Record<number, number>;               // person's corrections, 1-based; 0 = blank
 

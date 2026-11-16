@@ -35,7 +35,7 @@ export const Browse: React.FC<{ lab: Lab; onStart: (r: Run) => void; onPdf: (ref
         {list.map((r, i) => {
           const m = lab.meta[keyOf(r.b, r.n)], st = masteryOf(m), on = sel?.has(refKey(r));
           return <button type="button" key={refKey(r)} className={'bk-cell s' + st + (on ? ' sel' : '')} onClick={() => (sel ? flip(r) : setView(i))} title={multi ? lab.bookMap.get(r.b)?.title : undefined}>
-            {P(r.n)}{m?.star && <i className="st">★</i>}{m?.doubt && <i className="db">?</i>}{lab.bookMap.get(r.b)?.expl.includes(r.n) && <i className="ex" />}
+            {P(r.n)}{m?.star && <i className="st">★</i>}{m?.doubt && <i className="db">?</i>}{lab.bookMap.get(r.b)?.expl.includes(r.n) && <i className="bk-exdot" />}
           </button>;
         })}
       </div>
@@ -47,7 +47,7 @@ export const Browse: React.FC<{ lab: Lab; onStart: (r: Run) => void; onPdf: (ref
           <button type="button" className="bk-btn" disabled={!chosen.length} onClick={async () => { const name = await promptName('نام مجموعه'); if (!name) return; await saveSet({ id: newSetId(), name, refs: chosen, created: Date.now(), updated: Date.now() }); await alertDialog('مجموعه ذخیره شد.'); setSel(null); }}><Bookmark size={16} /> مجموعه</button>
         </div>
       )}
-      <div className="bk-legend"><i className="s0" /> دیده‌نشده <i className="s1" /> ضعیف <i className="s2" /> در حال یادگیری <i className="s3" /> مسلط <i className="ex" /> تشریحی دارد</div>
+      <div className="bk-legend"><i className="s0" /> دیده‌نشده <i className="s1" /> ضعیف <i className="s2" /> در حال یادگیری <i className="s3" /> مسلط <i className="bk-exdot" /> تشریحی دارد</div>
       {view !== null && <Viewer refs={list} start={view} lab={lab} onClose={() => setView(null)} />}
     </div>
   );
