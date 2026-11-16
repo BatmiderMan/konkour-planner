@@ -66,6 +66,7 @@ const Inner: React.FC<{ run: Run; resume?: LiveExam; lab: Lab; onFinish: (a: Att
   const dr = useDraw()!;
   const session = useRef(resume?.id || 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)).current;
   const [st, setSt] = useState<SheetState>(resume ? resume.st : { picks: {}, crossed: {}, flags: {} });
+  const secRef = useRef<HTMLElement>(null);
   const [sheet, setSheet] = useState(!!resume?.sheet);
   const [activeI, setActiveI] = useState(0);
   const t0 = useRef(Date.now()), base = useRef(resume?.elapsed || 0), started = useRef(resume?.started || Date.now()), secs = useRef<Record<string, number>>(resume ? { ...resume.secs } : {}), done = useRef(false), activeRef = useRef(0);
@@ -98,6 +99,11 @@ const Inner: React.FC<{ run: Run; resume?: LiveExam; lab: Lab; onFinish: (a: Att
 
   /* continuous saving: answers, clock, position — so leaving (another Planex tab, reload, phone lock) never loses the exam */
   const cur = useRef({ st, sheet }); cur.current = { st, sheet };
+  useEffect(() => {   // the sheet panel docks right under the exam's own top bar (its height changes with the drawing bar)
+    const tb = secRef.current?.querySelector('.bk-topbar') as HTMLElement | null; if (!tb) return;
+    const set = () => secRef.current?.style.setProperty('--bk-top-h', tb.offsetHeight + 'px');
+    set(); const ro = new ResizeObserver(set); ro.observe(tb); return () => ro.disconnect();
+  }, []);
   const persist = useCallback(() => {
     if (done.current) return;
     saveLive({ id: session, run: { refs, practice, minutes, title: run.title }, st: cur.current.st, secs: secs.current, elapsed: elapsed(), started: started.current, at: Date.now(), active: activeRef.current, sheet: cur.current.sheet }).catch(() => { /* ignore */ });
@@ -129,7 +135,7 @@ const Inner: React.FC<{ run: Run; resume?: LiveExam; lab: Lab; onFinish: (a: Att
   }, [pick, st.picks, dr.on]);
 
   return (
-    <section className={"bk-scroll" + (sheet ? " with-sheet" : "")}>
+    <section className={"bk-scroll" + (sheet ? " with-sheet" : "")} ref={secRef}>
       <div className="bk-topbar">
         <header className="bk-ph">
           <button type="button" className="bk-btn ghost" onClick={async () => { if (await confirmDialog('از آزمون بیرون می‌روید؟ پیشرفت (پاسخ‌ها، نوشته‌ها و زمان) ذخیره می‌شود و بعداً از «بانک تست» ادامه می‌دهید.')) { persist(); dr.setOn(false); onCancel(); } }}><X size={18} /> خروج</button>
@@ -141,11 +147,14 @@ const Inner: React.FC<{ run: Run; resume?: LiveExam; lab: Lab; onFinish: (a: Att
         <div className="bk-bar"><i style={{ width: (answered / refs.length) * 100 + '%' }} /></div>
         <DrawBar />
       </div>
+      <div className="bk-body">
+      <div className="bk-maincol">
       <div className="bk-cards">
         {refs.map((r, i) => <Card key={keyOf(r.b, r.n) + ':' + i} i={i} r={r} lab={lab} meta={lab.meta[keyOf(r.b, r.n)]} pick={st.picks[i] || 0} mask={st.crossed[i] || 0} flagged={!!st.flags[i]}
           practice={practice} session={session} multi={multi} onPick={pick} onCross={cross} onFlag={flag} />)}
       </div>
       <div className="bk-endrow"><button type="button" className="bk-btn primary wide" onClick={() => finish()}><Check size={18} /> پایان آزمون ({P(answered)} از {P(refs.length)})</button></div>
+      </div>
       {sheet && (
         <aside className="bk-drawer" aria-label="پاسخ‌برگ">
           <header><b>پاسخ‌برگ</b><button type="button" className="bk-btn bk-close" onClick={() => setSheet(false)} aria-label="بستن"><X size={18} /> بستن</button></header>
@@ -153,6 +162,7 @@ const Inner: React.FC<{ run: Run; resume?: LiveExam; lab: Lab; onFinish: (a: Att
             onPick={pick} onCross={cross} onFlag={flag} />
         </aside>
       )}
+      </div>
     </section>
   );
 };
