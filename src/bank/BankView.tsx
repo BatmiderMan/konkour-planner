@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { FlaskConical } from 'lucide-react';
 import { Attempt, LiveExam, Ref, SavedExam, listExams, listLive, discardLive, BANK_EVENT } from './store';
-import { confirmDialog } from '../dialog';
+import { alertDialog, confirmDialog } from '../dialog';
 import { toPersianDigits as P } from '../utils';
 import { Lab, useLab } from './parts';
 import { Run, Player } from './Player';
@@ -20,7 +20,22 @@ type Tab = 'build' | 'browse' | 'sheets' | 'lib' | 'stats';
 const TABS: Array<[Tab, string]> = [['build', 'آزمون‌ساز'], ['browse', 'مرور'], ['sheets', 'پاسخ‌برگ'], ['lib', 'کتابخانه'], ['stats', 'آمار']];
 interface PdfReq { refs: Ref[]; title: string; mixed: boolean; extra?: string }
 
-export const BankView: React.FC = () => {
+class Guard extends React.Component<{ children: React.ReactNode }, { err: boolean }> {
+  state = { err: false };
+  static getDerivedStateFromError() { return { err: true }; }
+  componentDidCatch() { try { sessionStorage.setItem('bk-noauto', '1'); } catch { /* ignore */ } }
+  render() {
+    if (!this.state.err) return this.props.children;
+    return (
+      <div className="bk-root"><div className="bk-emptybox"><b>مشکلی در نمایش بانک تست پیش آمد</b>
+        <span>اطلاعات آزمون‌های نیمه‌کاره‌تان سر جایش است.</span>
+        <button type="button" className="bk-btn primary" onClick={() => this.setState({ err: false })}>تلاش دوباره</button>
+        <button type="button" className="bk-btn" onClick={async () => { try { for (const l of await listLive()) await discardLive(l.id, false); } catch { /* ignore */ } this.setState({ err: false }); }}>کنار گذاشتن آزمون‌های نیمه‌کاره و ادامه</button></div></div>
+    );
+  }
+}
+
+const BankInner: React.FC = () => {
   const lab: Lab = useLab();
   const [tab, setTab] = useState<Tab>('build');
   const [run, setRun] = useState<Run | null>(null);
@@ -33,11 +48,15 @@ export const BankView: React.FC = () => {
   const [resume, setResume] = useState<LiveExam | null>(null);
   const auto = useRef(false);
   const reload = () => listLive().then((l) => { setLives(l); return l; }).catch(() => [] as LiveExam[]);
-  useEffect(() => {   // exams left unfinished: come back straight into the one touched in the last 30 minutes, list the rest
-    reload().then((l) => { if (!auto.current && l[0] && Date.now() - l[0].at < 30 * 60 * 1000) { auto.current = true; setResume(l[0]); setRun(l[0].run); } auto.current = true; });
-    window.addEventListener(BANK_EVENT, reload as any); return () => window.removeEventListener(BANK_EVENT, reload as any);
-  }, []);
-  const goOn = (l: LiveExam) => { setResume(l); setRun(l.run); };
+  useEffect(() => { reload(); window.addEventListener(BANK_EVENT, reload as any); return () => window.removeEventListener(BANK_EVENT, reload as any); }, []);
+  const usable = (l: LiveExam) => l.run.refs.length > 0 && l.run.refs.every((r) => lab.bookMap.get(r.b)?.numbers.includes(r.n));
+  // come back straight into the exam touched in the last 30 minutes — but only once the books are loaded (never before), and never after a crash
+  useEffect(() => {
+    if (auto.current || !lab.ready) return; auto.current = true;
+    let off = false; try { off = sessionStorage.getItem('bk-noauto') === '1'; } catch { /* ignore */ }
+    const l = lives[0]; if (!off && l && Date.now() - l.at < 30 * 60 * 1000 && usable(l)) { setResume(l); setRun(l.run); }
+  }, [lab.ready, lives]); // eslint-disable-line react-hooks/exhaustive-deps
+  const goOn = (l: LiveExam) => { if (!lab.ready) return; if (!usable(l)) { alertDialog('کتاب‌های این آزمون هنوز در برنامه نیست؛ اول فایل کتاب را در «کتابخانه» وارد کنید.'); return; } try { sessionStorage.removeItem('bk-noauto'); } catch { /* ignore */ } setResume(l); setRun(l.run); };
   useEffect(() => { const f = () => listExams().then((x) => { setExams(x); setExamsReady(true); }).catch(() => setExamsReady(true)); f(); window.addEventListener(BANK_EVENT, f); return () => window.removeEventListener(BANK_EVENT, f); }, []);
   if (first && lab.ready && !lab.books.length && tab !== 'lib') { setTab('lib'); setFirst(false); }
   const start = (r: Run) => { const refs = r.refs.filter((x) => lab.bookMap.get(x.b)?.numbers.includes(x.n)); if (refs.length) setRun({ ...r, refs }); };
@@ -66,3 +85,5 @@ export const BankView: React.FC = () => {
     </div>
   );
 };
+
+export const BankView: React.FC = () => <Guard><BankInner /></Guard>;

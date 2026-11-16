@@ -30,7 +30,7 @@ const Opts: React.FC<{ pick: number; mask: number; right?: number; reveal: boole
 interface CardProps { i: number; r: Ref; lab: Lab; meta?: QMeta; pick: number; mask: number; flagged: boolean; practice: boolean; session: string; multi: boolean;
   onPick: (i: number, v: number) => void; onCross: (i: number, v: number) => void; onFlag: (i: number) => void }
 const Card = React.memo(({ i, r, lab, meta, pick, mask, flagged, practice, session, multi, onPick, onCross, onFlag }: CardProps) => {
-  const book = lab.bookMap.get(r.b)!;
+  const book = lab.bookMap.get(r.b) as ReturnType<Lab['bookMap']['get']>;
   const ref = useRef<HTMLElement>(null);
   const [seen, setSeen] = useState(i < 3);
   const [showE, setShowE] = useState(false);
@@ -39,6 +39,7 @@ const Card = React.memo(({ i, r, lab, meta, pick, mask, flagged, practice, sessi
     if (seen || !ref.current) return; const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { setSeen(true); io.disconnect(); } }, { rootMargin: '1400px 0px' });
     io.observe(ref.current); return () => io.disconnect();
   }, [seen]);
+  if (!book) return null;
   const right = book.answers[r.n], reveal = practice && pick !== 0, hasE = book.expl.includes(r.n);
   return (
     <article ref={ref} id={'bk-q-' + i} data-i={i} className={'bk-card' + (flagged ? ' flagged' : '')}>
