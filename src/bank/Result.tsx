@@ -53,7 +53,7 @@ export const Result: React.FC<{ a: Attempt; lab: Lab; onBack: () => void; onRetr
       </div>
       <div className="bk-tabs">{([['bad', `غلط (${P(bad.length)})`], ['blank', `نزده (${P(blank.length)})`], ['good', `درست (${P(good.length)})`], ['all', 'همه']] as const).map(([k, l]) => <button type="button" key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</div>
       {!shown.length && <p className="bk-empty">موردی نیست.</p>}
-      {candleTimes.some((t) => t > 0) && <TimeCandles rows={candleRows} times={candleTimes} title={title} />}
+      {candleTimes.some((t) => t > 0) && <TimeCandles rows={candleRows} times={candleTimes} title={title} onOpen={(q) => { setTab('all'); setView(q - 1); }} />}
       <div className="bk-tbl" role="table">
         <div className="bk-tr hd" role="row"><span>سؤال</span><span>نتیجه و گزینه‌ها</span><span>موضوع</span><span>سطح</span><span>زمان</span></div>
         {shown.map((x) => { const idx = rows.indexOf(x), meta = lab.meta[keyOf(x.b, x.n)]; return (

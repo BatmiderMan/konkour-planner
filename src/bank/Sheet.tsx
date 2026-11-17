@@ -8,7 +8,7 @@ export interface SheetProps {
   picks: Record<string, number>; crossed: Record<string, number>; flags: Record<string, boolean>;
   onPick?: (i: number, v: number) => void; onCross?: (i: number, v: number) => void; onFlag?: (i: number) => void;
   keys?: number[];                                  // graded: the right option of each position
-  active?: number; onJump?: (i: number) => void;
+  active?: number; onJump?: (i: number) => void; overs?: Record<number, boolean>;
 }
 type Mode = 'fill' | 'cross';
 
@@ -22,7 +22,7 @@ const Bubble: React.FC<{ v: number; on: boolean; crossed: boolean; cls: string; 
   );
 };
 
-export const Sheet: React.FC<SheetProps> = ({ labels, sub, picks, crossed, flags, onPick, onCross, onFlag, keys, active, onJump }) => {
+export const Sheet: React.FC<SheetProps> = ({ labels, sub, picks, crossed, flags, onPick, onCross, onFlag, keys, active, onJump, overs }) => {
   const [mode, setMode] = useState<Mode>('fill');
   const ro = !onPick;
   const answered = labels.filter((_, i) => picks[i]).length, fl = labels.filter((_, i) => flags[i]).length;
@@ -41,7 +41,7 @@ export const Sheet: React.FC<SheetProps> = ({ labels, sub, picks, crossed, flags
           const pick = picks[i] || 0, mask = crossed[i] || 0, key = keys?.[i] || 0;
           const state = keys ? (pick === 0 ? 'blank' : pick === key ? 'ok' : 'bad') : '';
           return (
-            <div key={i} className={'bk-srow' + (active === i ? ' cur' : '') + (i % 5 === 4 ? ' g5' : '') + (state ? ' ' + state : '')}>
+            <div key={i} className={'bk-srow' + (active === i ? ' cur' : '') + (overs?.[i] ? ' over' : '') + (i % 5 === 4 ? ' g5' : '') + (state ? ' ' + state : '')}>
               <button type="button" className={'bk-sno' + (flags[i] ? ' fl' : '')} onClick={() => onJump?.(i)} title={sub?.[i]}>{lab}</button>
               <span className="bk-bubs">
                 {[1, 2, 3, 4].map((v) => (

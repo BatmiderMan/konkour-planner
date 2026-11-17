@@ -5,6 +5,7 @@ import { X, Check, ListChecks, PenTool, Eye, EyeOff } from 'lucide-react';
 import { Lab, MarkBar, QImg } from './parts';
 import { Attempt, LiveExam, MIX, QMeta, Ref, clearLive, keyOf, recordAttemptMeta, saveAttempt, saveLive } from './store';
 import { fmtDur } from './lab';
+const clock = (s: number) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = Math.floor(s % 60), d = (n: number) => String(n).padStart(2, '0'); return (h > 0 ? h + ':' : '') + d(m) + ':' + d(x); };
 import { DrawBar, DrawProvider, DrawStage, SpaceButtons, useDraw, useDrawDoc } from './draw';
 import { Sheet, SheetState, applyCross, applyFlag, applyPick } from './Sheet';
 import { confirmDialog } from '../dialog';
@@ -27,9 +28,9 @@ const Opts: React.FC<{ pick: number; mask: number; right?: number; reveal: boole
   );
 };
 
-interface CardProps { i: number; r: Ref; lab: Lab; meta?: QMeta; pick: number; mask: number; flagged: boolean; active: boolean; practice: boolean; session: string; multi: boolean; onFocusQ: (i: number) => void;
+interface CardProps { i: number; r: Ref; lab: Lab; meta?: QMeta; pick: number; mask: number; flagged: boolean; active: boolean; over: boolean; allow: number; practice: boolean; session: string; multi: boolean; onFocusQ: (i: number) => void;
   onPick: (i: number, v: number) => void; onCross: (i: number, v: number) => void; onFlag: (i: number) => void }
-const Card = React.memo(({ i, r, lab, meta, pick, mask, flagged, active, practice, session, multi, onFocusQ, onPick, onCross, onFlag }: CardProps) => {
+const Card = React.memo(({ i, r, lab, meta, pick, mask, flagged, active, over, allow, practice, session, multi, onFocusQ, onPick, onCross, onFlag }: CardProps) => {
   const book = lab.bookMap.get(r.b) as ReturnType<Lab['bookMap']['get']>;
   const ref = useRef<HTMLElement>(null);
   const [seen, setSeen] = useState(i < 3);
@@ -44,7 +45,7 @@ const Card = React.memo(({ i, r, lab, meta, pick, mask, flagged, active, practic
   return (
     <article ref={ref} id={'bk-q-' + i} data-i={i} className={'bk-card' + (flagged ? ' flagged' : '') + (active ? ' active' : '')} onPointerDownCapture={() => onFocusQ(i)}>
       <header className="bk-chead">
-        <span className="bk-cno">{P(i + 1)}</span>{active && <span className="bk-now"><i />در حال حل</span>}
+        <span className="bk-cno">{P(i + 1)}</span>{active && <span className="bk-now"><i />در حال حل</span>}{over && <span className="bk-over" title={'از زمان مجاز این سؤال (' + P(fmtDur(Math.round(allow))) + ') بیشتر وقت گذاشته‌اید'}><i />زمان زیاد</span>}
         <span className="bk-ctitle">{multi ? book.title + ' · ' : ''}شمارهٔ {P(r.n)}{flagged ? ' ⚑' : ''}</span>
         <MarkBar book={book} n={r.n} meta={meta} pick={pick} compact />
         <button type="button" className={'bk-mk sm' + (flagged ? ' on' : '')} aria-pressed={flagged} title="علامت برای مرور" onClick={() => onFlag(i)}>⚑</button>
@@ -74,6 +75,10 @@ const Inner: React.FC<{ run: Run; resume?: LiveExam; lab: Lab; onFinish: (a: Att
   const elapsed = () => Math.floor(base.current + (Date.now() - t0.current) / 1000);
   const multi = useMemo(() => new Set(refs.map((r) => r.b)).size > 1, [refs]);
   const left = minutes > 0 ? Math.max(0, minutes * 60 - sec) : 0;
+  const allow = minutes > 0 ? (minutes * 60) / Math.max(1, refs.length) : 0;   // fair share of the clock per question (none when the exam has no time limit)
+  const [over, setOver] = useState<Record<number, boolean>>(() => { const o: Record<number, boolean> = {}; if (minutes > 0 && resume) refs.forEach((r, i) => { if ((resume.secs[keyOf(r.b, r.n)] || 0) > allow) o[i] = true; }); return o; });
+  const [warn15, setWarn15] = useState(false);
+  const warned = useRef(minutes > 0 && left <= 900);
   const answered = refs.filter((_, i) => st.picks[i]).length;
   const labels = useMemo(() => refs.map((_, i) => P(i + 1)), [refs]);
   const sub = useMemo(() => refs.map((r) => (lab.bookMap.get(r.b)?.title || '') + ' · ' + P(r.n)), [refs, lab]);
@@ -96,9 +101,19 @@ const Inner: React.FC<{ run: Run; resume?: LiveExam; lab: Lab; onFinish: (a: Att
   useEffect(() => {
     const id = setInterval(() => {
       setSec(elapsed());
-      if (document.visibilityState === 'visible') { const r = refs[activeRef.current]; if (r) secs.current[keyOf(r.b, r.n)] = (secs.current[keyOf(r.b, r.n)] || 0) + 1; }
+      if (document.visibilityState === 'visible') { const r = refs[activeRef.current]; if (r) { const k = keyOf(r.b, r.n), v = (secs.current[k] = (secs.current[k] || 0) + 1), i = activeRef.current;
+        if (minutes > 0 && v > allow) setOver((o) => (o[i] ? o : { ...o, [i]: true })); } }
     }, 1000); return () => clearInterval(id);
-  }, [refs]);
+  }, [refs, minutes, allow]);
+  useEffect(() => { if (minutes > 0 && !warned.current && left <= 900 && left > 0) { warned.current = true; setWarn15(true); const t = setTimeout(() => setWarn15(false), 14000); return () => clearTimeout(t); } }, [left, minutes]);
+
+  /* the bar and the sheet are positioned from the viewport (not "sticky"), so no ancestor's overflow can ever scroll them away or make them unclickable */
+  const [box, setBox] = useState({ l: 0, w: 0 });
+  useEffect(() => {
+    const el = secRef.current; if (!el) return;
+    const m = () => { const r = el.getBoundingClientRect(); setBox((b) => (Math.abs(b.l - r.left) < 0.5 && Math.abs(b.w - r.width) < 0.5 ? b : { l: r.left, w: r.width })); };
+    m(); const ro = new ResizeObserver(m); ro.observe(el); window.addEventListener('resize', m); return () => { ro.disconnect(); window.removeEventListener('resize', m); };
+  }, []);
 
   /* continuous saving: answers, clock, position — so leaving (another Planex tab, reload, phone lock) never loses the exam */
   const cur = useRef({ st, sheet }); cur.current = { st, sheet };
@@ -153,32 +168,37 @@ const Inner: React.FC<{ run: Run; resume?: LiveExam; lab: Lab; onFinish: (a: Att
   }, [pick, flag]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <section className={"bk-scroll" + (sheet ? " with-sheet" : "")} ref={secRef}>
+    <section className={"bk-scroll" + (sheet ? " with-sheet" : "")} ref={secRef} style={{ '--bk-l': box.l + 'px', '--bk-w': box.w + 'px' } as React.CSSProperties}>
+      <div className="bk-tbspace" />
       <div className="bk-topbar">
         <header className="bk-ph">
           <button type="button" className="bk-btn ghost" onClick={async () => { if (await confirmDialog('از آزمون بیرون می‌روید؟ پیشرفت (پاسخ‌ها، نوشته‌ها و زمان) ذخیره می‌شود و بعداً از «بانک تست» ادامه می‌دهید.')) { persist(); dr.setOn(false); onCancel(); } }}><X size={18} /> خروج</button>
-          <div className="bk-nowq" title="سؤالی که الان وقتش حساب می‌شود">سؤال {P(activeI + 1)} · {P(fmtDur(secs.current[keyOf(refs[activeI]?.b, refs[activeI]?.n)] || 0))}</div>
+          <div className={'bk-nowq' + (over[activeI] ? ' over' : '')} title="سؤالی که الان وقتش حساب می‌شود">سؤال {P(activeI + 1)} · {P(fmtDur(secs.current[keyOf(refs[activeI]?.b, refs[activeI]?.n)] || 0))}</div>
           <button type="button" className={'bk-btn sm' + (autoNext ? ' primary' : '')} aria-pressed={autoNext} title="بعد از زدن گزینه با کیبورد، خودکار برو سؤال بعد" onClick={() => setAutoNext((v) => { try { localStorage.setItem('bk-autonext', v ? '0' : '1'); } catch { /* ignore */ } return !v; })}>↓ خودکار</button>
-          <div className="bk-prog"><span className={'bk-time' + (minutes > 0 && left < 60 ? ' low' : '')}>{P(fmtDur(minutes > 0 ? left : sec))}</span> <b>{P(answered)}</b>/{P(refs.length)}</div>
+          <div className="bk-prog"><b>{P(answered)}</b>/{P(refs.length)}</div>
           <button type="button" className={'bk-btn' + (sheet ? ' primary' : '')} aria-pressed={sheet} onClick={() => setSheet((v) => !v)}><ListChecks size={18} /> پاسخ‌برگ</button>
           <button type="button" className={'bk-btn' + (dr.on ? ' primary' : '')} aria-pressed={dr.on} onClick={() => dr.setOn(!dr.on)}><PenTool size={18} /> رسم</button>
           <button type="button" className="bk-btn primary" onClick={() => finish()}><Check size={18} /> پایان</button>
+          <div className={'bk-timer ' + (minutes <= 0 ? 'up' : left <= 60 ? 'crit blink' : left <= 300 ? 'crit' : left <= 900 ? 'warn' : '')} role="timer" aria-label={minutes > 0 ? 'زمان باقی‌مانده' : 'زمان سپری‌شده'}>
+            <small>{minutes > 0 ? 'مانده' : 'گذشته'}</small><b>{P(clock(minutes > 0 ? left : sec))}</b>
+          </div>
         </header>
         <div className="bk-bar"><i style={{ width: (answered / refs.length) * 100 + '%' }} /></div>
         <DrawBar />
       </div>
+      {warn15 && <div className="bk-toast15" role="alert"><b>⏰ ۱۵ دقیقه به پایان آزمون مانده است</b><span>سؤال‌های نزده را مرور کنید و پاسخ‌برگ را کامل کنید.</span><button type="button" className="bk-btn primary" onClick={() => setWarn15(false)}>باشه</button></div>}
       <div className="bk-body">
       <div className="bk-maincol">
       <div className="bk-cards">
         {refs.map((r, i) => <Card key={keyOf(r.b, r.n) + ':' + i} i={i} r={r} lab={lab} meta={lab.meta[keyOf(r.b, r.n)]} pick={st.picks[i] || 0} mask={st.crossed[i] || 0} flagged={!!st.flags[i]}
-          active={activeI === i} onFocusQ={focusQ} practice={practice} session={session} multi={multi} onPick={pick} onCross={cross} onFlag={flag} />)}
+          over={!!over[i]} allow={allow} active={activeI === i} onFocusQ={focusQ} practice={practice} session={session} multi={multi} onPick={pick} onCross={cross} onFlag={flag} />)}
       </div>
       <div className="bk-endrow"><button type="button" className="bk-btn primary wide" onClick={() => finish()}><Check size={18} /> پایان آزمون ({P(answered)} از {P(refs.length)})</button></div>
       </div>
       {sheet && (
         <aside className="bk-drawer" aria-label="پاسخ‌برگ">
           <header><b>پاسخ‌برگ</b><button type="button" className="bk-btn bk-close" onClick={() => setSheet(false)} aria-label="بستن"><X size={18} /> بستن</button></header>
-          <Sheet labels={labels} sub={sub} picks={st.picks} crossed={st.crossed} flags={st.flags} active={activeI} onJump={jump}
+          <Sheet labels={labels} sub={sub} picks={st.picks} crossed={st.crossed} flags={st.flags} active={activeI} overs={over} onJump={jump}
             onPick={pick} onCross={cross} onFlag={flag} />
         </aside>
       )}

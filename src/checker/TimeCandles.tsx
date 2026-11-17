@@ -11,7 +11,7 @@ const mmss = (sec: number) => P(clock(Math.round(sec) * 1000));
  * Height = time spent, colour = result (green right, red wrong, yellow left empty). Hover / tap a candle for the exact time.
  * Below the chart: what the time says about efficiency (where the minutes went, rushed mistakes, expensive hits).
  */
-export const TimeCandles: React.FC<{ rows: GradedRow[]; times: number[]; title?: string; flags?: number[] }> = ({ rows, times, title, flags }) => {
+export const TimeCandles: React.FC<{ rows: GradedRow[]; times: number[]; title?: string; flags?: number[]; onOpen?: (q: number) => void }> = ({ rows, times, title, flags, onOpen }) => {
   const [hot, setHot] = useState<number | null>(null);
   const flagSet = useMemo(() => new Set(flags || []), [flags]);
   const data = useMemo(() => rows.map((r) => ({ r, t: Math.max(0, (times[r.q - 1] || 0)) })), [rows, times]);
@@ -60,7 +60,7 @@ export const TimeCandles: React.FC<{ rows: GradedRow[]; times: number[]; title?:
                 key={d.r.q}
                 className={'col st-' + d.r.st + (flagSet.has(d.r.bq) ? ' flag' : '') + (hot === i ? ' hot' : '') + (i < 3 ? ' edge-l' : n - i <= 3 ? ' edge-r' : '')}
                 onMouseEnter={() => setHot(i)}
-                onClick={() => setHot(hot === i ? null : i)}
+                onClick={() => { if (onOpen) onOpen(d.r.q); else setHot(hot === i ? null : i); }}
                 role="img"
                 aria-label={`سؤال ${d.r.bq}، ${LBL[d.r.st]}، ${mmss(d.t)}`}
               >
