@@ -1,5 +1,6 @@
 /** Small shared pieces of the question lab: pictures, the mark bar (⭐ 🤔 level note vault), the question viewer, the data hook. */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { fmtDur, historyOf } from './lab';
 import { Star, HelpCircle, Gem, StickyNote, X, ChevronLeft, ChevronRight, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { Attempt, BANK_EVENT, BankBook, LEVEL, LabSet, MASTERY, QMeta, Ref, Section, explUrl, getSections, imageBlob, imageUrl, keyOf, listAttempts, listBooks, listMeta, listSets, masteryOf, patchMeta } from './store';
 import { alertDialog } from '../dialog';
@@ -102,12 +103,33 @@ export const Viewer: React.FC<{ refs: Ref[]; start: number; lab: Lab; picks?: Re
           </div>
           {hasE && show && <div className="bk-qwrap bk-expl"><QImg b={r.b} n={r.n} e />{book.shared.includes(r.n) && <p className="bk-hint"><BookOpen size={14} /> این تصویر شامل تشریحی سؤال کناری هم هست.</p>}</div>}
           <MarkBar book={book} n={r.n} meta={lab.meta[keyOf(r.b, r.n)]} pick={pick} />
+          <History lab={lab} b={r.b} n={r.n} session={session} />
         </div>
         <footer>
           <button type="button" className="bk-btn" onClick={() => go(-1)} disabled={i === 0}><ChevronRight size={18} /> قبلی</button>
           <button type="button" className="bk-btn" onClick={() => go(1)} disabled={i === refs.length - 1}>بعدی <ChevronLeft size={18} /></button>
         </footer>
       </div>
+    </div>
+  );
+};
+
+/** this question's history across all exams: when, what you answered, right/wrong, and how long it took */
+export const History: React.FC<{ lab: Lab; b: string; n: number; session?: string }> = ({ lab, b, n, session }) => {
+  const h = useMemo(() => historyOf(lab.attempts, (bb, nn) => lab.bookMap.get(bb)?.answers[nn] || 0, b, n), [lab, b, n]);
+  if (!h.length) return <p className="bk-hint">این سؤال هنوز در هیچ آزمونی نیامده است.</p>;
+  const tried = h.filter((x) => x.state !== 'blank'), ok = h.filter((x) => x.state === 'ok'), timed = h.filter((x) => x.sec > 0);
+  const avg = timed.length ? Math.round(timed.reduce((s2, x) => s2 + x.sec, 0) / timed.length) : 0;
+  const best = timed.length ? Math.min(...timed.map((x) => x.sec)) : 0;
+  return (
+    <div className="bk-hist">
+      <h4>🕘 تاریخچهٔ این سؤال</h4>
+      <p className="bk-hsum"><span>{P(h.length)} بار آمده</span><span>{P(ok.length)} از {P(tried.length)} درست</span>{avg > 0 && <span>میانگین زمان {P(fmtDur(avg))}</span>}{best > 0 && h.length > 1 && <span>سریع‌ترین {P(fmtDur(best))}</span>}</p>
+      <ul>{h.map((x, i) => (
+        <li key={x.aid + i} className={(x.aid === session ? 'cur ' : '') + x.state}>
+          <span className="d">{new Date(x.at).toLocaleDateString('fa-IR')}</span><span className="t">{x.title}</span>
+          <span className="r">{x.state === 'ok' ? 'درست ✓' : x.state === 'bad' ? `غلط (زدید ${P(x.pick)})` : 'نزده'}</span><span className="s">{x.sec > 0 ? P(fmtDur(x.sec)) : '—'}</span>
+        </li>))}</ul>
     </div>
   );
 };

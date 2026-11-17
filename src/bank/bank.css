@@ -246,3 +246,36 @@
   .bk-drawer{position:fixed;left:8px;right:8px;top:auto;bottom:calc(var(--bk-nav,72px) + 4px);width:auto;max-height:none;height:42vh;z-index:60;box-shadow:0 -6px 24px rgba(0,0,0,.25)}
   .bk-scroll.with-sheet{padding-bottom:calc(42vh + 90px)}
 }
+
+/* the question being timed: glowing frame + badge + live clock in the top bar */
+.bk-card.active{border-color:var(--primary);animation:bkglow 2.4s ease-in-out infinite}
+@keyframes bkglow{0%,100%{box-shadow:0 0 0 2px rgba(36,71,216,.35),0 0 14px rgba(36,71,216,.25)}50%{box-shadow:0 0 0 3px rgba(36,71,216,.6),0 0 26px rgba(36,71,216,.45)}}
+.bk-card.active .bk-chead{background:var(--tint-1)}
+.bk-now{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;color:var(--primary);background:var(--sheet-bg,#fff);border:1px solid var(--primary);border-radius:999px;padding:2px 8px}
+.bk-now i{width:7px;height:7px;border-radius:50%;background:var(--primary);animation:bkpulse 1.2s infinite}
+@keyframes bkpulse{50%{opacity:.25;transform:scale(.7)}}
+.bk-nowq{font-size:.78rem;font-weight:700;color:var(--primary);white-space:nowrap}
+.bk-srow.cur{box-shadow:0 0 0 2px var(--primary),0 0 12px rgba(36,71,216,.35);border-radius:12px;background:var(--tint-1)}
+@media (prefers-reduced-motion:reduce){.bk-card.active,.bk-now i{animation:none}}
+
+/* result table (all questions · your answer vs key · topic · level · time) */
+.bk-tbl{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--sheet-bg,#fff)}
+.bk-tr{display:grid;grid-template-columns:44px minmax(150px,auto) 1fr 62px 62px;gap:10px;align-items:center;padding:9px 12px;border:0;border-bottom:1px solid var(--line-soft,var(--line));background:none;font:inherit;color:inherit;text-align:start;width:100%;cursor:pointer;border-inline-start:4px solid transparent}
+.bk-tr.hd{cursor:default;font-size:.75rem;color:var(--sub-ink);font-weight:700;background:var(--tint-1)}
+.bk-tr:not(.hd):hover{background:var(--tint-1)}
+.bk-tr.s-ok{border-inline-start-color:#2fb59a}.bk-tr.s-bad{border-inline-start-color:#e06a78}.bk-tr.s-blank{border-inline-start-color:#e0b24d}
+.bk-tr .no{font-weight:800;font-size:1.05rem;text-align:center}
+.bk-tr .opts{display:flex;gap:5px}.bk-tr .opts i{font-style:normal;width:28px;height:28px;border-radius:8px;border:1.5px solid var(--line);display:grid;place-items:center;font-size:.82rem;font-weight:700}
+.bk-tr .opts i.right{background:#8fdcc8;border-color:#4ec3a6;color:#08463a}.bk-tr .opts i.mine.bad{background:#f4a1ab;border-color:#e06a78;color:#6a1620}.bk-tr .opts i.mine.ok{outline:2.5px solid #1a8f76;outline-offset:1px}
+.bk-tr .tp{display:flex;flex-direction:column;gap:2px;min-width:0}.bk-tr .tp b{font-size:.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bk-tr .tp small{color:var(--sub-ink);font-size:.7rem}
+.bk-tr .lv,.bk-tr .tm{font-size:.8rem;color:var(--sub-ink);text-align:center}
+@media (max-width:620px){.bk-tr{grid-template-columns:34px auto 1fr 46px;gap:6px;padding:8px}.bk-tr .lv{display:none}.bk-tr.hd span:nth-child(4){display:none}.bk-tr .opts i{width:24px;height:24px}}
+/* per-question history */
+.bk-hist{border-top:1px dashed var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px}.bk-hist h4{font-size:.9rem}
+.bk-hsum{display:flex;gap:8px;flex-wrap:wrap}.bk-hsum span{background:var(--tint-1);border-radius:999px;padding:3px 10px;font-size:.76rem;font-weight:600}
+.bk-hist ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.bk-hist li{display:grid;grid-template-columns:78px 1fr auto 48px;gap:8px;align-items:center;font-size:.78rem;padding:6px 8px;border-radius:10px;border:1px solid var(--line-soft,var(--line));border-inline-start:4px solid #ccc}
+.bk-hist li.ok{border-inline-start-color:#2fb59a}.bk-hist li.bad{border-inline-start-color:#e06a78}.bk-hist li.blank{border-inline-start-color:#e0b24d}.bk-hist li.cur{background:var(--tint-1);font-weight:700}
+.bk-hist li .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bk-hist li .s{text-align:end;color:var(--sub-ink)}
+.bk-lb-body{overflow-y:auto;min-height:0}.bk-lb-body>*{flex-shrink:0}
+.bk-lb-card .bk-qwrap{flex:0 0 auto;overflow:visible}

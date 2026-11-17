@@ -1,5 +1,5 @@
 /** The lab's brain: which questions an exam / PDF / set is made of. Pure functions, no UI. */
-import { BankBook, QMeta, Ref, Section, keyOf, masteryOf } from './store';
+import { Attempt, BankBook, QMeta, Ref, Section, itemBook, keyOf, masteryOf } from './store';
 
 export type StatusKey = 'new' | 'weak' | 'learning' | 'mastered';
 export const STATUS: Array<[StatusKey, string]> = [['new', 'دیده‌نشده'], ['weak', 'ضعیف'], ['learning', 'در حال یادگیری'], ['mastered', 'مسلط']];
@@ -70,3 +70,15 @@ export function arrange(list: Ref[], order: Order, count: number, meta: Record<s
 
 export const refKey = (r: Ref) => keyOf(r.b, r.n);
 export const fmtDur = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+export interface QHist { aid: string; at: number; title: string; mode: string; pick: number; right: number; state: 'ok' | 'bad' | 'blank'; sec: number }
+/** every time this question appeared in an exam/practice: what you answered, whether it was right, how long it took */
+export function historyOf(attempts: Attempt[], answerOf: (b: string, n: number) => number, b: string, n: number): QHist[] {
+  const out: QHist[] = [];
+  for (const a of attempts) for (const it of a.items) {
+    if (it.n !== n || itemBook(a, it) !== b) continue;
+    const right = answerOf(b, n);
+    out.push({ aid: a.id, at: a.at, title: a.title || 'آزمون', mode: a.mode, pick: it.pick, right, state: !it.pick ? 'blank' : it.pick === right ? 'ok' : 'bad', sec: it.sec || 0 });
+  }
+  return out.sort((x, y) => y.at - x.at);
+}

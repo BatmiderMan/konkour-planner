@@ -6,6 +6,8 @@ import { fmtDur } from './lab';
 import { toPersianDigits as P } from '../utils';
 import { alertDialog } from '../dialog';
 import { promptName } from './util';
+import { TimeCandles } from '../checker/TimeCandles';
+import { GradedRow } from '../checker/model';
 
 export const Result: React.FC<{ a: Attempt; lab: Lab; onBack: () => void; onRetry: (refs: Ref[]) => void; onPdf: (refs: Ref[], title: string) => void }> = ({ a, lab, onBack, onRetry, onPdf }) => {
   const [tab, setTab] = useState<'all' | 'bad' | 'blank' | 'good'>('bad');
@@ -25,6 +27,10 @@ export const Result: React.FC<{ a: Attempt; lab: Lab; onBack: () => void; onRetr
   }, [rows]);
   const slow = [...rows].sort((p, q) => (q.sec || 0) - (p.sec || 0)).slice(0, 5).filter((x) => (x.sec || 0) > 0);
   const miss = [...bad, ...blank];
+  const candleRows: GradedRow[] = rows.map((x, i) => ({ q: i + 1, bq: x.n, key: x.right, mine: x.pick, dbl: false, edited: false, st: x.ok ? 'ok' : x.pick ? 'bad' : 'blank' }) as GradedRow);
+  const candleTimes = rows.map((x) => x.sec || 0);
+  const lvlName = ['', 'آسان', 'متوسط', 'سخت'];
+  const topicOf = (b: string, n: number) => { const s = (lab.sections[b] || []).find((z) => n >= z.from && n <= z.to); return (lab.books.length > 1 || !s ? (lab.bookMap.get(b)?.title || '') : '') + (s ? (lab.books.length > 1 ? ' · ' : '') + s.name : ''); };
   const title = a.title || lab.bookMap.get(a.bookId)?.title || 'آزمون';
   return (
     <section className="bk-result">
@@ -47,13 +53,18 @@ export const Result: React.FC<{ a: Attempt; lab: Lab; onBack: () => void; onRetr
       </div>
       <div className="bk-tabs">{([['bad', `غلط (${P(bad.length)})`], ['blank', `نزده (${P(blank.length)})`], ['good', `درست (${P(good.length)})`], ['all', 'همه']] as const).map(([k, l]) => <button type="button" key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</div>
       {!shown.length && <p className="bk-empty">موردی نیست.</p>}
-      <ul className="bk-rows">
-        {shown.map((x) => { const idx = rows.indexOf(x); return (
-          <li key={keyOf(x.b, x.n) + idx}><button type="button" className="bk-row" onClick={() => setView(shown.indexOf(x))}>
-            <span className={'bk-badge ' + (x.ok ? 'ok' : x.pick ? 'bad' : '')}>{P(x.n)}</span>
-            <span className="bk-rt"><small>{lab.books.length > 1 ? (lab.bookMap.get(x.b)?.title || '') + ' · ' : ''}پاسخ شما: {x.pick ? P(x.pick) : '—'} · درست: {P(x.right)}{x.sec ? ' · ' + P(fmtDur(x.sec)) : ''}{lab.bookMap.get(x.b)?.expl.includes(x.n) ? ' · دارای تشریحی' : ''}</small><QImg b={x.b} n={x.n} className="thumb" /></span>
-          </button></li>); })}
-      </ul>
+      {candleTimes.some((t) => t > 0) && <TimeCandles rows={candleRows} times={candleTimes} title={title} />}
+      <div className="bk-tbl" role="table">
+        <div className="bk-tr hd" role="row"><span>سؤال</span><span>نتیجه و گزینه‌ها</span><span>موضوع</span><span>سطح</span><span>زمان</span></div>
+        {shown.map((x) => { const idx = rows.indexOf(x), meta = lab.meta[keyOf(x.b, x.n)]; return (
+          <button type="button" role="row" key={keyOf(x.b, x.n) + idx} className={'bk-tr ' + (x.ok ? 's-ok' : x.pick ? 's-bad' : 's-blank')} onClick={() => setView(shown.indexOf(x))}>
+            <span className="no">{P(x.n)}</span>
+            <span className="opts">{[1, 2, 3, 4].map((v) => <i key={v} className={(v === x.right ? 'right ' : '') + (v === x.pick ? (x.ok ? 'mine ok' : 'mine bad') : '')}>{P(v)}</i>)}</span>
+            <span className="tp"><b>{topicOf(x.b, x.n) || '—'}</b>{lab.bookMap.get(x.b)?.expl.includes(x.n) && <small>دارای پاسخ تشریحی</small>}</span>
+            <span className="lv">{lvlName[meta?.lvl || 0] || '—'}</span>
+            <span className="tm">{x.sec ? P(fmtDur(x.sec)) : '—'}</span>
+          </button>); })}
+      </div>
       {view !== null && <Viewer refs={refsOf(shown)} start={view} lab={lab} picks={picks} session={a.id} onClose={() => setView(null)} />}
     </section>
   );

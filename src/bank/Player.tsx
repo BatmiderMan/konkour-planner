@@ -27,9 +27,9 @@ const Opts: React.FC<{ pick: number; mask: number; right?: number; reveal: boole
   );
 };
 
-interface CardProps { i: number; r: Ref; lab: Lab; meta?: QMeta; pick: number; mask: number; flagged: boolean; practice: boolean; session: string; multi: boolean;
+interface CardProps { i: number; r: Ref; lab: Lab; meta?: QMeta; pick: number; mask: number; flagged: boolean; active: boolean; practice: boolean; session: string; multi: boolean; onFocusQ: (i: number) => void;
   onPick: (i: number, v: number) => void; onCross: (i: number, v: number) => void; onFlag: (i: number) => void }
-const Card = React.memo(({ i, r, lab, meta, pick, mask, flagged, practice, session, multi, onPick, onCross, onFlag }: CardProps) => {
+const Card = React.memo(({ i, r, lab, meta, pick, mask, flagged, active, practice, session, multi, onFocusQ, onPick, onCross, onFlag }: CardProps) => {
   const book = lab.bookMap.get(r.b) as ReturnType<Lab['bookMap']['get']>;
   const ref = useRef<HTMLElement>(null);
   const [seen, setSeen] = useState(i < 3);
@@ -42,9 +42,9 @@ const Card = React.memo(({ i, r, lab, meta, pick, mask, flagged, practice, sessi
   if (!book) return null;
   const right = book.answers[r.n], reveal = practice && pick !== 0, hasE = book.expl.includes(r.n);
   return (
-    <article ref={ref} id={'bk-q-' + i} data-i={i} className={'bk-card' + (flagged ? ' flagged' : '')}>
+    <article ref={ref} id={'bk-q-' + i} data-i={i} className={'bk-card' + (flagged ? ' flagged' : '') + (active ? ' active' : '')} onPointerDownCapture={() => onFocusQ(i)}>
       <header className="bk-chead">
-        <span className="bk-cno">{P(i + 1)}</span>
+        <span className="bk-cno">{P(i + 1)}</span>{active && <span className="bk-now"><i />در حال حل</span>}
         <span className="bk-ctitle">{multi ? book.title + ' · ' : ''}شمارهٔ {P(r.n)}{flagged ? ' ⚑' : ''}</span>
         <MarkBar book={book} n={r.n} meta={meta} pick={pick} compact />
         <button type="button" className={'bk-mk sm' + (flagged ? ' on' : '')} aria-pressed={flagged} title="علامت برای مرور" onClick={() => onFlag(i)}>⚑</button>
@@ -81,10 +81,13 @@ const Inner: React.FC<{ run: Run; resume?: LiveExam; lab: Lab; onFinish: (a: Att
   const pick = useCallback((i: number, v: number) => setSt((s) => applyPick(s, i, v)), []);
   const cross = useCallback((i: number, v: number) => setSt((s) => applyCross(s, i, v)), []);
   const flag = useCallback((i: number) => setSt((s) => applyFlag(s, i)), []);
-  const jump = (i: number) => { document.getElementById('bk-q-' + i)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  const lockUntil = useRef(0);
+  const focusQ = useCallback((i: number) => { if (i === activeRef.current) return; lockUntil.current = Date.now() + 1600; activeRef.current = i; setActiveI(i); }, []);
+  const jump = (i: number) => { focusQ(i); lockUntil.current = Date.now() + 1600; document.getElementById('bk-q-' + i)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
 
   useEffect(() => {   // which question is in front of the reader (for the clock per question and the sheet)
     let r = 0; const f = () => { cancelAnimationFrame(r); r = requestAnimationFrame(() => {
+      if (Date.now() < lockUntil.current) return;
       const cards = document.querySelectorAll<HTMLElement>('.bk-card'); let a = 0; const line = window.innerHeight * 0.38;
       cards.forEach((c, i) => { if (c.getBoundingClientRect().top <= line) a = i; });
       activeRef.current = a; setActiveI((p) => (p === a ? p : a)); }); };
@@ -129,16 +132,33 @@ const Inner: React.FC<{ run: Run; resume?: LiveExam; lab: Lab; onFinish: (a: Att
     await clearLive(session).catch(() => { /* ignore */ }); dr.setOn(false); onFinish(a);
   }, [refs, st, lab, practice, run.title, onFinish, session, multi, dr]);
   useEffect(() => { if (minutes > 0 && left === 0 && sec > 0) finish(true); }, [left, sec, minutes]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { const t = e.target as HTMLElement; if (dr.on || (t && /TEXTAREA|INPUT|SELECT/.test(t.tagName)) || e.ctrlKey || e.metaKey) return; if (e.key >= '1' && e.key <= '4') pick(activeRef.current, (st.picks[activeRef.current] === +e.key ? 0 : +e.key)); };
-    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
-  }, [pick, st.picks, dr.on]);
+  const [autoNext, setAutoNext] = useState(() => { try { return localStorage.getItem('bk-autonext') === '1'; } catch { return false; } });
+  const kb = useRef({ picks: st.picks, autoNext, drOn: dr.on, n: refs.length }); kb.current = { picks: st.picks, autoNext, drOn: dr.on, n: refs.length };
+  useEffect(() => {   // exam shortcuts run in the CAPTURE phase and stop there: digits must never reach Planex's own shortcuts (tabs, timer…)
+    const h = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (kb.current.drOn || document.querySelector('.dlg-overlay, .bk-lightbox') || e.ctrlKey || e.metaKey || e.altKey || (t && t.closest && t.closest('input,textarea,select,[contenteditable="true"]'))) return;
+      const code = e.code || '', d = /^(Digit|Numpad)([0-4])$/.exec(code), cur = activeRef.current, k = e.key;
+      let used = true;
+      if (d) { const v = +d[2]; if (v === 0) pick(cur, 0); else { pick(cur, kb.current.picks[cur] === v ? 0 : v); if (kb.current.autoNext && kb.current.picks[cur] !== v && cur < kb.current.n - 1) setTimeout(() => jump(cur + 1), 120); } }
+      else if (k === 'Backspace' || k === 'Delete') pick(cur, 0);
+      else if (k === 'ArrowDown' || code === 'KeyJ') jump(Math.min(kb.current.n - 1, cur + 1));
+      else if (k === 'ArrowUp' || code === 'KeyK') jump(Math.max(0, cur - 1));
+      else if (code === 'KeyF') flag(cur);
+      else if (code === 'KeyS') setSheet((v) => !v);
+      else used = false;
+      if (used) { e.preventDefault(); e.stopImmediatePropagation(); }
+    };
+    window.addEventListener('keydown', h, true); return () => window.removeEventListener('keydown', h, true);
+  }, [pick, flag]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <section className={"bk-scroll" + (sheet ? " with-sheet" : "")} ref={secRef}>
       <div className="bk-topbar">
         <header className="bk-ph">
           <button type="button" className="bk-btn ghost" onClick={async () => { if (await confirmDialog('از آزمون بیرون می‌روید؟ پیشرفت (پاسخ‌ها، نوشته‌ها و زمان) ذخیره می‌شود و بعداً از «بانک تست» ادامه می‌دهید.')) { persist(); dr.setOn(false); onCancel(); } }}><X size={18} /> خروج</button>
+          <div className="bk-nowq" title="سؤالی که الان وقتش حساب می‌شود">سؤال {P(activeI + 1)} · {P(fmtDur(secs.current[keyOf(refs[activeI]?.b, refs[activeI]?.n)] || 0))}</div>
+          <button type="button" className={'bk-btn sm' + (autoNext ? ' primary' : '')} aria-pressed={autoNext} title="بعد از زدن گزینه با کیبورد، خودکار برو سؤال بعد" onClick={() => setAutoNext((v) => { try { localStorage.setItem('bk-autonext', v ? '0' : '1'); } catch { /* ignore */ } return !v; })}>↓ خودکار</button>
           <div className="bk-prog"><span className={'bk-time' + (minutes > 0 && left < 60 ? ' low' : '')}>{P(fmtDur(minutes > 0 ? left : sec))}</span> <b>{P(answered)}</b>/{P(refs.length)}</div>
           <button type="button" className={'bk-btn' + (sheet ? ' primary' : '')} aria-pressed={sheet} onClick={() => setSheet((v) => !v)}><ListChecks size={18} /> پاسخ‌برگ</button>
           <button type="button" className={'bk-btn' + (dr.on ? ' primary' : '')} aria-pressed={dr.on} onClick={() => dr.setOn(!dr.on)}><PenTool size={18} /> رسم</button>
@@ -151,7 +171,7 @@ const Inner: React.FC<{ run: Run; resume?: LiveExam; lab: Lab; onFinish: (a: Att
       <div className="bk-maincol">
       <div className="bk-cards">
         {refs.map((r, i) => <Card key={keyOf(r.b, r.n) + ':' + i} i={i} r={r} lab={lab} meta={lab.meta[keyOf(r.b, r.n)]} pick={st.picks[i] || 0} mask={st.crossed[i] || 0} flagged={!!st.flags[i]}
-          practice={practice} session={session} multi={multi} onPick={pick} onCross={cross} onFlag={flag} />)}
+          active={activeI === i} onFocusQ={focusQ} practice={practice} session={session} multi={multi} onPick={pick} onCross={cross} onFlag={flag} />)}
       </div>
       <div className="bk-endrow"><button type="button" className="bk-btn primary wide" onClick={() => finish()}><Check size={18} /> پایان آزمون ({P(answered)} از {P(refs.length)})</button></div>
       </div>
