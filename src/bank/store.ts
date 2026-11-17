@@ -87,7 +87,7 @@ export async function importPack(p: Pack, onProgress?: (done: number, total: num
   const old = merge ? await getBook(h.id) : undefined;
   if (!old) await removeBook(h.id, true);
   const answers: Record<number, number> = { ...(old?.answers || {}) };
-  h.questions.forEach((q) => { answers[q.n] = q.a; });
+  h.questions.forEach((q) => { if (q.a >= 1 && q.a <= 4) answers[q.n] = q.a; });
   (h.keyOnly || []).forEach((k) => { answers[k.n] = k.a; });
   const expl: number[] = [...(old?.expl || [])], shared: number[] = [...(old?.shared || [])], approx: number[] = [...(old?.approx || [])];
   const eRows: Array<{ n: number; blob: Blob; w: number; h: number }> = [];
@@ -185,9 +185,9 @@ export async function recordAttemptMeta(a: Attempt, answerOf: (b: string, n: num
   for (const it of a.items) {
     const b = itemBook(a, it); if (!it.pick) { /* blank: only the time counts */ }
     const cur: QMeta = (await rq(s.get(keyOf(b, it.n)) as IDBRequest<QMeta | undefined>)) || empty(b, it.n);
-    const ok = it.pick !== 0 && it.pick === answerOf(b, it.n);
+    const key = answerOf(b, it.n), ok = it.pick !== 0 && key > 0 && it.pick === key;
     const next: QMeta = { ...cur, secs: (cur.secs || 0) + (it.sec || 0) };
-    if (it.pick) { next.tries = (cur.tries || 0) + 1; next.wins = (cur.wins || 0) + (ok ? 1 : 0); next.streak = ok ? (cur.streak || 0) + 1 : 0; next.lastOk = ok; next.lastAt = a.at; }
+    if (it.pick && key > 0) { next.tries = (cur.tries || 0) + 1; next.wins = (cur.wins || 0) + (ok ? 1 : 0); next.streak = ok ? (cur.streak || 0) + 1 : 0; next.lastOk = ok; next.lastAt = a.at; }
     s.put(next);
   }
   await done(t); changed();
@@ -219,7 +219,7 @@ export async function setSections(bookId: string, v: Section[]): Promise<void> {
 export async function weakTests(bookId: string): Promise<number[]> {
   const m = await listMeta(); const book = await getBook(bookId); if (!book) return [];
   const at = (await listAttempts(bookId)).slice().reverse(); const state = new Map<number, boolean>();
-  at.forEach((a) => a.items.forEach((it) => { if (itemBook(a, it) === bookId) state.set(it.n, it.pick !== 0 && it.pick === book.answers[it.n]); }));
+  at.forEach((a) => a.items.forEach((it) => { if (itemBook(a, it) === bookId) if (book.answers[it.n]) state.set(it.n, it.pick !== 0 && it.pick === book.answers[it.n]); }));
   void m;
   return [...state.entries()].filter(([, ok]) => !ok).map(([n]) => n).sort((a, b) => a - b);
 }

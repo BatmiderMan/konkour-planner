@@ -11,7 +11,7 @@
  * merges them into one book. No dependency, no server: the file can be sent in a messenger.
  */
 export interface PackQuestion {
-  n: number; a: 1 | 2 | 3 | 4; o: number; l: number; w: number; h: number;
+  n: number; a: 0 | 1 | 2 | 3 | 4; /* 0 = the book's key for this test is not known */ o: number; l: number; w: number; h: number;
   /** explanation image (پاسخ تشریحی) */
   eo?: number; el?: number; ew?: number; eh?: number;
   /** 1 = the explanation image also contains the neighbour's solution (its start marker was not found) */
@@ -43,7 +43,7 @@ export function parsePack(buf: ArrayBuffer): Pack {
   if (header.version > 1) throw new Error('این بسته با نسخهٔ جدیدتری از برنامه ساخته شده؛ برنامه را به‌روز کنید.');
   const base = 8 + hl;
   for (const q of header.questions) {
-    if (!(q.a >= 1 && q.a <= 4) || q.o < 0 || q.l <= 0 || base + q.o + q.l > u8.length) throw new Error('فایل ناقص یا خراب است (تصویر سؤال ' + q.n + ').');
+    if (!(q.a === 0 || (q.a >= 1 && q.a <= 4)) || q.o < 0 || q.l <= 0 || base + q.o + q.l > u8.length) throw new Error('فایل ناقص یا خراب است (تصویر سؤال ' + q.n + ').');
     if (q.eo !== undefined && (!(q.el! > 0) || base + q.eo + q.el! > u8.length)) throw new Error('فایل ناقص یا خراب است (پاسخ تشریحی ' + q.n + ').');
   }
   const blob = (o: number, l: number) => new Blob([u8.subarray(base + o, base + o + l)], { type: 'image/webp' });

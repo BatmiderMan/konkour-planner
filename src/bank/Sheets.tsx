@@ -57,7 +57,7 @@ export const SheetFill: React.FC<{ exam: SavedExam; lab: Lab; onBack: () => void
     setRun(false);
     let c = 0, w = 0; const mixed = new Set(refs.map((r) => r.b)).size > 1;
     const items = refs.map((r, i) => ({ n: r.n, pick: st.picks[i] || 0, b: r.b, sec: 0 }));
-    items.forEach((it, i) => { if (!it.pick) return; if (it.pick === keys[i]) c++; else w++; });
+    items.forEach((it, i) => { if (!it.pick || !keys[i]) return; if (it.pick === keys[i]) c++; else w++; });
     const a: Attempt = { id: 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), bookId: mixed ? MIX : refs[0].b, at: Date.now(), seconds: secs, items, correct: c, wrong: w, blank: refs.length - c - w,
       pct: Math.round(((3 * c - w) / (3 * refs.length)) * 1000) / 10, mode: 'پاسخ‌برگ PDF', title: exam.title };
     await saveAttempt(a); await recordAttemptMeta(a, (b, n) => lab.bookMap.get(b)?.answers[n] || 0);

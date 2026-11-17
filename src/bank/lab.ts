@@ -14,7 +14,7 @@ export type LastMap = Record<string, 'ok' | 'bad' | 'blank'>;
 export function lastResults(attempts: Attempt[], answerOf: (b: string, n: number) => number): LastMap {
   const m: LastMap = {};
   [...attempts].sort((a, b) => a.at - b.at).forEach((a) => a.items.forEach((it) => {
-    const b = itemBook(a, it); m[keyOf(b, it.n)] = !it.pick ? 'blank' : it.pick === answerOf(b, it.n) ? 'ok' : 'bad';
+    const b = itemBook(a, it); const k = answerOf(b, it.n); m[keyOf(b, it.n)] = !it.pick || !k ? 'blank' : it.pick === k ? 'ok' : 'bad';
   }));
   return m;
 }
@@ -89,7 +89,7 @@ export function historyOf(attempts: Attempt[], answerOf: (b: string, n: number) 
   for (const a of attempts) for (const it of a.items) {
     if (it.n !== n || itemBook(a, it) !== b) continue;
     const right = answerOf(b, n);
-    out.push({ aid: a.id, at: a.at, title: a.title || 'آزمون', mode: a.mode, pick: it.pick, right, state: !it.pick ? 'blank' : it.pick === right ? 'ok' : 'bad', sec: it.sec || 0 });
+    out.push({ aid: a.id, at: a.at, title: a.title || 'آزمون', mode: a.mode, pick: it.pick, right, state: !it.pick || !right ? 'blank' : it.pick === right ? 'ok' : 'bad', sec: it.sec || 0 });
   }
   return out.sort((x, y) => y.at - x.at);
 }

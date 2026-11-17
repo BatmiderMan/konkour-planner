@@ -97,7 +97,7 @@ export const Viewer: React.FC<{ refs: Ref[]; start: number; lab: Lab; picks?: Re
         <div className="bk-lb-body">
           <div className="bk-qwrap">{session ? <ViewQ r={r} session={session} /> : <QImg b={r.b} n={r.n} />}</div>
           <div className="bk-ansrow">
-            <span className="bk-pill ok">پاسخ درست: گزینهٔ {P(right || 0)}</span>
+            <span className="bk-pill ok">{right ? <>پاسخ درست: گزینهٔ {P(right)}</> : 'کلید این سؤال موجود نیست'}</span>
             {pick !== undefined && (pick === 0 ? <span className="bk-pill">نزده بودید</span> : <span className={'bk-pill ' + (pick === right ? 'ok' : 'bad')}>پاسخ شما: {P(pick)}</span>)}
             {hasE ? <button type="button" className="bk-btn" onClick={() => setShow((v) => !v)}>{show ? <EyeOff size={16} /> : <Eye size={16} />} پاسخ تشریحی</button> : <span className="bk-hint">برای این تست پاسخ تشریحی در کتاب نیست</span>}
           </div>

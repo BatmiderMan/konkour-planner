@@ -41,7 +41,7 @@ const Card = React.memo(({ i, r, lab, meta, pick, mask, flagged, active, over, a
     io.observe(ref.current); return () => io.disconnect();
   }, [seen]);
   if (!book) return null;
-  const right = book.answers[r.n], reveal = practice && pick !== 0, hasE = book.expl.includes(r.n);
+  const right = book.answers[r.n], reveal = practice && pick !== 0, noKey = !right, hasE = book.expl.includes(r.n);
   return (
     <article ref={ref} id={'bk-q-' + i} data-i={i} className={'bk-card' + (flagged ? ' flagged' : '') + (active ? ' active' : '')} onPointerDownCapture={() => onFocusQ(i)}>
       <header className="bk-chead">
@@ -55,7 +55,7 @@ const Card = React.memo(({ i, r, lab, meta, pick, mask, flagged, active, over, a
         {seen ? <QImg b={r.b} n={r.n} /> : <div className="bk-img ph" style={{ minHeight: 180 }} />}
       </DrawStage>
       <Opts pick={pick} mask={mask} right={right} reveal={reveal} onPick={(v) => onPick(i, pick === v ? 0 : v)} onCross={(v) => onCross(i, v)} />
-      {reveal && <p className={'bk-fb ' + (pick === right ? 'ok' : 'bad')}>{pick === right ? 'درست است ✓' : `نادرست؛ پاسخ درست گزینهٔ ${P(right)} است.`}
+      {reveal && <p className={'bk-fb ' + (noKey ? '' : pick === right ? 'ok' : 'bad')}>{noKey ? 'کلید این سؤال در کتاب موجود نیست.' : pick === right ? 'درست است ✓' : `نادرست؛ پاسخ درست گزینهٔ ${P(right)} است.`}
         {hasE && <button type="button" className="bk-btn sm" onClick={() => setShowE((v) => !v)}>{showE ? <EyeOff size={15} /> : <Eye size={15} />} پاسخ تشریحی</button>}</p>}
       {reveal && showE && hasE && <div className="bk-qwrap bk-expl"><QImg b={r.b} n={r.n} e /></div>}
     </article>
@@ -140,7 +140,7 @@ const Inner: React.FC<{ run: Run; resume?: LiveExam; lab: Lab; onFinish: (a: Att
     if (!force && blank > 0 && !(await confirmDialog(`${P(blank)} سؤال را نزده‌اید. آزمون تمام شود؟`))) return;
     done.current = true; let c = 0, w = 0;
     const items = refs.map((x, i) => ({ n: x.n, pick: st.picks[i] || 0, b: x.b, sec: secs.current[keyOf(x.b, x.n)] || 0 }));
-    items.forEach((it) => { if (!it.pick) return; if (it.pick === lab.bookMap.get(it.b)?.answers[it.n]) c++; else w++; });
+    items.forEach((it) => { if (!it.pick) return; const k = lab.bookMap.get(it.b)?.answers[it.n]; if (!k) return; if (it.pick === k) c++; else w++; });
     const a: Attempt = { id: session, bookId: multi ? MIX : refs[0].b, at: Date.now(), seconds: elapsed(), items, correct: c, wrong: w, blank: refs.length - c - w,
       pct: Math.round(((3 * c - w) / (3 * refs.length)) * 1000) / 10, mode: practice ? 'تمرین' : 'آزمون', title: run.title };
     try { await saveAttempt(a); await recordAttemptMeta(a, (b, n) => lab.bookMap.get(b)?.answers[n] || 0); } catch { /* still show the result */ }

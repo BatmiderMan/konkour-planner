@@ -16,7 +16,7 @@ export const Result: React.FC<{ a: Attempt; lab: Lab; onBack: () => void; onRetr
     const b = itemBook(a, it), right = lab.bookMap.get(b)?.answers[it.n] || 0;
     return { ...it, b, right, ok: it.pick !== 0 && it.pick === right };
   }), [a, lab]);
-  const bad = rows.filter((x) => x.pick !== 0 && !x.ok), blank = rows.filter((x) => !x.pick), good = rows.filter((x) => x.ok);
+  const bad = rows.filter((x) => x.pick !== 0 && x.right > 0 && !x.ok), blank = rows.filter((x) => !x.pick || !x.right), good = rows.filter((x) => x.ok);
   const shown = tab === 'all' ? rows : tab === 'bad' ? bad : tab === 'blank' ? blank : good;
   const refsOf = (l: typeof rows): Ref[] => l.map((x) => ({ b: x.b, n: x.n }));
   const picks: Record<string, number> = {}; rows.forEach((x) => { picks[keyOf(x.b, x.n)] = x.pick; });
@@ -27,7 +27,7 @@ export const Result: React.FC<{ a: Attempt; lab: Lab; onBack: () => void; onRetr
   }, [rows]);
   const slow = [...rows].sort((p, q) => (q.sec || 0) - (p.sec || 0)).slice(0, 5).filter((x) => (x.sec || 0) > 0);
   const miss = [...bad, ...blank];
-  const candleRows: GradedRow[] = rows.map((x, i) => ({ q: i + 1, bq: x.n, key: x.right, mine: x.pick, dbl: false, edited: false, st: x.ok ? 'ok' : x.pick ? 'bad' : 'blank' }) as GradedRow);
+  const candleRows: GradedRow[] = rows.map((x, i) => ({ q: i + 1, bq: x.n, key: x.right, mine: x.pick, dbl: false, edited: false, st: x.ok ? 'ok' : x.pick && x.right ? 'bad' : 'blank' }) as GradedRow);
   const candleTimes = rows.map((x) => x.sec || 0);
   const lvlName = ['', 'آسان', 'متوسط', 'سخت'];
   const topicOf = (b: string, n: number) => { const s = (lab.sections[b] || []).find((z) => n >= z.from && n <= z.to); return (lab.books.length > 1 || !s ? (lab.bookMap.get(b)?.title || '') : '') + (s ? (lab.books.length > 1 ? ' · ' : '') + s.name : ''); };

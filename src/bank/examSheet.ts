@@ -19,7 +19,7 @@ export async function syncExam(id: string, lab: Lab): Promise<void> {
   if (sh.scanId && sh.pct !== undefined && sh.scanId !== e.scanId) {
     let c = 0, w = 0; const mixed = new Set(e.refs.map((r) => r.b)).size > 1;
     const items = e.refs.map((r, i) => ({ n: r.n, pick: picks[i] || 0, b: r.b, sec: Math.round(((sh.times || [])[i] || 0) / 1000) }));
-    items.forEach((it, i) => { if (!it.pick) return; if (it.pick === (lab.bookMap.get(e.refs[i].b)?.answers[e.refs[i].n] || 0)) c++; else w++; });
+    items.forEach((it, i) => { const k = lab.bookMap.get(e.refs[i].b)?.answers[e.refs[i].n] || 0; if (!it.pick || !k) return; if (it.pick === k) c++; else w++; });
     const a: Attempt = { id: 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), bookId: mixed ? MIX : e.refs[0].b, at: Date.now(), seconds: ne.seconds, items, correct: c, wrong: w, blank: n - c - w,
       pct: Math.round(((3 * c - w) / (3 * n)) * 1000) / 10, mode: 'پاسخ‌برگ PDF', title: e.title };
     await saveAttempt(a); await recordAttemptMeta(a, (b, q) => lab.bookMap.get(b)?.answers[q] || 0);
