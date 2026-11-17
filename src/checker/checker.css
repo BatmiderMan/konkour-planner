@@ -425,7 +425,9 @@
 /* the one-line answer sheet (stays on top; also used inside a floating always-on-top window) */
 .ck-mini-wrap { position: fixed; top: 6px; left: 50%; transform: translateX(-50%); z-index: 4000; width: min(800px, 98vw); }
 .ck-mini { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 16px; background: var(--sheet-bg, #fff); color: var(--ink, #111); border: 1.5px solid var(--primary, #2447d8); box-shadow: 0 8px 28px rgba(15, 25, 60, .28); font-family: inherit; overflow-x: auto; }
-.ck-mini.pip { border-radius: 0; border: 0; box-shadow: none; min-height: 100vh; justify-content: center; }
+.ck-mini.pip { border-radius: 0; border: 0; box-shadow: none; width: max-content; gap: 6px; padding: 7px 10px; overflow: visible; }
+.ck-mini.pip .cnt { display: none; }
+
 .ck-mini .mb { border: 1px solid var(--line-soft, #d8def0); background: var(--paper, #f4f6fd); color: inherit; border-radius: 10px; cursor: pointer; font: inherit; display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 34px; }
 .ck-mini .mb.ic { width: 34px; padding: 0; flex: none; }
 .ck-mini .mb.on { background: #fff4cc; border-color: #e0951b; color: #a86a00; }
@@ -443,3 +445,8 @@
 .ck-mini .ck { flex: none; font-weight: 700; color: var(--primary, #2447d8); font-size: .95rem; }
 .ck-mini .cnt { font-size: .78rem; color: var(--sub-ink, #7a84a8); flex: none; }
 @media (max-width: 560px) { .ck-mini { gap: 5px; padding: 5px 6px; } .ck-mini .op { width: 34px; height: 34px; } .ck-mini .cnt { display: none; } }
+.ck-mini .lis { display: inline-flex; align-items: center; gap: 4px; flex: none; font-size: .68rem; font-weight: 700; color: #a86a00; background: #fff4cc; border-radius: 999px; padding: 3px 8px; cursor: pointer; }
+.ck-mini .lis i { width: 7px; height: 7px; border-radius: 50%; background: #e0951b; }
+.ck-mini .lis.on { color: #18755c; background: #d9f6ec; }
+.ck-mini .lis.on i { background: #1f9d78; box-shadow: 0 0 0 3px rgba(31,157,120,.25); }
+.ck-mini:has(.lis:not(.on)) { border-color: #e0951b; }

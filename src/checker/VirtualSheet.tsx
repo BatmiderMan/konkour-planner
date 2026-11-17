@@ -90,7 +90,33 @@ export const VirtualSheet: React.FC<{
   const waitStart = useRef(false); // the clock waits for the first answer (when «شروع خودکار» is off)
   const [side, setSide] = useState(false); // phone: the tools drawer
   const [mini, setMini] = useState(false);   // the one-line answer sheet on top (the rest of the screen stays usable)
-  const [pip, setPip] = useState<Window | null>(null); // … floating above every window (Document Picture-in-Picture)
+  const [pip, setPip] = useState<Window | null>(null);
+  /* keys only reach the window that has focus (a browser rule): show whether this bar is listening, and try to take focus when the pointer comes over it */
+  const [listening, setListening] = useState(true);
+  useEffect(() => {
+    if (!mini) return;
+    const w = pip || window;
+    const upd = () => setListening(w.document.hasFocus());
+    upd(); w.addEventListener('focus', upd); w.addEventListener('blur', upd);
+    const hover = () => { if (!w.document.hasFocus()) { try { w.focus(); } catch { /* needs a click */ } setTimeout(upd, 50); } };
+    w.document.addEventListener('pointerenter', hover, true); w.document.addEventListener('pointermove', hover, true);
+    const poll = setInterval(upd, 1000);
+    return () => { clearInterval(poll); try { w.removeEventListener('focus', upd); w.removeEventListener('blur', upd); w.document.removeEventListener('pointerenter', hover, true); w.document.removeEventListener('pointermove', hover, true); } catch { /* closed */ } };
+  }, [mini, pip]);
+  /* the floating window has a FIXED size that fits the bar exactly (not resizable by hand) */
+  useEffect(() => {
+    if (!pip) return;
+    let sz = { w: 0, h: 0 }; let on = true;
+    const fit = () => {
+      const el = pip.document.querySelector('.ck-mini') as HTMLElement | null; if (!el || !on) return;
+      const r = el.getBoundingClientRect(); sz = { w: Math.ceil(r.width) + (pip.outerWidth - pip.innerWidth), h: Math.ceil(r.height) + (pip.outerHeight - pip.innerHeight) };
+      try { if (pip.outerWidth !== sz.w || pip.outerHeight !== sz.h) pip.resizeTo(sz.w, sz.h); } catch { /* needs a recent click: fine */ }
+    };
+    const snap = () => { if (!sz.w) return; try { if (Math.abs(pip.outerWidth - sz.w) > 2 || Math.abs(pip.outerHeight - sz.h) > 2) pip.resizeTo(sz.w, sz.h); } catch { /* ignore */ } };
+    const t1 = setTimeout(fit, 120), t2 = setTimeout(fit, 600);
+    pip.addEventListener('resize', snap);
+    return () => { on = false; clearTimeout(t1); clearTimeout(t2); try { pip.removeEventListener('resize', snap); } catch { /* closed */ } };
+  }, [pip]); // … floating above every window (Document Picture-in-Picture)
   const dirty = useRef(false);
   const live = useLivePlan();
 
@@ -111,6 +137,8 @@ export const VirtualSheet: React.FC<{
   const ticking = !!rec && phase === 'doing' && rec.mode === 'live' && rec.state === 'open' && !paused;
   const tickRef = useRef(ticking);
   tickRef.current = ticking;
+  const miniRef = useRef(false); // in the one-line / floating mode the test is solved in ANOTHER window: the clock must keep running while this page is hidden
+  miniRef.current = mini;
 
   // a key that fits the card: remembered choice → same book / lesson as the card (like the scanner does)
   const autoBook = useCallback((): string => {
@@ -139,10 +167,10 @@ export const VirtualSheet: React.FC<{
   useEffect(() => {
     let last = performance.now(), n = 0, sec = -1;
     const id = window.setInterval(() => {
-      const now = performance.now(), dt = Math.min(now - last, 1500);
+      const now = performance.now(), dt = Math.min(now - last, miniRef.current && document.hidden ? 70000 : 1500); // hidden pages get timers throttled to once a minute: count the real time
       last = now;
       const cur = recRef.current;
-      if (!cur || !tickRef.current || document.hidden) return;
+      if (!cur || !tickRef.current || (document.hidden && !miniRef.current)) return;
       const times = addTime(cur.times, qRef.current, dt);
       const spent = totalTime(times);
       recRef.current = { ...cur, times, spentMs: spent, cursor: qRef.current };
@@ -214,13 +242,13 @@ export const VirtualSheet: React.FC<{
   const canPip = typeof window !== 'undefined' && !!(window as any).documentPictureInPicture;
   const openPip = useCallback(async () => {
     try {
-      const w: Window = await (window as any).documentPictureInPicture.requestWindow({ width: 640, height: 76 });
+      const w: Window = await (window as any).documentPictureInPicture.requestWindow({ width: 600, height: 64 });
       const d = w.document;
       document.querySelectorAll('style').forEach((s) => d.head.appendChild(s.cloneNode(true)));
       document.querySelectorAll('link[rel="stylesheet"]').forEach((l) => d.head.appendChild(l.cloneNode(true)));
       for (const a of Array.from(document.documentElement.attributes)) d.documentElement.setAttribute(a.name, a.value);
       for (const a of Array.from(document.body.attributes)) d.body.setAttribute(a.name, a.value);
-      d.documentElement.dir = 'rtl'; d.body.style.margin = '0';
+      d.documentElement.dir = 'rtl'; d.body.style.margin = '0'; d.body.style.overflow = 'hidden';
       w.addEventListener('pagehide', () => setPip(null));
       setPip(w); setMini(true);
     } catch { /* not allowed / not supported: the bar on top still works */ }
@@ -506,7 +534,7 @@ export const VirtualSheet: React.FC<{
     const bar = (
       <MiniBar
         no={startNo + q - 1} cur={answers[q - 1] || '0'} answered={onPlan} total={totalOn} flagged={flagList.includes(q)} slow={!!curSlow}
-        curMs={curMs} mainSec={Math.floor(mainClock / 1000)} running={runningNow && open} showClock={isLive} inPip={!!pip} canPip={canPip}
+        curMs={curMs} mainSec={Math.floor(mainClock / 1000)} running={runningNow && open} showClock={isLive} inPip={!!pip} canPip={canPip} listening={listening}
         onAnswer={(v) => press({ t: 'answer', v })} onBlank={() => press({ t: 'blank' })} onMove={(d) => press({ t: 'move', dir: d, any: false })} onFlag={() => press({ t: 'flag' })}
         onPause={togglePause} onExpand={() => { setMini(false); try { pip?.close(); } catch { /* ignore */ } setPip(null); }} onPip={openPip}
         onFinish={() => { setMini(false); try { pip?.close(); } catch { /* ignore */ } setPip(null); finish(rec.bookId ? 'grade' : 'compare'); }}

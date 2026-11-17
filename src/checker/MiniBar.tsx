@@ -6,7 +6,7 @@ import { toPersianDigits as P } from '../utils';
 
 export interface MiniProps {
   no: number; cur: string; answered: number; total: number; flagged: boolean; slow: boolean;
-  curMs: number; mainSec: number; running: boolean; showClock: boolean; inPip: boolean; canPip: boolean;
+  curMs: number; mainSec: number; running: boolean; showClock: boolean; inPip: boolean; canPip: boolean; listening: boolean;
   onAnswer: (v: 1 | 2 | 3 | 4) => void; onBlank: () => void; onMove: (d: 1 | -1) => void; onFlag: () => void;
   onPause: () => void; onExpand: () => void; onPip: () => void; onFinish: () => void;
 }
@@ -14,6 +14,7 @@ export interface MiniProps {
 /** the one-line answer sheet: stays on top while the test itself is solved elsewhere (a PDF, a book on the screen). Same keys as the full room. */
 export const MiniBar: React.FC<MiniProps> = (p) => (
   <div className={'ck-mini' + (p.inPip ? ' pip' : '')} dir="rtl" role="group" aria-label="پاسخ‌برگ کوچک">
+    <span className={'lis' + (p.listening ? ' on' : '')} title={p.listening ? 'کلیدها فعال است' : 'کلیدها فقط در پنجره‌ای کار می‌کنند که انتخاب (فوکوس) شده؛ یک بار روی این نوار کلیک کنید'}><i />{p.listening ? 'کلید فعال' : 'کلیک کنید'}</span>
     <button type="button" className="mb ic" title="بازگشت به پاسخ‌برگ کامل" aria-label="پاسخ‌برگ کامل" onClick={p.onExpand}><Maximize2 size={15} /></button>
     <div className="qn">
       <button type="button" className="mb ic" aria-label="سؤال قبل" onClick={() => p.onMove(-1)}><ChevronRight size={16} /></button>
