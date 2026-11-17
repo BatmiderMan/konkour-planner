@@ -16,7 +16,7 @@ export const Browse: React.FC<{ lab: Lab; onStart: (r: Run) => void; onPdf: (ref
   const [sel, setSel] = useState<Set<string> | null>(null);
   const [view, setView] = useState<number | null>(null);
   const ids = bid ? [bid] : lab.books.map((b) => b.id);
-  const list = useMemo(() => pool(lab.bookMap, ids.map((b) => ({ b })), f, lab.meta, lab.sections), [lab, bid, f]); // eslint-disable-line react-hooks/exhaustive-deps
+  const list = useMemo(() => pool(lab.bookMap, ids.map((b) => ({ b })), f, lab.meta, lab.sections, lab.last), [lab, bid, f]); // eslint-disable-line react-hooks/exhaustive-deps
   const chosen = sel ? list.filter((r) => sel.has(refKey(r))) : [];
   const multi = lab.books.length > 1 && !bid;
   const flip = (r: Ref) => setSel((s) => { const n = new Set(s || []); n.has(refKey(r)) ? n.delete(refKey(r)) : n.add(refKey(r)); return n; });
@@ -25,7 +25,7 @@ export const Browse: React.FC<{ lab: Lab; onStart: (r: Run) => void; onPdf: (ref
     <div className="bk-browse">
       <div className="bk-form">
         <select className="bk-in" value={bid} onChange={(e) => setBid(e.target.value)}><option value="">همهٔ کتاب‌ها</option>{lab.books.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}</select>
-        <FilterChips f={f} set={setF} />
+        <FilterChips f={f} set={setF} last={lab.last} />
         <div className="bk-acts"><span className="bk-hint">{P(list.length)} سؤال</span>
           <button type="button" className={'bk-btn' + (sel ? ' primary' : '')} onClick={() => setSel(sel ? null : new Set())}><CheckSquare size={16} /> {sel ? 'پایان انتخاب' : 'انتخاب چندتایی'}</button>
           {sel && <button type="button" className="bk-btn" onClick={() => setSel(new Set(list.map(refKey)))}>همه</button>}</div>

@@ -8,11 +8,14 @@ import { alertDialog } from '../dialog';
 import { toPersianDigits as P } from '../utils';
 import { promptName } from './util';
 
-export const FilterChips: React.FC<{ f: Filter; set: (f: Filter) => void }> = ({ f, set }) => {
+export const FilterChips: React.FC<{ f: Filter; set: (f: Filter) => void; last?: Record<string, string> }> = ({ f, set, last }) => {
+  const cnt = (k: string) => (last ? Object.values(last).filter((v) => v === k).length : 0);
   const tog = <T,>(a: T[], v: T) => (a.includes(v) ? a.filter((x) => x !== v) : [...a, v]);
   return (
     <div className="bk-chips">
       {STATUS.map(([k, l]) => <button type="button" key={k} className={'bk-chip s' + k + (f.status.includes(k) ? ' on' : '')} onClick={() => set({ ...f, status: tog(f.status, k) })}>{l}</button>)}
+      <button type="button" className={'bk-chip last bad' + (f.lastBad ? ' on' : '')} title="سؤال‌هایی که آخرین بار که در آزمون آمدند غلط زده بودید" onClick={() => set({ ...f, lastBad: !f.lastBad })}>✗ غلط‌ها طبق آخرین آزمون{last ? ' (' + P(cnt('bad')) + ')' : ''}</button>
+      <button type="button" className={'bk-chip last blank' + (f.lastBlank ? ' on' : '')} title="سؤال‌هایی که آخرین بار که در آزمون آمدند نزده بودید" onClick={() => set({ ...f, lastBlank: !f.lastBlank })}>○ نزده‌ها طبق آخرین آزمون{last ? ' (' + P(cnt('blank')) + ')' : ''}</button>
       <button type="button" className={'bk-chip' + (f.star ? ' on' : '')} onClick={() => set({ ...f, star: !f.star })}>⭐ مهم</button>
       <button type="button" className={'bk-chip' + (f.doubt ? ' on' : '')} onClick={() => set({ ...f, doubt: !f.doubt })}>🤔 شک‌دار</button>
       {[1, 2, 3].map((l) => <button type="button" key={l} className={'bk-chip' + (f.levels.includes(l) ? ' on' : '')} onClick={() => set({ ...f, levels: tog(f.levels, l) })}>{LEVEL[l]}</button>)}
@@ -39,10 +42,10 @@ export const Builder: React.FC<{ lab: Lab; onStart: (r: Run) => void; onPdf: (re
   const list = useMemo(() => {
     if (setId) {
       const st = lab.sets.find((x) => x.id === setId); if (!st) return [];
-      const only = pool(lab.bookMap, st.refs.map((r) => ({ b: r.b })).filter((x, i, a) => a.findIndex((y) => y.b === x.b) === i), f, lab.meta, lab.sections);
+      const only = pool(lab.bookMap, st.refs.map((r) => ({ b: r.b })).filter((x, i, a) => a.findIndex((y) => y.b === x.b) === i), f, lab.meta, lab.sections, lab.last);
       const ok = new Set(only.map((r) => r.b + ':' + r.n)); return st.refs.filter((r) => ok.has(r.b + ':' + r.n));
     }
-    return pool(lab.bookMap, sources, f, lab.meta, lab.sections);
+    return pool(lab.bookMap, sources, f, lab.meta, lab.sections, lab.last);
   }, [lab, src, setId, f]); // eslint-disable-line react-hooks/exhaustive-deps
   const n = Math.max(0, parseInt(count, 10) || 0);
   const total = n > 0 ? Math.min(n, list.length) : list.length;
@@ -79,7 +82,7 @@ export const Builder: React.FC<{ lab: Lab; onStart: (r: Run) => void; onPdf: (re
       </div>
       <div className="bk-form">
         <h3>۲ · فیلتر هوشمند</h3>
-        <FilterChips f={f} set={setF} />
+        <FilterChips f={f} set={setF} last={lab.last} />
         <h3>۳ · ترتیب و تعداد</h3>
         <div className="bk-seg bk-seg4">{ORDERS.map(([k, l]) => <button type="button" key={k} className={order === k ? 'on' : ''} onClick={() => setOrder(k)}>{l}</button>)}</div>
         <p className="bk-hint">{ORDERS.find((o) => o[0] === order)![2]}</p>

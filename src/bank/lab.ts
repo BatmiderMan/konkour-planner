@@ -5,9 +5,19 @@ export type StatusKey = 'new' | 'weak' | 'learning' | 'mastered';
 export const STATUS: Array<[StatusKey, string]> = [['new', 'دیده‌نشده'], ['weak', 'ضعیف'], ['learning', 'در حال یادگیری'], ['mastered', 'مسلط']];
 const STATUS_INDEX: Record<StatusKey, number> = { new: 0, weak: 1, learning: 2, mastered: 3 };
 
-export interface Filter { status: StatusKey[]; star: boolean; doubt: boolean; levels: number[]; expl: boolean; noted: boolean }
-export const NO_FILTER: Filter = { status: [], star: false, doubt: false, levels: [], expl: false, noted: false };
-export const filterActive = (f: Filter) => !!(f.status.length || f.star || f.doubt || f.levels.length || f.expl || f.noted);
+export interface Filter { status: StatusKey[]; star: boolean; doubt: boolean; levels: number[]; expl: boolean; noted: boolean; lastBad: boolean; lastBlank: boolean }
+export const NO_FILTER: Filter = { status: [], star: false, doubt: false, levels: [], expl: false, noted: false, lastBad: false, lastBlank: false };
+export const filterActive = (f: Filter) => !!(f.status.length || f.star || f.doubt || f.levels.length || f.expl || f.noted || f.lastBad || f.lastBlank);
+
+/** what happened to each question the LAST time it appeared in an exam: 'ok' | 'bad' (wrong) | 'blank' (left empty) */
+export type LastMap = Record<string, 'ok' | 'bad' | 'blank'>;
+export function lastResults(attempts: Attempt[], answerOf: (b: string, n: number) => number): LastMap {
+  const m: LastMap = {};
+  [...attempts].sort((a, b) => a.at - b.at).forEach((a) => a.items.forEach((it) => {
+    const b = itemBook(a, it); m[keyOf(b, it.n)] = !it.pick ? 'blank' : it.pick === answerOf(b, it.n) ? 'ok' : 'bad';
+  }));
+  return m;
+}
 
 /** where questions come from: a book, optionally cut by a number range or by chapters */
 export interface Source { b: string; from?: number; to?: number; secs?: number[] }
@@ -20,7 +30,8 @@ export const ORDERS: Array<[Order, string, string]> = [
   ['hard', 'سخت‌ها و ضعیف‌ها اول', 'اول سؤال‌هایی که سخت یا ضعیفند']
 ];
 
-export const matches = (f: Filter, book: BankBook | undefined, n: number, m?: QMeta): boolean => {
+export const matches = (f: Filter, book: BankBook | undefined, n: number, m?: QMeta, last?: string): boolean => {
+  if ((f.lastBad || f.lastBlank) && !((f.lastBad && last === 'bad') || (f.lastBlank && last === 'blank'))) return false;
   if (f.status.length && !f.status.some((s) => STATUS_INDEX[s] === masteryOf(m))) return false;
   if (f.star && !m?.star) return false;
   if (f.doubt && !m?.doubt) return false;
@@ -30,7 +41,7 @@ export const matches = (f: Filter, book: BankBook | undefined, n: number, m?: QM
   return true;
 };
 
-export function pool(books: Map<string, BankBook>, sources: Source[], f: Filter, meta: Record<string, QMeta>, sections: Record<string, Section[]>): Ref[] {
+export function pool(books: Map<string, BankBook>, sources: Source[], f: Filter, meta: Record<string, QMeta>, sections: Record<string, Section[]>, last: LastMap = {}): Ref[] {
   const out: Ref[] = [], seen = new Set<string>();
   for (const s of sources) {
     const b = books.get(s.b); if (!b) continue;
@@ -41,7 +52,7 @@ export function pool(books: Map<string, BankBook>, sources: Source[], f: Filter,
       if (s.from !== undefined && n < s.from) continue;
       if (s.to !== undefined && n > s.to) continue;
       if (ranges.length && !ranges.some(([a, z]) => n >= a && n <= z)) continue;
-      if (!matches(f, b, n, meta[keyOf(b.id, n)])) continue;
+      if (!matches(f, b, n, meta[keyOf(b.id, n)], last[keyOf(b.id, n)])) continue;
       const k = keyOf(b.id, n); if (seen.has(k)) continue; seen.add(k);
       out.push({ b: b.id, n });
     }

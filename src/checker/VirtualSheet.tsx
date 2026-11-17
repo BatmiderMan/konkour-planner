@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pause, Play, Plus, Scale, Link2, Keyboard, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Pause, Play, Plus, Scale, Link2, Keyboard, Minimize2, X } from 'lucide-react';
+import { MiniBar } from './MiniBar';
 import {
   BookMeta, Grade, GradeSettings, SHEET_N, SavedSheet, addTime, countAnswered, emptySheetString, gradeSheet, makeRecord, makeSavedSheet, matchBook, onStep, setAnswer,
   stepLabel, timesToSeconds, toggleFlagQ, totalTime, unpackSheet, withAnswers
@@ -87,6 +89,8 @@ export const VirtualSheet: React.FC<{
   const [partPick, setPartPick] = useState(false);
   const waitStart = useRef(false); // the clock waits for the first answer (when «شروع خودکار» is off)
   const [side, setSide] = useState(false); // phone: the tools drawer
+  const [mini, setMini] = useState(false);   // the one-line answer sheet on top (the rest of the screen stays usable)
+  const [pip, setPip] = useState<Window | null>(null); // … floating above every window (Document Picture-in-Picture)
   const dirty = useRef(false);
   const live = useLivePlan();
 
@@ -164,7 +168,7 @@ export const VirtualSheet: React.FC<{
     const cur = recRef.current;
     if (cur && dirty.current) saveSheet({ ...cur, cursor: qRef.current, updatedAt: Date.now() }, { silent: false }); else notifyChanged();
   }, []);
-  useEffect(() => (rec ? lockScroll() : undefined), [!!rec]); // eslint-disable-line react-hooks/exhaustive-deps -- only while the room itself is on screen (the setup form is a Modal with its own lock)
+  useEffect(() => (rec && !mini ? lockScroll() : undefined), [!!rec, mini]); // eslint-disable-line react-hooks/exhaustive-deps -- only while the room itself is on screen (the setup form is a Modal with its own lock)
 
   /* ---------- keyboard ---------- */
   const togglePause = useCallback(() => { waitStart.current = false; setPaused((p) => !p); }, []);
@@ -197,14 +201,31 @@ export const VirtualSheet: React.FC<{
       press(a);
     };
     window.addEventListener('keydown', onKey, true); // capture: runs before the other handlers
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [!!rec, phase, picker, press]); // eslint-disable-line react-hooks/exhaustive-deps
+    pip?.addEventListener('keydown', onKey, true);    // the floating window reads the same keys
+    return () => { window.removeEventListener('keydown', onKey, true); pip?.removeEventListener('keydown', onKey, true); };
+  }, [!!rec, phase, picker, press, pip]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape' && !picker) onClose(); };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape' && !picker && !mini) onClose(); };
     document.addEventListener('keydown', onEsc);
     return () => document.removeEventListener('keydown', onEsc);
-  }, [onClose, picker]);
+  }, [onClose, picker, mini]);
+
+  const canPip = typeof window !== 'undefined' && !!(window as any).documentPictureInPicture;
+  const openPip = useCallback(async () => {
+    try {
+      const w: Window = await (window as any).documentPictureInPicture.requestWindow({ width: 640, height: 76 });
+      const d = w.document;
+      document.querySelectorAll('style').forEach((s) => d.head.appendChild(s.cloneNode(true)));
+      document.querySelectorAll('link[rel="stylesheet"]').forEach((l) => d.head.appendChild(l.cloneNode(true)));
+      for (const a of Array.from(document.documentElement.attributes)) d.documentElement.setAttribute(a.name, a.value);
+      for (const a of Array.from(document.body.attributes)) d.body.setAttribute(a.name, a.value);
+      d.documentElement.dir = 'rtl'; d.body.style.margin = '0';
+      w.addEventListener('pagehide', () => setPip(null));
+      setPip(w); setMini(true);
+    } catch { /* not allowed / not supported: the bar on top still works */ }
+  }, []);
+  useEffect(() => () => { try { pip?.close(); } catch { /* ignore */ } }, [pip]);
 
   // keep the selected row in view
   useEffect(() => { document.getElementById('vsq' + q)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [q]);
@@ -481,6 +502,19 @@ export const VirtualSheet: React.FC<{
     </aside>
   );
 
+  if (mini && phase === 'doing') {
+    const bar = (
+      <MiniBar
+        no={startNo + q - 1} cur={answers[q - 1] || '0'} answered={onPlan} total={totalOn} flagged={flagList.includes(q)} slow={!!curSlow}
+        curMs={curMs} mainSec={Math.floor(mainClock / 1000)} running={runningNow && open} showClock={isLive} inPip={!!pip} canPip={canPip}
+        onAnswer={(v) => press({ t: 'answer', v })} onBlank={() => press({ t: 'blank' })} onMove={(d) => press({ t: 'move', dir: d, any: false })} onFlag={() => press({ t: 'flag' })}
+        onPause={togglePause} onExpand={() => { setMini(false); try { pip?.close(); } catch { /* ignore */ } setPip(null); }} onPip={openPip}
+        onFinish={() => { setMini(false); try { pip?.close(); } catch { /* ignore */ } setPip(null); finish(rec.bookId ? 'grade' : 'compare'); }}
+      />
+    );
+    return pip ? createPortal(bar, pip.document.body) : <div className="ck-mini-wrap">{bar}</div>;
+  }
+
   return (
     <div className="ck-ws" role="dialog" aria-modal="true" aria-label="اتاق حل تست">
       <header className="ck-ws-head">
@@ -501,6 +535,7 @@ export const VirtualSheet: React.FC<{
         )}
         <div className="acts">
           {open && <button type="button" className="ck-btn sm" aria-label={runningNow ? 'توقف زمان' : 'ادامه‌ی زمان'} onClick={togglePause}>{runningNow ? <Pause size={15} /> : <Play size={15} />} {runningNow ? 'توقف' : 'ادامه'}</button>}
+          {open && <button type="button" className="ck-btn sm" title="پاسخ‌برگ یک‌خطی بالای صفحه؛ با همان کلیدها" onClick={() => setMini(true)}><Minimize2 size={15} /> حالت کوچک</button>}
           <button type="button" className="ck-btn sm ck-ws-tools" onClick={() => setSide((v) => !v)}>ابزارها</button>
         </div>
       </header>

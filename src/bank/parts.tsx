@@ -1,6 +1,6 @@
 /** Small shared pieces of the question lab: pictures, the mark bar (⭐ 🤔 level note vault), the question viewer, the data hook. */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { fmtDur, historyOf } from './lab';
+import { LastMap, fmtDur, historyOf, lastResults } from './lab';
 import { Star, HelpCircle, Gem, StickyNote, X, ChevronLeft, ChevronRight, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { Attempt, BANK_EVENT, BankBook, LEVEL, LabSet, MASTERY, QMeta, Ref, Section, explUrl, getSections, imageBlob, imageUrl, keyOf, listAttempts, listBooks, listMeta, listSets, masteryOf, patchMeta } from './store';
 import { alertDialog } from '../dialog';
@@ -18,16 +18,16 @@ export const QImg: React.FC<{ b: string; n: number; e?: boolean; className?: str
 };
 
 export interface Lab {
-  ready: boolean; books: BankBook[]; bookMap: Map<string, BankBook>; meta: Record<string, QMeta>; attempts: Attempt[]; sets: LabSet[]; sections: Record<string, Section[]>;
+  ready: boolean; books: BankBook[]; bookMap: Map<string, BankBook>; meta: Record<string, QMeta>; attempts: Attempt[]; sets: LabSet[]; sections: Record<string, Section[]>; last: LastMap;
 }
 export const useLab = (): Lab => {
-  const [s, setS] = useState<Lab>({ ready: false, books: [], bookMap: new Map(), meta: {}, attempts: [], sets: [], sections: {} });
+  const [s, setS] = useState<Lab>({ ready: false, books: [], bookMap: new Map(), meta: {}, attempts: [], sets: [], sections: {}, last: {} });
   const load = useCallback(async () => {
     try {
       const [books, meta, attempts, sets] = await Promise.all([listBooks(), listMeta(), listAttempts(), listSets()]);
       const sections: Record<string, Section[]> = {};
       await Promise.all(books.map(async (b) => { sections[b.id] = await getSections(b.id); }));
-      setS({ ready: true, books, bookMap: new Map(books.map((b) => [b.id, b])), meta, attempts, sets, sections });
+      const bm = new Map(books.map((b) => [b.id, b])); setS({ ready: true, books, bookMap: bm, meta, attempts, sets, sections, last: lastResults(attempts, (b, n) => bm.get(b)?.answers[n] || 0) });
     } catch { setS((x) => ({ ...x, ready: true })); }
   }, []);
   useEffect(() => { load(); window.addEventListener(BANK_EVENT, load); return () => window.removeEventListener(BANK_EVENT, load); }, [load]);
