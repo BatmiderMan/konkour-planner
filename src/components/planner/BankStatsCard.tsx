@@ -6,7 +6,7 @@ import { toPersianDigits as P } from '../../utils';
 import type { PlannerItem } from '../../types';
 
 /** hands a ready-made exam to the test bank and switches to it (the bank reads «bk-launch» when it opens) */
-export const launchBank = (run: { refs: Array<{ b: string; n: number }>; title: string; pressure?: { tight: number; tokens: number } }) => {
+export const launchBank = (run: { refs: Array<{ b: string; n: number }>; title: string; pressure?: { tight?: number; tokens: number; totalSec?: number } }) => {
   try { sessionStorage.setItem('bk-launch', JSON.stringify({ ...run, practice: false, minutes: 0 })); } catch { /* ignore */ }
   window.dispatchEvent(new CustomEvent('planex:goto', { detail: 'bank' }));
 };

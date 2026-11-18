@@ -12,7 +12,7 @@ import { Sheet, SheetState, applyCross, applyFlag, applyPick } from './Sheet';
 import { confirmDialog } from '../dialog';
 import { toPersianDigits as P } from '../utils';
 
-export interface Run { refs: Ref[]; practice: boolean; minutes: number; title: string; pressure?: { tight: number; tokens: number } }
+export interface Run { refs: Ref[]; practice: boolean; minutes: number; title: string; pressure?: { tight?: number; tokens: number; totalSec?: number } }
 
 const Opts: React.FC<{ pick: number; mask: number; right?: number; reveal: boolean; onPick: (v: number) => void; onCross: (v: number) => void }> = ({ pick, mask, right, reveal, onPick, onCross }) => {
   const t = useRef<any>(0), fired = useRef(false);
