@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Pause, Play, Plus, Scale, Link2, Keyboard, Minimize2, X } from 'lucide-react';
-import { MiniBar } from './MiniBar';
+import { MiniBar, MiniFloat } from './MiniBar';
 import {
   BookMeta, Grade, GradeSettings, SHEET_N, SavedSheet, addTime, countAnswered, emptySheetString, gradeSheet, makeRecord, makeSavedSheet, matchBook, onStep, setAnswer,
   stepLabel, timesToSeconds, toggleFlagQ, totalTime, unpackSheet, withAnswers
@@ -103,19 +103,18 @@ export const VirtualSheet: React.FC<{
     const poll = setInterval(upd, 1000);
     return () => { clearInterval(poll); try { w.removeEventListener('focus', upd); w.removeEventListener('blur', upd); w.document.removeEventListener('pointerenter', hover, true); w.document.removeEventListener('pointermove', hover, true); } catch { /* closed */ } };
   }, [mini, pip]);
-  /* the floating window has a FIXED size that fits the bar exactly (not resizable by hand) */
+  /* the floating window keeps the app's look: theme / font attributes follow the main page while it is open (they were only copied once before) */
   useEffect(() => {
     if (!pip) return;
-    let sz = { w: 0, h: 0 }; let on = true;
-    const fit = () => {
-      const el = pip.document.querySelector('.ck-mini') as HTMLElement | null; if (!el || !on) return;
-      const r = el.getBoundingClientRect(); sz = { w: Math.ceil(r.width) + (pip.outerWidth - pip.innerWidth), h: Math.ceil(r.height) + (pip.outerHeight - pip.innerHeight) };
-      try { if (pip.outerWidth !== sz.w || pip.outerHeight !== sz.h) pip.resizeTo(sz.w, sz.h); } catch { /* needs a recent click: fine */ }
+    const sync = () => {
+      try {
+        for (const a of Array.from(document.documentElement.attributes)) if (a.name !== 'dir') pip.document.documentElement.setAttribute(a.name, a.value);
+        for (const a of Array.from(document.body.attributes)) pip.document.body.setAttribute(a.name, a.value);
+      } catch { /* window closed */ }
     };
-    const snap = () => { if (!sz.w) return; try { if (Math.abs(pip.outerWidth - sz.w) > 2 || Math.abs(pip.outerHeight - sz.h) > 2) pip.resizeTo(sz.w, sz.h); } catch { /* ignore */ } };
-    const t1 = setTimeout(fit, 120), t2 = setTimeout(fit, 600);
-    pip.addEventListener('resize', snap);
-    return () => { on = false; clearTimeout(t1); clearTimeout(t2); try { pip.removeEventListener('resize', snap); } catch { /* closed */ } };
+    const mo = new MutationObserver(sync);
+    mo.observe(document.documentElement, { attributes: true }); mo.observe(document.body, { attributes: true });
+    return () => mo.disconnect();
   }, [pip]); // … floating above every window (Document Picture-in-Picture)
   const dirty = useRef(false);
   const live = useLivePlan();
@@ -242,14 +241,14 @@ export const VirtualSheet: React.FC<{
   const canPip = typeof window !== 'undefined' && !!(window as any).documentPictureInPicture;
   const openPip = useCallback(async () => {
     try {
-      const w: Window = await (window as any).documentPictureInPicture.requestWindow({ width: 600, height: 64 });
+      const w: Window = await (window as any).documentPictureInPicture.requestWindow({ width: 400, height: 184 });
       const d = w.document;
       document.querySelectorAll('style').forEach((s) => d.head.appendChild(s.cloneNode(true)));
       document.querySelectorAll('link[rel="stylesheet"]').forEach((l) => d.head.appendChild(l.cloneNode(true)));
       for (const a of Array.from(document.documentElement.attributes)) d.documentElement.setAttribute(a.name, a.value);
       for (const a of Array.from(document.body.attributes)) d.body.setAttribute(a.name, a.value);
-      d.documentElement.dir = 'rtl'; d.body.style.margin = '0'; d.body.style.overflow = 'hidden';
-      w.addEventListener('pagehide', () => setPip(null));
+      d.documentElement.dir = 'rtl'; d.body.style.cssText += ';margin:0;overflow:hidden;background:#0c1128;';
+      w.addEventListener('pagehide', () => setPip(null)); // closing the floating window leaves the draggable card in the page
       setPip(w); setMini(true);
     } catch { /* not allowed / not supported: the bar on top still works */ }
   }, []);
@@ -540,7 +539,7 @@ export const VirtualSheet: React.FC<{
         onFinish={() => { setMini(false); try { pip?.close(); } catch { /* ignore */ } setPip(null); finish(rec.bookId ? 'grade' : 'compare'); }}
       />
     );
-    return pip ? createPortal(bar, pip.document.body) : <div className="ck-mini-wrap">{bar}</div>;
+    return pip ? createPortal(bar, pip.document.body) : <MiniFloat>{bar}</MiniFloat>;
   }
 
   return (

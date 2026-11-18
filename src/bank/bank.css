@@ -359,3 +359,8 @@
 .bk-rhythm .seg{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}.bk-rhythm .seg>div{display:flex;flex-direction:column;gap:4px}
 .bk-rhythm .bar{height:10px;border-radius:6px;background:var(--tint-1);overflow:hidden;direction:ltr}.bk-rhythm .bar i{display:block;height:100%;background:linear-gradient(90deg,#e5a43b,#2fb59a)}
 .bk-rhythm small{color:var(--sub-ink);font-size:.74rem}.bk-rhythm p{margin:0;font-size:.84rem;background:var(--tint-1);border-radius:10px;padding:7px 10px}
+
+.bk-plan{display:flex;flex-direction:column;gap:8px;margin:12px 0;padding:12px;border:1px dashed var(--line);border-radius:14px;background:var(--tint-1)}
+.bk-plan-t{font-weight:700;font-size:.9rem}
+.bk-plan .bk-seg{flex-wrap:wrap}
+.bk-plan .bk-hint{margin:0}

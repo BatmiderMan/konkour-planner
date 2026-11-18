@@ -39,10 +39,12 @@ export const Builder: React.FC<{ lab: Lab; onStart: (r: Run) => void; onPdf: (re
   const [pressure, setPressure] = useState(false);
   const [pzMins, setPzMins] = useState('');
   const [mins, setMins] = useState('');
+  const [step, setStep] = useState(1);   // 2x / 3x / 4x: only every step-th question (by its printed book number) belongs to the exam
+  const [off, setOff] = useState(0);     // which of them: 0 = 1,3,5… (odd)  ·  1 = 2,4,6… (even)
   const cur = (id: string): SrcState => src[id] || { on: false, from: '', to: '', secs: [] };
   const upd = (id: string, p: Partial<SrcState>) => setSrc((s) => ({ ...s, [id]: { ...cur(id), ...p } }));
   const sources: Source[] = lab.books.filter((b) => cur(b.id).on).map((b) => { const s = cur(b.id); return { b: b.id, from: s.from ? +s.from : undefined, to: s.to ? +s.to : undefined, secs: s.secs }; });
-  const list = useMemo(() => {
+  const base = useMemo(() => {
     if (setId) {
       const st = lab.sets.find((x) => x.id === setId); if (!st) return [];
       const only = pool(lab.bookMap, st.refs.map((r) => ({ b: r.b })).filter((x, i, a) => a.findIndex((y) => y.b === x.b) === i), f, lab.meta, lab.sections, lab.last);
@@ -50,11 +52,14 @@ export const Builder: React.FC<{ lab: Lab; onStart: (r: Run) => void; onPdf: (re
     }
     return pool(lab.bookMap, sources, f, lab.meta, lab.sections, lab.last);
   }, [lab, src, setId, f]); // eslint-disable-line react-hooks/exhaustive-deps
+  const list = useMemo(() => (step > 1 ? base.filter((r) => (((bn(r.n) - 1 - off) % step) + step) % step === 0) : base), [base, step, off]);
+  const setPlan = (st: number) => { setStep(st); setOff(st === 2 ? 1 : 0); };   // 2x defaults to the even questions
+  const planTxt = step > 1 ? ' · ' + P(step) + 'x' + (step === 2 ? (off === 1 ? ' زوج' : ' فرد') : ' ردیف ' + P(off + 1)) : '';
   const n = Math.max(0, parseInt(count, 10) || 0);
   const total = n > 0 ? Math.min(n, list.length) : list.length;
   const build = (): Ref[] => arrange(list, order, n, lab.meta);
   const mixed = new Set(list.map((r) => r.b)).size > 1;
-  const nameOf = () => (setId ? lab.sets.find((x) => x.id === setId)?.name || 'مجموعه' : sources.length === 1 ? lab.bookMap.get(sources[0].b)!.title : sources.length ? `ترکیبی · ${P(sources.length)} کتاب` : 'آزمون');
+  const nameOf = () => ((setId ? lab.sets.find((x) => x.id === setId)?.name || 'مجموعه' : sources.length === 1 ? lab.bookMap.get(sources[0].b)!.title : sources.length ? `ترکیبی · ${P(sources.length)} کتاب` : 'آزمون') + planTxt;
   const need = async () => { if (!list.length) { await alertDialog(sources.length || setId ? 'سؤالی با این انتخاب پیدا نشد.' : 'اول یک یا چند کتاب (یا یک مجموعه) را انتخاب کنید.'); return false; } return true; };
 
   if (!lab.books.length) return <div className="bk-emptybox"><b>هنوز کتابی اضافه نشده</b><span>از تب «کتابخانه» فایل .qbank را وارد کنید.</span></div>;
@@ -89,6 +94,22 @@ export const Builder: React.FC<{ lab: Lab; onStart: (r: Run) => void; onPdf: (re
         <h3>۳ · ترتیب و تعداد</h3>
         <div className="bk-seg bk-seg4">{ORDERS.map(([k, l]) => <button type="button" key={k} className={order === k ? 'on' : ''} onClick={() => setOrder(k)}>{l}</button>)}</div>
         <p className="bk-hint">{ORDERS.find((o) => o[0] === order)![2]}</p>
+        <div className="bk-plan">
+          <span className="bk-plan-t">همه‌ی تست‌ها یا یکی در میان؟ <small className="bk-hint">(۲x / ۳x)</small></span>
+          <div className="bk-seg bk-seg-s" role="group" aria-label="برنامهٔ ۲x / ۳x">
+            {([[1, 'همه'], [2, '۲x'], [3, '۳x'], [4, '۴x']] as const).map(([k, l]) => <button type="button" key={k} className={step === k ? 'on' : ''} aria-pressed={step === k} onClick={() => setPlan(k)}>{l}</button>)}
+          </div>
+          {step > 1 && (
+            <div className="bk-seg bk-seg-s" role="group" aria-label="کدام سؤال‌ها">
+              {Array.from({ length: step }, (_, i) => (
+                <button type="button" key={i} className={off === i ? 'on' : ''} aria-pressed={off === i} onClick={() => setOff(i)}>
+                  {step === 2 ? (i === 1 ? 'زوج · ۲، ۴، ۶…' : 'فرد · ۱، ۳، ۵…') : P(i + 1) + '، ' + P(i + 1 + step) + '، ' + P(i + 1 + 2 * step) + '…'}
+                </button>
+              ))}
+            </div>
+          )}
+          {step > 1 && <p className="bk-hint">فقط سؤال‌هایی که شمارهٔ چاپی‌شان در این الگو می‌افتد در آزمون می‌آید؛ بقیه کنار گذاشته می‌شوند (برای PDF، مجموعه و گنجینه هم همین‌طور).</p>}
+        </div>
         <div className="bk-fields">
           <label>تعداد سؤال (خالی = همه)<input inputMode="numeric" value={count} placeholder={P(list.length)} onChange={(e) => setCount(e.target.value.replace(/\D/g, ''))} /></label>
           {!pressure && <label>زمان (دقیقه، خالی = بدون محدودیت)<input inputMode="numeric" value={mins} onChange={(e) => setMins(e.target.value.replace(/\D/g, ''))} /></label>}
