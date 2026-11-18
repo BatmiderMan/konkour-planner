@@ -59,7 +59,7 @@ export const Builder: React.FC<{ lab: Lab; onStart: (r: Run) => void; onPdf: (re
   const total = n > 0 ? Math.min(n, list.length) : list.length;
   const build = (): Ref[] => arrange(list, order, n, lab.meta);
   const mixed = new Set(list.map((r) => r.b)).size > 1;
-  const nameOf = () => ((setId ? lab.sets.find((x) => x.id === setId)?.name || 'مجموعه' : sources.length === 1 ? lab.bookMap.get(sources[0].b)!.title : sources.length ? `ترکیبی · ${P(sources.length)} کتاب` : 'آزمون') + planTxt;
+  const nameOf = () => ((setId ? lab.sets.find((x) => x.id === setId)?.name || 'مجموعه' : sources.length === 1 ? lab.bookMap.get(sources[0].b)!.title : sources.length ? `ترکیبی · ${P(sources.length)} کتاب` : 'آزمون')) + planTxt;
   const need = async () => { if (!list.length) { await alertDialog(sources.length || setId ? 'سؤالی با این انتخاب پیدا نشد.' : 'اول یک یا چند کتاب (یا یک مجموعه) را انتخاب کنید.'); return false; } return true; };
 
   if (!lab.books.length) return <div className="bk-emptybox"><b>هنوز کتابی اضافه نشده</b><span>از تب «کتابخانه» فایل .qbank را وارد کنید.</span></div>;
