@@ -201,6 +201,7 @@ export const App: React.FC = () => {
   const [checkerFocus, setCheckerFocus] = useState<CheckerFocus | null>(null);
   const [vaultFocus, setVaultFocus] = useState<VaultFocus | null>(null);
   const [musicOpen, setMusicOpen] = useState(false);
+  useEffect(() => { const f = (e: Event) => setSection((e as CustomEvent).detail as SectionId); window.addEventListener('planex:goto', f); return () => window.removeEventListener('planex:goto', f); }, []);
   const isDockPhone = useMedia('(max-width: 820px)'); // bottom dock (the older isPhone above is the 768px sleep-tracker breakpoint)
 
   // global shortcuts: T = timer (open the live one, or the start sheet) · M = music player

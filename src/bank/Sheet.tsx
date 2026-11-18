@@ -39,7 +39,7 @@ export const Sheet: React.FC<SheetProps> = ({ labels, sub, picks, crossed, flags
       <div className="bk-sheet-grid">
         {labels.map((lab, i) => {
           const pick = picks[i] || 0, mask = crossed[i] || 0, key = keys?.[i] || 0;
-          const state = keys ? (pick === 0 ? 'blank' : pick === key ? 'ok' : 'bad') : '';
+          const state = keys ? (pick === 0 || !key ? 'blank' : pick === key ? 'ok' : 'bad') : '';
           return (
             <div key={i} className={'bk-srow' + (active === i ? ' cur' : '') + (overs?.[i] ? ' over' : '') + (i % 5 === 4 ? ' g5' : '') + (state ? ' ' + state : '')}>
               <button type="button" className={'bk-sno' + (flags[i] ? ' fl' : '')} onClick={() => onJump?.(i)} title={sub?.[i]}>{lab}</button>

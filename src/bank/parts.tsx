@@ -1,4 +1,5 @@
 /** Small shared pieces of the question lab: pictures, the mark bar (⭐ 🤔 level note vault), the question viewer, the data hook. */
+import { qno } from './qno';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { LastMap, fmtDur, historyOf, lastResults } from './lab';
 import { Star, HelpCircle, Gem, StickyNote, X, ChevronLeft, ChevronRight, Eye, EyeOff, BookOpen } from 'lucide-react';
@@ -93,7 +94,7 @@ export const Viewer: React.FC<{ refs: Ref[]; start: number; lab: Lab; picks?: Re
   return (
     <div className="bk-lightbox" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="bk-lb-card" onClick={(e) => e.stopPropagation()}>
-        <header><b>{lab.books.length > 1 ? book.title + ' · ' : ''}سؤال {P(r.n)} <small>({P(i + 1)} از {P(refs.length)})</small></b><button type="button" className="bk-x" onClick={onClose} aria-label="بستن"><X size={20} /></button></header>
+        <header><b>{lab.books.length > 1 ? book.title + ' · ' : ''}سؤال {P(qno(r.n))} <small>({P(i + 1)} از {P(refs.length)})</small></b><button type="button" className="bk-x" onClick={onClose} aria-label="بستن"><X size={20} /></button></header>
         <div className="bk-lb-body">
           <div className="bk-qwrap">{session ? <ViewQ r={r} session={session} /> : <QImg b={r.b} n={r.n} />}</div>
           <div className="bk-ansrow">

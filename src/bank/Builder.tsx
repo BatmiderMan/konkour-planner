@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { bn } from './qno';
 import { Play, FileText, Gem, Bookmark, Shuffle } from 'lucide-react';
 import { Lab, addRefsToVault } from './parts';
 import { Filter, NO_FILTER, ORDERS, Order, STATUS, Source, arrange, filterActive, pool } from './lab';
@@ -35,6 +36,8 @@ export const Builder: React.FC<{ lab: Lab; onStart: (r: Run) => void; onPdf: (re
   const [order, setOrder] = useState<Order>('book');
   const [count, setCount] = useState('');
   const [practice, setPractice] = useState(false);
+  const [pressure, setPressure] = useState(false);
+  const [tight, setTight] = useState(0.8);
   const [mins, setMins] = useState('');
   const cur = (id: string): SrcState => src[id] || { on: false, from: '', to: '', secs: [] };
   const upd = (id: string, p: Partial<SrcState>) => setSrc((s) => ({ ...s, [id]: { ...cur(id), ...p } }));
@@ -66,8 +69,8 @@ export const Builder: React.FC<{ lab: Lab; onStart: (r: Run) => void; onPdf: (re
               <label className="bk-check"><input type="checkbox" checked={s.on} disabled={!!setId} onChange={(e) => upd(b.id, { on: e.target.checked })} /> <b>{b.title}</b> <small>({P(b.numbers.length)} سؤال)</small></label>
               {s.on && !setId && (
                 <div className="bk-srcopts">
-                  <div className="bk-fields"><label>از سؤال<input inputMode="numeric" value={s.from} placeholder={P(b.numbers[0] || 1)} onChange={(e) => upd(b.id, { from: e.target.value.replace(/\D/g, '') })} /></label>
-                    <label>تا سؤال<input inputMode="numeric" value={s.to} placeholder={P(b.numbers[b.numbers.length - 1] || 1)} onChange={(e) => upd(b.id, { to: e.target.value.replace(/\D/g, '') })} /></label></div>
+                  <div className="bk-fields"><label>از سؤال<input inputMode="numeric" value={s.from} placeholder={P(bn(b.numbers[0] || 1))} onChange={(e) => upd(b.id, { from: e.target.value.replace(/\D/g, '') })} /></label>
+                    <label>تا سؤال<input inputMode="numeric" value={s.to} placeholder={P(bn(b.numbers[b.numbers.length - 1] || 1))} onChange={(e) => upd(b.id, { to: e.target.value.replace(/\D/g, '') })} /></label></div>
                   {secs.length > 0 && <div className="bk-chips">{secs.map((c, i) => <button type="button" key={i} className={'bk-chip' + (s.secs.includes(i) ? ' on' : '')} onClick={() => upd(b.id, { secs: s.secs.includes(i) ? s.secs.filter((x) => x !== i) : [...s.secs, i] })}>{c.name}</button>)}</div>}
                 </div>
               )}
@@ -91,10 +94,12 @@ export const Builder: React.FC<{ lab: Lab; onStart: (r: Run) => void; onPdf: (re
           <label>زمان (دقیقه، خالی = بدون محدودیت)<input inputMode="numeric" value={mins} onChange={(e) => setMins(e.target.value.replace(/\D/g, ''))} /></label>
         </div>
         <label className="bk-check"><input type="checkbox" checked={practice} onChange={(e) => setPractice(e.target.checked)} /> حالت تمرین: بعد از هر پاسخ، درست/غلط و پاسخ تشریحی نشان داده شود</label>
+        <label className="bk-check"><input type="checkbox" checked={pressure} onChange={(e) => setPressure(e.target.checked)} /> ⏱ تمرین فشار زمانی: هر سؤال با خطِ زمان‌سنج می‌سوزد و خودکار می‌رود سؤال بعد</label>
+        {pressure && <div className="bk-pz-set"><span>سختی زمان:</span>{([[1, 'عادی'], [0.8, 'فشرده'], [0.6, 'جهنمی']] as const).map(([v, n]) => <button type="button" key={v} className={'bk-chip' + (tight === v ? ' on' : '')} onClick={() => setTight(v)}>{n} · {P(Math.round(v * 100))}٪ زمان معمولِ تو</button>)}<p className="bk-hint">زمان هر سؤال = میانگین زمانِ خودت روی همان سؤال (یا طبق سطحش)، ضرب در سختی. ۳ «زمان‌خر» داری که هرکدام ۵۰٪ زمان می‌دهد ولی نصف نمرهٔ آن سؤال را می‌برد؛ با ۳ پاسخ درستِ سریع پشت‌هم یکی جایزه می‌گیری.</p></div>}
       </div>
       <div className="bk-sticky">
         <b className="bk-count"><Shuffle size={16} /> {P(total)} سؤال{mixed ? ' از چند کتاب' : ''}</b>
-        <button type="button" className="bk-btn primary" disabled={!total} onClick={async () => { if (await need()) onStart({ refs: build(), practice, minutes: +mins || 0, title: nameOf() }); }}><Play size={18} /> شروع</button>
+        <button type="button" className="bk-btn primary" disabled={!total} onClick={async () => { if (await need()) onStart({ refs: build(), practice: practice && !pressure, minutes: pressure ? 0 : +mins || 0, title: nameOf(), ...(pressure ? { pressure: { tight, tokens: tight < 0.7 ? 2 : 3 } } : {}) }); }}><Play size={18} /> شروع</button>
         <button type="button" className="bk-btn" disabled={!total} onClick={async () => { if (await need()) onPdf(build(), nameOf(), mixed); }}><FileText size={16} /> PDF</button>
         <button type="button" className="bk-btn" disabled={!total} onClick={async () => { if (await need()) addRefsToVault(lab, build()); }}><Gem size={16} /> گنجینه</button>
         <button type="button" className="bk-btn" disabled={!total} onClick={async () => { if (!(await need())) return; const name = await promptName('نام مجموعه', nameOf()); if (!name) return; await saveSet({ id: newSetId(), name, refs: build(), created: Date.now(), updated: Date.now() }); await alertDialog('مجموعه ذخیره شد.'); }}><Bookmark size={16} /> مجموعه</button>

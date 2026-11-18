@@ -1,4 +1,5 @@
 /** The lab's brain: which questions an exam / PDF / set is made of. Pure functions, no UI. */
+import { bn } from './qno';
 import { Attempt, BankBook, QMeta, Ref, Section, itemBook, keyOf, masteryOf } from './store';
 
 export type StatusKey = 'new' | 'weak' | 'learning' | 'mastered';
@@ -49,9 +50,9 @@ export function pool(books: Map<string, BankBook>, sources: Source[], f: Filter,
     const ranges: Array<[number, number]> = [];
     if (s.secs && s.secs.length) s.secs.forEach((i) => { if (secs[i]) ranges.push([secs[i].from, secs[i].to]); });
     for (const n of b.numbers) {
-      if (s.from !== undefined && n < s.from) continue;
-      if (s.to !== undefined && n > s.to) continue;
-      if (ranges.length && !ranges.some(([a, z]) => n >= a && n <= z)) continue;
+      if (s.from !== undefined && bn(n) < s.from) continue;
+      if (s.to !== undefined && bn(n) > s.to) continue;
+      if (ranges.length && !ranges.some(([a, z]) => bn(n) >= a && bn(n) <= z)) continue;
       if (!matches(f, b, n, meta[keyOf(b.id, n)], last[keyOf(b.id, n)])) continue;
       const k = keyOf(b.id, n); if (seen.has(k)) continue; seen.add(k);
       out.push({ b: b.id, n });
@@ -92,4 +93,41 @@ export function historyOf(attempts: Attempt[], answerOf: (b: string, n: number) 
     out.push({ aid: a.id, at: a.at, title: a.title || 'آزمون', mode: a.mode, pick: it.pick, right, state: !it.pick || !right ? 'blank' : it.pick === right ? 'ok' : 'bad', sec: it.sec || 0 });
   }
   return out.sort((x, y) => y.at - x.at);
+}
+
+/* ---------------------------------------------------------------- stats shared with the planner */
+export interface BankStat { total: number; solved: number; ok: number; bad: number; blank: number; acc: number; cover: number }
+/** accuracy = right ÷ answered · coverage («درصد حل شده») = answered at least once ÷ all questions — from the LAST result of every question */
+export function statOf(last: LastMap, refs: Ref[]): BankStat {
+  let ok = 0, bad = 0, blank = 0;
+  for (const r of refs) { const v = last[keyOf(r.b, r.n)]; if (v === 'ok') ok++; else if (v === 'bad') bad++; else if (v === 'blank') blank++; }
+  const solved = ok + bad, total = refs.length;
+  return { total, solved, ok, bad, blank, acc: solved ? Math.round((ok / solved) * 100) : 0, cover: total ? Math.round((solved / total) * 100) : 0 };
+}
+const norm = (s: string) => s.replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/[‌‏()\-–—،,.:؛/]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+const toks = (s: string) => norm(s).split(' ').filter((t) => t.length >= 2 && !['درس', 'فصل', 'مبحث', 'تست', 'تمرین', 'مرور', 'و', 'از', 'در', 'به'].includes(t));
+/** questions of the book(s) that match a planner card (subject + topic): the matching lesson when found, else the whole subject */
+export function matchRefs(books: BankBook[], sections: Record<string, Section[]>, subject: string, detail: string): { refs: Ref[]; scope: 'lesson' | 'subject' | 'none'; label: string } {
+  const st = toks(subject), dt = toks(detail);
+  const hit = (a: string[], b: string[]) => a.some((x) => b.some((y) => x === y || (x.length > 3 && y.length > 3 && (x.includes(y) || y.includes(x)))));
+  const bs = st.length ? books.filter((b) => hit(st, toks((b.subject || '') + ' ' + b.title))) : [];
+  if (!bs.length) return { refs: [], scope: 'none', label: '' };
+  const les: Ref[] = []; const names: string[] = [];
+  if (dt.length) for (const b of bs) for (const s of sections[b.id] || []) if (hit(dt, toks(s.name))) { names.push(s.name); for (const n of b.numbers) if (bn(n) >= s.from && bn(n) <= s.to) les.push({ b: b.id, n }); }
+  if (les.length) return { refs: les, scope: 'lesson', label: names[0] };
+  const all: Ref[] = []; for (const b of bs) for (const n of b.numbers) all.push({ b: b.id, n });
+  return { refs: all, scope: 'subject', label: subject };
+}
+/** the questions worth doing first: last time wrong → left blank → never seen → the rest (each group shuffled) */
+export function smartPick(last: LastMap, refs: Ref[], count: number): Ref[] {
+  const sh = <T,>(a: T[]) => { const x = [...a]; for (let i = x.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [x[i], x[j]] = [x[j], x[i]]; } return x; };
+  const g = (v: string | undefined) => refs.filter((r) => last[keyOf(r.b, r.n)] === v);
+  return [...sh(g('bad')), ...sh(g('blank')), ...sh(refs.filter((r) => !last[keyOf(r.b, r.n)])), ...sh(g('ok'))].slice(0, count);
+}
+/** seconds a question is allowed in pressure practice: your own usual time on it (last 3 tries), else by level; × the tightness */
+export function budgetSec(attempts: Attempt[], meta: QMeta | undefined, r: Ref, tight: number): number {
+  const ts: number[] = [];
+  for (const a of [...attempts].sort((x, y) => y.at - x.at)) { for (const it of a.items) if (it.n === r.n && itemBook(a, it) === r.b && (it.sec || 0) > 0) ts.push(it.sec as number); if (ts.length >= 3) break; }
+  const base = ts.length ? ts.reduce((s, x) => s + x, 0) / ts.length : ({ 1: 45, 2: 70, 3: 100 } as Record<number, number>)[meta?.lvl || 0] || 70;
+  return Math.max(20, Math.min(240, Math.round(base * tight)));
 }

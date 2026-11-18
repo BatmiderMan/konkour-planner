@@ -6,6 +6,7 @@ import {
   markPlannerItemSent, reportMetaFor, moveItemsByDays, jalaliOfDate, SendMeta, blockKindFor
 } from '../plannerStore';
 import { openVirtual } from '../checker/launch';
+import { BankStatsCard } from './planner/BankStatsCard';
 import { CardSheetBadge } from '../checker/CardSheetBadge';
 import { computeDayPlan, itemMinutes, formatDuration, timeToMin } from '../plannerSchedule';
 import { PERSIAN_WEEK_DAYS, PERSIAN_MONTH_NAMES } from '../jalali';
@@ -195,6 +196,7 @@ export const TodayView: React.FC<Props> = ({ refreshToken, onOpenPlanner, onOpen
         )}
       </section>
       {items.length > 0 && <button className="td-link" onClick={onOpenPlanner}>ویرایش در برنامه‌ریز</button>}
+      <BankStatsCard items={items} />
     </main>
   );
 };

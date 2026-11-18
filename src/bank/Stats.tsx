@@ -1,4 +1,5 @@
 import React from 'react';
+import { bn } from './qno';
 import { Lab } from './parts';
 import { MASTERY, keyOf, masteryOf } from './store';
 import { fmtDur } from './lab';
@@ -10,7 +11,7 @@ export const Stats: React.FC<{ lab: Lab }> = ({ lab }) => {
     const c = [0, 0, 0, 0]; b.numbers.forEach((n) => { c[masteryOf(lab.meta[keyOf(b.id, n)])]++; });
     let secs = 0, tries = 0; b.numbers.forEach((n) => { const m = lab.meta[keyOf(b.id, n)]; if (m) { secs += m.secs || 0; tries += m.tries || 0; } });
     const secsBy = (lab.sections[b.id] || []).map((s) => {
-      let t = 0, w = 0, ok = 0; b.numbers.forEach((n) => { if (n < s.from || n > s.to) return; const m = lab.meta[keyOf(b.id, n)]; if (m?.tries) { t += m.tries; ok += m.wins || 0; w++; } });
+      let t = 0, w = 0, ok = 0; b.numbers.forEach((n) => { if (bn(n) < s.from || bn(n) > s.to) return; const m = lab.meta[keyOf(b.id, n)]; if (m?.tries) { t += m.tries; ok += m.wins || 0; w++; } });
       return { name: s.name, t, ok, w };
     });
     return { b, c, secs, tries, secsBy };

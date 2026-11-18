@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { qno } from './qno';
 import { CheckSquare, FileText, Gem, Bookmark, Play } from 'lucide-react';
 import { Lab, Viewer, addRefsToVault } from './parts';
 import { FilterChips } from './Builder';
@@ -35,7 +36,7 @@ export const Browse: React.FC<{ lab: Lab; onStart: (r: Run) => void; onPdf: (ref
         {list.map((r, i) => {
           const m = lab.meta[keyOf(r.b, r.n)], st = masteryOf(m), on = sel?.has(refKey(r));
           return <button type="button" key={refKey(r)} className={'bk-cell s' + st + (on ? ' sel' : '')} onClick={() => (sel ? flip(r) : setView(i))} title={multi ? lab.bookMap.get(r.b)?.title : undefined}>
-            {P(r.n)}{m?.star && <i className="st">★</i>}{m?.doubt && <i className="db">?</i>}{lab.bookMap.get(r.b)?.expl.includes(r.n) && <i className="bk-exdot" />}
+            {P(qno(r.n))}{m?.star && <i className="st">★</i>}{m?.doubt && <i className="db">?</i>}{lab.bookMap.get(r.b)?.expl.includes(r.n) && <i className="bk-exdot" />}
           </button>;
         })}
       </div>

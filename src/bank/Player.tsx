@@ -1,5 +1,6 @@
 /** The exam: every selected question below each other, each with a header bar (number, ⭐ 🤔 level, note, vault, solving space),
  *  the options, a virtual answer sheet that stays at hand, and a drawing layer on every question. */
+import { qno } from './qno';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X, Check, ListChecks, PenTool, Eye, EyeOff } from 'lucide-react';
 import { Lab, MarkBar, QImg } from './parts';
@@ -11,7 +12,7 @@ import { Sheet, SheetState, applyCross, applyFlag, applyPick } from './Sheet';
 import { confirmDialog } from '../dialog';
 import { toPersianDigits as P } from '../utils';
 
-export interface Run { refs: Ref[]; practice: boolean; minutes: number; title: string }
+export interface Run { refs: Ref[]; practice: boolean; minutes: number; title: string; pressure?: { tight: number; tokens: number } }
 
 const Opts: React.FC<{ pick: number; mask: number; right?: number; reveal: boolean; onPick: (v: number) => void; onCross: (v: number) => void }> = ({ pick, mask, right, reveal, onPick, onCross }) => {
   const t = useRef<any>(0), fired = useRef(false);
@@ -46,7 +47,7 @@ const Card = React.memo(({ i, r, lab, meta, pick, mask, flagged, active, over, a
     <article ref={ref} id={'bk-q-' + i} data-i={i} className={'bk-card' + (flagged ? ' flagged' : '') + (active ? ' active' : '')} onPointerDownCapture={() => onFocusQ(i)}>
       <header className="bk-chead">
         <span className="bk-cno">{P(i + 1)}</span>{active && <span className="bk-now"><i />در حال حل</span>}{over && <span className="bk-over" title={'از زمان مجاز این سؤال (' + P(fmtDur(Math.round(allow))) + ') بیشتر وقت گذاشته‌اید'}><i />زمان زیاد</span>}
-        <span className="bk-ctitle">{multi ? book.title + ' · ' : ''}شمارهٔ {P(r.n)}{flagged ? ' ⚑' : ''}</span>
+        <span className="bk-ctitle">{multi ? book.title + ' · ' : ''}شمارهٔ {P(qno(r.n))}{flagged ? ' ⚑' : ''}</span>
         <MarkBar book={book} n={r.n} meta={meta} pick={pick} compact />
         <button type="button" className={'bk-mk sm' + (flagged ? ' on' : '')} aria-pressed={flagged} title="علامت برای مرور" onClick={() => onFlag(i)}>⚑</button>
         <SpaceButtons doc={doc} setDoc={setDoc} />
@@ -81,7 +82,7 @@ const Inner: React.FC<{ run: Run; resume?: LiveExam; lab: Lab; onFinish: (a: Att
   const warned = useRef(minutes > 0 && left <= 900);
   const answered = refs.filter((_, i) => st.picks[i]).length;
   const labels = useMemo(() => refs.map((_, i) => P(i + 1)), [refs]);
-  const sub = useMemo(() => refs.map((r) => (lab.bookMap.get(r.b)?.title || '') + ' · ' + P(r.n)), [refs, lab]);
+  const sub = useMemo(() => refs.map((r) => (lab.bookMap.get(r.b)?.title || '') + ' · ' + P(qno(r.n))), [refs, lab]);
 
   const pick = useCallback((i: number, v: number) => setSt((s) => applyPick(s, i, v)), []);
   const cross = useCallback((i: number, v: number) => setSt((s) => applyCross(s, i, v)), []);

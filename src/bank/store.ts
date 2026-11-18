@@ -8,6 +8,7 @@
  *   prefs     small things: the chapter map of each book (key «sec:<book>»)
  * Nothing here goes to a server: pictures stay on this device. The vault (گنجینه) only stores a REFERENCE to a bank question.
  */
+import { byQno } from './qno';
 import { Pack } from './pack';
 
 export interface BankBook {
@@ -19,7 +20,7 @@ export interface BankBook {
   approx: number[];                        // question picture was cut by heuristics
   parts?: number[]; partsTotal?: number;   // which parts of the book are imported
 }
-export interface AttemptItem { n: number; pick: number; b?: string; sec?: number }   // pick 0 = left blank; b = book (only in mixed exams)
+export interface AttemptItem { n: number; pick: number; b?: string; sec?: number; ext?: 1 }   // pick 0 = left blank; b = book (only in mixed exams)
 export interface Attempt {
   id: string; bookId: string; at: number; seconds: number; items: AttemptItem[];
   correct: number; wrong: number; blank: number; pct: number; mode: string;
@@ -60,7 +61,7 @@ const done = (t: IDBTransaction): Promise<void> => new Promise((res, rej) => { t
 const rq = <T,>(r: IDBRequest<T>): Promise<T> => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 const changed = () => { try { window.dispatchEvent(new Event(BANK_EVENT)); } catch { /* ignore */ } };
 const urls = new Map<string, string>();
-const uniq = (a: number[]) => Array.from(new Set(a)).sort((x, y) => x - y);
+const uniq = (a: number[]) => Array.from(new Set(a)).sort(byQno);
 
 /** delete every record of a store whose key starts with `prefix` */
 async function wipePrefix(t: IDBTransaction, store: string, prefix: string): Promise<void> {

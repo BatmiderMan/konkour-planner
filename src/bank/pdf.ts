@@ -3,6 +3,7 @@
  * Every page is drawn on a canvas (A4 at 150 dpi), saved as JPEG and wrapped into a tiny hand-written PDF.
  * Part 1 = the questions · part 2 = answer key (+ the worked solutions from the book).
  */
+import { qno } from './qno';
 import { toPersianDigits as P } from '../utils';
 
 export interface PdfQ { n: number; bookTitle: string; answer: number; q: Blob; e: Blob | null; shared?: boolean }
@@ -128,7 +129,7 @@ export async function buildPdf(o: PdfOpts): Promise<Blob> {
       d.y = by0 + per * rowH + 30;
     }
     if (o.renumber && o.items.length <= 80 && d.y + 60 < d.bottom) {
-      d.txt('شمارهٔ هر سؤال در کتاب: ' + o.items.map((q, i) => `${P(i + 1)}←${P(q.n)}`).join('   '), PW - M, d.y + 26, 18, SUB);
+      d.txt('شمارهٔ هر سؤال در کتاب: ' + o.items.map((q, i) => `${P(i + 1)}←${P(qno(q.n))}`).join('   '), PW - M, d.y + 26, 18, SUB);
     }
     tick();
     if (o.answers === 'full') {
@@ -139,7 +140,7 @@ export async function buildPdf(o: PdfOpts): Promise<Blob> {
       let first = true;
       for (let i = 0; i < o.items.length; i++) {
         const it = o.items[i], x = PW - M - cwid - ec * (cwid + GAP);
-        const headTxt = `${o.renumber ? 'سؤال ' + P(i + 1) : 'سؤال ' + P(it.n)} — گزینهٔ ${P(it.answer)}`;
+        const headTxt = `${o.renumber ? 'سؤال ' + P(i + 1) : 'سؤال ' + P(qno(it.n))} — گزینهٔ ${P(it.answer)}`;
         if (!it.e) {
           if (ey + 70 > d.bottom) await nextCol();
           const xx = PW - M - cwid - ec * (cwid + GAP);

@@ -1,4 +1,5 @@
 /** PDF exams made by the student: kept inside the app; fill the virtual answer sheet later, it is graded automatically. */
+import { qno } from './qno';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, Download, FileText, Trash2, Play, Pause, RotateCcw, Award } from 'lucide-react';
 import { Lab } from './parts';
@@ -42,7 +43,7 @@ export const SheetFill: React.FC<{ exam: SavedExam; lab: Lab; onBack: () => void
   const graded = exam.status === 'graded';
   const refs = exam.refs, keys = useMemo(() => refs.map((r) => lab.bookMap.get(r.b)?.answers[r.n] || 0), [refs, lab]);
   const missing = refs.filter((r) => !lab.bookMap.get(r.b)).length;
-  const labels = useMemo(() => refs.map((r, i) => P(exam.renumber ? i + 1 : r.n)), [refs, exam.renumber]);
+  const labels = useMemo(() => refs.map((r, i) => P(exam.renumber ? i + 1 : qno(r.n))), [refs, exam.renumber]);
   const timer = useRef<any>(0), save = useRef<any>(0), cur = useRef({ st, secs, exam }); cur.current = { st, secs, exam };
   const persist = useCallback(() => { const c = cur.current; const any = Object.values(c.st.picks).some(Boolean); saveExam({ ...c.exam, ...c.st, seconds: c.secs, status: c.exam.status === 'graded' ? 'graded' : any ? 'filled' : 'new' }, undefined, true).catch(() => { /* ignore */ }); }, []);
   useEffect(() => { if (graded) return; clearTimeout(save.current); save.current = setTimeout(persist, 500); return () => clearTimeout(save.current); }, [st, secs, graded, persist]);
