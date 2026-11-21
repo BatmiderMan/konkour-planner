@@ -12,13 +12,14 @@ import { Builder } from './Builder';
 import { Browse } from './Browse';
 import { Library } from './Library';
 import { Stats } from './Stats';
+import { BookView } from './BookView';
 import { SheetList } from './Sheets';
 import { openExamSheet } from './examSheet';
 import { PdfDialog } from './PdfDialog';
 import './bank.css';
 
-type Tab = 'build' | 'browse' | 'sheets' | 'lib' | 'stats';
-const TABS: Array<[Tab, string]> = [['build', 'آزمون‌ساز'], ['browse', 'مرور'], ['sheets', 'پاسخ‌برگ'], ['lib', 'کتابخانه'], ['stats', 'آمار']];
+type Tab = 'book' | 'build' | 'browse' | 'sheets' | 'lib' | 'stats';
+const TABS: Array<[Tab, string]> = [['book', 'کتاب زنده'], ['build', 'آزمون‌ساز'], ['browse', 'مرور'], ['sheets', 'پاسخ‌برگ'], ['lib', 'کتابخانه'], ['stats', 'آمار']];
 interface PdfReq { refs: Ref[]; title: string; mixed: boolean; extra?: string }
 
 class Guard extends React.Component<{ children: React.ReactNode }, { err: boolean }> {
@@ -72,6 +73,7 @@ const BankInner: React.FC = () => {
   const askPdf = (refs: Ref[], title: string, mixed = new Set(refs.map((r) => r.b)).size > 1, extra?: string) => setPdf({ refs, title, mixed, extra });
   const dlg = pdf && <PdfDialog refs={pdf.refs} lab={lab} title={pdf.title} mixed={pdf.mixed} extra={pdf.extra} onClose={() => setPdf(null)} />;
   if (run) return <div className="bk-root">{run.pressure ? <Pressure run={run} lab={lab} onCancel={() => { setRun(null); }} onFinish={(a) => { setRes(a); setRun(null); }} /> : <Player key={resume?.id || 'new'} run={run} resume={resume || undefined} lab={lab} onCancel={() => { setRun(null); setResume(null); setTimeout(reload, 300); }} onFinish={(a) => { setRes(a); setRun(null); setResume(null); setTimeout(reload, 300); }} />}</div>;
+  if (tab === 'book' && lab.ready) return <div className="bk-root"><BookView lab={lab} onBack={() => setTab('build')} /></div>;
   if (res) return <div className="bk-root"><Result a={res} lab={lab} onBack={() => { setRes(null); }} onRetry={(refs) => { setRes(null); start({ refs, practice: true, minutes: 0, title: 'مرور اشتباه‌ها' }); }} onPdf={(refs, t) => askPdf(refs, t)} />{dlg}</div>;
   return (
     <div className="bk-root">

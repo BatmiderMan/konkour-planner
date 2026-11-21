@@ -19,6 +19,7 @@ export interface BankBook {
   shared: number[];                        // explanation picture also holds the neighbour's solution
   approx: number[];                        // question picture was cut by heuristics
   parts?: number[]; partsTotal?: number;   // which parts of the book are imported
+  opt?: Record<number, number[][]>;        // exact tap areas of the 4 options per question, as fractions [x, y, w, h] of the picture
 }
 export interface AttemptItem { n: number; pick: number; b?: string; sec?: number; ext?: 1 }   // pick 0 = left blank; b = book (only in mixed exams)
 export interface Attempt {
@@ -97,11 +98,13 @@ export async function importPack(p: Pack, onProgress?: (done: number, total: num
     if (blob) { expl.push(q.n); eRows.push({ n: q.n, blob, w: q.ew || 0, h: q.eh || 0 }); if (q.es) shared.push(q.n); }
   }
   h.questions.forEach((q) => { if (q.qa) approx.push(q.n); });
+  const opt: Record<number, number[][]> = { ...(old?.opt || {}) };
+  h.questions.forEach((q) => { if (q.opt && q.opt.length === 4 && q.w > 0 && q.h > 0) opt[q.n] = q.opt.map((z) => [z[0] / q.w, z[1] / q.h, z[2] / q.w, z[3] / q.h].map((v) => Math.round(v * 10000) / 10000)); });
   const parts = uniq([...(old?.parts || []), ...(h.part ? [h.part] : [])]);
   const book: BankBook = {
     id: h.id, title: h.title, subject: h.subject, total: Math.max(h.total || 0, old?.total || 0), importedAt: Date.now(), created: h.created,
     numbers: uniq([...(old?.numbers || []), ...h.questions.map((q) => q.n)]), answers,
-    expl: uniq(expl), shared: uniq(shared), approx: uniq(approx), ...(h.parts ? { parts, partsTotal: h.parts } : {})
+    expl: uniq(expl), shared: uniq(shared), approx: uniq(approx), opt, ...(h.parts ? { parts, partsTotal: h.parts } : {})
   };
   const CH = 40, steps = h.questions.length + eRows.length; let n = 0;
   for (let i = 0; i < h.questions.length; i += CH) {
@@ -273,3 +276,22 @@ export const saveLive = (l: LiveExam) => kvSet('live:' + l.id, l);
 export const listLive = async (): Promise<LiveExam[]> => (await kvList<LiveExam>('live:')).sort((a, b) => b.at - a.at);
 export async function discardLive(id: string, drawings = true): Promise<void> { await kvDel('live:' + id); if (drawings) await kvDelPrefix('draw:' + id + ':').catch(() => { /* ignore */ }); changed(); }
 export const clearLive = (id: string) => kvDel('live:' + id);
+
+/** height / width of every question picture of a book (cached) — lets a reader lay out the whole book before any picture is decoded */
+export async function bookDims(bookId: string): Promise<Record<number, number>> {
+  const hit = await kvGet<Record<number, number>>('bookdim:' + bookId); if (hit && Object.keys(hit).length) return hit;
+  const d = await open(); const out: Record<number, number> = {};
+  await new Promise<void>((res, rej) => {
+    const r = d.transaction('images').objectStore('images').openCursor(IDBKeyRange.bound(bookId + ':', bookId + ':\uffff'));
+    r.onsuccess = () => { const c = r.result; if (!c) { res(); return; } const v = c.value as { k: string; n: number; w: number; h: number }; if (!v.k.endsWith(':e') && v.w > 0) out[v.n] = v.h / v.w; c.continue(); };
+    r.onerror = () => rej(r.error);
+  });
+  if (Object.keys(out).length) await kvSet('bookdim:' + bookId, out);
+  return out;
+}
+
+/** every [key, value] of the prefs store under a prefix (for backups) */
+export async function kvEntries<T = any>(prefix: string): Promise<Array<{ k: string; v: T }>> {
+  const d = await open(); const all: any[] = await rq(d.transaction('prefs').objectStore('prefs').getAll() as IDBRequest<any[]>);
+  return all.filter((r) => typeof r.k === 'string' && r.k.startsWith(prefix)).map((r) => ({ k: r.k as string, v: r.v as T }));
+}

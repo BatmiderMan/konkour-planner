@@ -1,6 +1,6 @@
 /** Drawing engine (pure, no React): vector strokes in width-relative units, smooth rendering, erasing, snapping. */
 import type React from 'react';
-export type StrokeKind = 'pen' | 'hl' | 'er' | 'line' | 'arrow' | 'rect' | 'ellipse';
+export type StrokeKind = 'pen' | 'hl' | 'er' | 'line' | 'arrow' | 'rect' | 'ellipse' | 'poly';
 export interface Pt { x: number; y: number; p: number }          // x, y: fraction of the stage width · p: pressure 0..1
 export interface Stroke { id: string; t: StrokeKind; c: string; w: number; pts: Pt[] }   // w: px at a 1000px-wide stage
 export type Bg = 'blank' | 'grid' | 'dots' | 'lines';
@@ -45,12 +45,13 @@ export function paintStroke(ctx: CanvasRenderingContext2D, s: Stroke, W: number)
         ctx.moveTo(X(b), Y(b)); ctx.lineTo(X(b) - L * Math.cos(ang + 0.45), Y(b) - L * Math.sin(ang + 0.45)); ctx.stroke();
       }
     } else if (s.t === 'rect') { ctx.rect(Math.min(X(a), X(b)), Math.min(Y(a), Y(b)), Math.abs(X(b) - X(a)), Math.abs(Y(b) - Y(a))); ctx.stroke(); }
+    else if (s.t === 'poly') { ctx.moveTo(X(pts[0]), Y(pts[0])); for (let i = 1; i < pts.length; i++) ctx.lineTo(X(pts[i]), Y(pts[i])); ctx.closePath(); ctx.stroke(); }
     else { ctx.ellipse((X(a) + X(b)) / 2, (Y(a) + Y(b)) / 2, Math.max(0.5, Math.abs(X(b) - X(a)) / 2), Math.max(0.5, Math.abs(Y(b) - Y(a)) / 2), 0, 0, Math.PI * 2); ctx.stroke(); }
   }
   ctx.restore();
 }
-export function paintAll(ctx: CanvasRenderingContext2D, strokes: Stroke[], W: number, H: number, dpr: number) {
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+export function paintAll(ctx: CanvasRenderingContext2D, strokes: Stroke[], W: number, H: number, dpr: number, offY = 0) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); ctx.setTransform(dpr, 0, 0, dpr, 0, offY * dpr);
   for (const s of strokes) paintStroke(ctx, s, W);
 }
 
@@ -78,7 +79,7 @@ export function hits(s: Stroke, cx: number, cy: number, r: number, W: number): b
     const inX = px >= x0 - rr && px <= x1 + rr, inY = py >= y0 - rr && py <= y1 + rr;
     return (inX && inY) && (edgeY <= rr || edge <= rr || s.t === 'ellipse' && Math.abs(Math.hypot((px - (x0 + x1) / 2) / Math.max(1, (x1 - x0) / 2), (py - (y0 + y1) / 2) / Math.max(1, (y1 - y0) / 2)) - 1) * Math.min(x1 - x0, y1 - y0) / 2 <= rr);
   }
-  const pts = s.t === 'line' || s.t === 'arrow' ? [P[0], P[P.length - 1]] : P;
+  const pts = s.t === 'line' || s.t === 'arrow' ? [P[0], P[P.length - 1]] : s.t === 'poly' ? [...P, P[0]] : P;
   for (let i = 0; i < pts.length - 1; i++) if (segDist(cx * W, cy * W, pts[i].x * W, pts[i].y * W, pts[i + 1].x * W, pts[i + 1].y * W) <= rr) return true;
   return false;
 }
@@ -91,3 +92,78 @@ export const bgCss = (bg: Bg, W: number): React.CSSProperties => {
   if (bg === 'lines') return { backgroundImage: 'linear-gradient(#c8d2ea 1px,transparent 1px)', backgroundSize: `100% ${g * 1.3}px` };
   return {};
 };
+
+
+/* ---------------------------------------------------------------- shape recognition: hold the pen still after a rough shape and it becomes a clean one */
+type XY = { x: number; y: number };
+const dist2 = (a: XY, b: XY) => Math.hypot(a.x - b.x, a.y - b.y);
+function dp(pts: XY[], eps: number): XY[] {
+  if (pts.length < 3) return pts;
+  const a = pts[0], b = pts[pts.length - 1]; let mx = 0, mi = 0;
+  for (let i = 1; i < pts.length - 1; i++) { const d = segDist(pts[i].x, pts[i].y, a.x, a.y, b.x, b.y); if (d > mx) { mx = d; mi = i; } }
+  if (mx <= eps) return [a, b];
+  const l = dp(pts.slice(0, mi + 1), eps), r = dp(pts.slice(mi), eps); return [...l.slice(0, -1), ...r];
+}
+function resample(pts: XY[], n: number): XY[] {
+  let L = 0; for (let i = 1; i < pts.length; i++) L += dist2(pts[i], pts[i - 1]);
+  const step = L / (n - 1), out: XY[] = [pts[0]]; let acc = 0, prev = pts[0];
+  for (let i = 1; i < pts.length; i++) {
+    let cur = pts[i], d = dist2(prev, cur);
+    while (acc + d >= step && d > 0) { const t = (step - acc) / d; const q = { x: prev.x + (cur.x - prev.x) * t, y: prev.y + (cur.y - prev.y) * t }; out.push(q); prev = q; d = dist2(prev, cur); acc = 0; }
+    acc += d; prev = cur;
+  }
+  while (out.length < n) out.push(pts[pts.length - 1]);
+  return out.slice(0, n);
+}
+export interface Shape { t: StrokeKind; pts: Pt[] }
+/** raw: the stroke's points (width fractions). lineOnly: only straighten (highlighter). Returns a clean shape, or null when the path is not clearly one. */
+export function recognizeShape(raw: Pt[], W: number, lineOnly = false): Shape | null {
+  if (raw.length < 7) return null;
+  const p: XY[] = raw.map((q) => ({ x: q.x * W, y: q.y * W }));
+  let L = 0; for (let i = 1; i < p.length; i++) L += dist2(p[i], p[i - 1]);
+  if (L < 30) return null;
+  const mk = (t: StrokeKind, a: XY[]): Shape => ({ t, pts: a.map((q) => ({ x: Math.round((q.x / W) * 1e4) / 1e4, y: Math.round((q.y / W) * 1e4) / 1e4, p: 0.5 })) });
+  const first = p[0], last = p[p.length - 1], chord = dist2(first, last);
+  // ---- straight line
+  let dev = 0; for (const q of p) dev = Math.max(dev, segDist(q.x, q.y, first.x, first.y, last.x, last.y));
+  if (chord > 24 && L < 1.22 * chord && dev < 0.09 * chord) return mk('line', [first, last]);
+  if (lineOnly) return null;
+  // ---- closed shapes
+  if (!(chord < 0.3 * L && L > 70)) return null;
+  const rs = resample([...p, first], 80);
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const q of rs) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+  const bw = x1 - x0, bh = y1 - y0; if (bw < 14 || bh < 14) return null;
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  // polygon? (Douglas-Peucker on the closed loop)
+  const simp = dp(rs, 0.034 * L); const poly = simp.slice(0, -1); const k = poly.length;
+  if (k === 3) {
+    const area = Math.abs((poly[1].x - poly[0].x) * (poly[2].y - poly[0].y) - (poly[2].x - poly[0].x) * (poly[1].y - poly[0].y)) / 2;
+    return area > 0.04 * bw * bh ? mk('poly', poly) : null;
+  }
+  if (k === 4) {
+    const ang = (i: number) => { const a = poly[(i + 3) % 4], b = poly[i], c = poly[(i + 1) % 4]; const v1 = { x: a.x - b.x, y: a.y - b.y }, v2 = { x: c.x - b.x, y: c.y - b.y }; return Math.acos(Math.max(-1, Math.min(1, (v1.x * v2.x + v1.y * v2.y) / (Math.hypot(v1.x, v1.y) * Math.hypot(v2.x, v2.y) || 1)))) * 180 / Math.PI; };
+    const sd = [0, 1, 2, 3].map((i) => dist2(poly[i], poly[(i + 1) % 4]));
+    const rect = [0, 1, 2, 3].every((i) => Math.abs(ang(i) - 90) < 30) && Math.min(sd[0], sd[2]) / Math.max(sd[0], sd[2]) > 0.55 && Math.min(sd[1], sd[3]) / Math.max(sd[1], sd[3]) > 0.55;
+    if (!rect) return mk('poly', poly);
+    // dominant direction of the edges, folded into (-45°, 45°]
+    let sx = 0, sy = 0; for (let i = 0; i < 4; i++) { const a = Math.atan2(poly[(i + 1) % 4].y - poly[i].y, poly[(i + 1) % 4].x - poly[i].x) * 4; sx += Math.cos(a); sy += Math.sin(a); }
+    const th = Math.atan2(sy, sx) / 4;
+    if (Math.abs(th) < (14 * Math.PI) / 180) {                       // upright: a clean rectangle (a square when it is nearly one)
+      let w = bw, h = bh; if (Math.abs(w - h) / Math.max(w, h) < 0.14) { w = h = (w + h) / 2; }
+      return mk('rect', [{ x: cx - w / 2, y: cy - h / 2 }, { x: cx + w / 2, y: cy + h / 2 }]);
+    }
+    const u = { x: Math.cos(th), y: Math.sin(th) }, v = { x: -u.y, y: u.x }; let a0 = 1e9, a1 = -1e9, b0 = 1e9, b1 = -1e9;
+    for (const q of rs) { const pu = (q.x - cx) * u.x + (q.y - cy) * u.y, pv = (q.x - cx) * v.x + (q.y - cy) * v.y; a0 = Math.min(a0, pu); a1 = Math.max(a1, pu); b0 = Math.min(b0, pv); b1 = Math.max(b1, pv); }
+    let w = a1 - a0, h = b1 - b0; const ma = (a0 + a1) / 2, mb = (b0 + b1) / 2; if (Math.abs(w - h) / Math.max(w, h) < 0.14) { w = h = (w + h) / 2; }
+    const c0 = { x: cx + ma * u.x + mb * v.x, y: cy + ma * u.y + mb * v.y };
+    return mk('poly', [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([i, j]) => ({ x: c0.x + (i * w / 2) * u.x + (j * h / 2) * v.x, y: c0.y + (i * w / 2) * u.y + (j * h / 2) * v.y })));
+  }
+  // ellipse / circle: how far is every point from the bounding ellipse?
+  const a = bw / 2, b = bh / 2; const rr = rs.map((q) => Math.hypot((q.x - cx) / a, (q.y - cy) / b));
+  const m = rr.reduce((s2, v2) => s2 + v2, 0) / rr.length, sdv = Math.sqrt(rr.reduce((s2, v2) => s2 + (v2 - m) ** 2, 0) / rr.length);
+  if (k >= 5 && sdv / m < 0.15 && m > 0.82 && m < 1.18) {
+    let ea = a, eb = b; if (Math.abs(a - b) / Math.max(a, b) < 0.15) { ea = eb = (a + b) / 2; }
+    return mk('ellipse', [{ x: cx - ea, y: cy - eb }, { x: cx + ea, y: cy + eb }]);
+  }
+  return null;
+}

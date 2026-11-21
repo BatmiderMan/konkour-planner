@@ -18,6 +18,8 @@ export interface PackQuestion {
   es?: 1;
   /** 1 = the question was cut by layout heuristics (check it) */
   qa?: 1;
+  /** exact tap areas of the 4 printed options, in image pixels: [x, y, w, h] × 4 (option 1..4) */
+  opt?: number[][];
 }
 export interface PackKeyOnly { n: number; a: number; eo?: number; el?: number; ew?: number; eh?: number; es?: 1 }
 export interface PackHeader {
